@@ -1,3 +1,5 @@
+import cors from 'cors';
+
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -762,6 +764,9 @@ async function startServer() {
   loadStore();
   const app = express();
   const PORT = 3000;
+  // ADD THIS LINE RIGHT HERE:
+  app.use(cors({ origin: '*' }));
+
 
   app.use(express.json({
     verify: (req: any, _res, buf) => {

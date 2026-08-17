@@ -207,6 +207,18 @@
         chatHistory.push({ role: 'user', parts: [{ text }] });
         chatHistory.push({ role: 'model', parts: [{ text: data.text }] });
 
+        
+        // PASTE THIS NEW CODE HERE:
+        if (data.audioBase64) {
+          try {
+             const audioSrc = "data:audio/mp3;base64," + data.audioBase64;
+             const audio = new Audio(audioSrc);
+             audio.play();
+          } catch (err) {
+             console.error("Failed to play Gemini audio:", err);
+          }
+        }
+
         // Log text chat meter & lead check to client account
         fetch(`${serverOrigin}/api/clients/${clientId}/log-text-chat`, {
           method: 'POST',

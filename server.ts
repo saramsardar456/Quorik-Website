@@ -1509,42 +1509,42 @@ IMPORTANT CARD TRIGGER RULES:
       ];
 
      
-    const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",  // <--- CHANGE THIS TO 1.5-flash
+   // 1. Get the intelligent text response from Gemini 3.6 Flash
+      const response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
         contents: formattedContents,
         config: {
           systemInstruction,
           maxOutputTokens: 1000,
           temperature: 0.7,
-          responseModalities: ["TEXT", "AUDIO"], 
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: "Aoede" // Or "Puck" / "Aoede"
-              }
-            }
-          }
         },
       });
 
-      let textResponse = "";
+      const textResponse = response.text || "I am having trouble processing that request.";
+
+      // 2. Fallback Audio Generation
+      // Since Gemini 3.6 currently blocks inline audio, we fetch the audio using a public TTS endpoint
       let base64Audio = null;
-
-      if (response.candidates && response.candidates[0]?.content?.parts) {
-         for (const part of response.candidates[0].content.parts) {
-           if (part.text) {
-              textResponse += part.text;
-           }
-           if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('audio/')) {
-             base64Audio = part.inlineData.data; 
-           }
-         }
+      try {
+        // We use a free translation TTS endpoint as a quick fallback to ensure your widget talks
+        // If you have ElevenLabs or OpenAI keys, you can replace this URL easily
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textResponse)}&tl=en&client=tw-ob`;
+        
+        const audioRes = await fetch(ttsUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+          }
+        });
+        
+        if (audioRes.ok) {
+          const arrayBuffer = await audioRes.arrayBuffer();
+          base64Audio = Buffer.from(arrayBuffer).toString('base64');
+        }
+      } catch (err) {
+        console.error("Fallback audio generation failed:", err);
       }
 
-      if (!textResponse && response.text) {
-         textResponse = response.text;
-      }
-
+      // 3. Send BOTH text and audio back to your Quorik widget
       res.json({ 
         text: textResponse, 
         audioBase64: base64Audio 

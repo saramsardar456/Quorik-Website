@@ -1,0 +1,6 @@
+{
+  "name": "Quorik Agency",
+  "description": "An automation and AI website agency with interactive voice demos, custom solutions, and client consultation booking.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1508,18 +1508,22 @@ IMPORTANT CARD TRIGGER RULES:
         { role: "user", parts: [{ text: message }] }
       ];
 
+     
+    
+      // 1. Change the model to gemini-2.5-flash
       const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash", 
         contents: formattedContents,
         config: {
           systemInstruction,
           maxOutputTokens: 1000,
           temperature: 0.7,
+          // 2. Request Audio
           responseModalities: ["TEXT", "AUDIO"], 
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: {
-                voiceName: "Arthur"
+                voiceName: "Puck" // Using Puck as it is heavily tested for audio responses
               }
             }
           }
@@ -1529,32 +1533,24 @@ IMPORTANT CARD TRIGGER RULES:
       let textResponse = "";
       let base64Audio = null;
 
-      // Extract the text
-      if (response.text) {
-        textResponse = response.text;
-      } else if (response.candidates && response.candidates[0]?.content?.parts) {
+      // 3. Extract carefully
+      if (response.candidates && response.candidates[0]?.content?.parts) {
          for (const part of response.candidates[0].content.parts) {
-           if (part.text) textResponse += part.text;
+           if (part.text) {
+              textResponse += part.text;
+           }
+           // The SDK usually puts it here:
+           if (part.inlineData && part.inlineData.mimeType) {
+             if (part.inlineData.mimeType.startsWith('audio/')) {
+               base64Audio = part.inlineData.data; 
+             }
+           }
          }
       }
 
-      // Extract the audio. In the GenAI SDK, it's often directly on the candidate or parts.
-      if (response.candidates && response.candidates[0]?.content?.parts) {
-         for (const part of response.candidates[0].content.parts) {
-           // Look for inlineData that is an audio type
-           if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('audio/')) {
-             base64Audio = part.inlineData.data; 
-           }
-           // Fallback for some SDK versions where it might be structured differently
-           if ((part as any).executableCode && (part as any).executableCode.code) {
-              // Ignore executable code
-           }
-         }
-      }
-      
-      // If we still didn't find it, let's log the full parts structure to the server console to see where Gemini is hiding it.
-      if (!base64Audio && response.candidates && response.candidates[0]?.content?.parts) {
-          console.log("Audio was requested but not found in parts. Full parts:", JSON.stringify(response.candidates[0].content.parts, null, 2));
+      // If textResponse is empty but response.text exists (fallback)
+      if (!textResponse && response.text) {
+         textResponse = response.text;
       }
 
       res.json({ 

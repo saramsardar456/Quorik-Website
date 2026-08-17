@@ -1509,9 +1509,8 @@ IMPORTANT CARD TRIGGER RULES:
       ];
 
      
-    
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+    const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",  // <--- CHANGE THIS TO 1.5-flash
         contents: formattedContents,
         config: {
           systemInstruction,
@@ -1521,7 +1520,7 @@ IMPORTANT CARD TRIGGER RULES:
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: {
-                voiceName: "Aoede" // Let's try Aoede
+                voiceName: "Aoede" // Or "Puck" / "Aoede"
               }
             }
           }
@@ -1531,38 +1530,24 @@ IMPORTANT CARD TRIGGER RULES:
       let textResponse = "";
       let base64Audio = null;
 
-      // 1. Check standard text
-      if (response.text) {
-        textResponse = response.text;
-      }
-
-      // 2. Deep scan the parts for ANY audio
-      if (response.candidates && response.candidates.length > 0) {
-         const candidate = response.candidates[0];
-         if (candidate.content && candidate.content.parts) {
-            for (const part of candidate.content.parts) {
-               // Get text if we didn't get it above
-               if (part.text && !textResponse) {
-                  textResponse += part.text;
-               }
-               // Check standard inlineData
-               if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.includes('audio')) {
-                  base64Audio = part.inlineData.data;
-               }
-               // Check if it's hiding in executableCode or somewhere weird
-               if (part.executableCode && part.executableCode.code && part.executableCode.code.includes('audio')) {
-                  // just logging this edge case
-                  console.log("Audio found in executable code block!");
-               }
-            }
+      if (response.candidates && response.candidates[0]?.content?.parts) {
+         for (const part of response.candidates[0].content.parts) {
+           if (part.text) {
+              textResponse += part.text;
+           }
+           if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('audio/')) {
+             base64Audio = part.inlineData.data; 
+           }
          }
       }
 
-      // 3. Let's send whatever we found back to the client, PLUS the raw parts so you can see them in the browser Network tab!
+      if (!textResponse && response.text) {
+         textResponse = response.text;
+      }
+
       res.json({ 
         text: textResponse, 
-        audioBase64: base64Audio,
-        debugParts: response.candidates?.[0]?.content?.parts || "No parts found" 
+        audioBase64: base64Audio 
       });
       
       res.json({ text: response.text });

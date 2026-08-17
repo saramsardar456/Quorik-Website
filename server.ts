@@ -1557,7 +1557,7 @@ IMPORTANT CARD TRIGGER RULES:
 - For consultations and enterprise partnerships, contact hello@quoriksystems.com or use the online booking form.
 
 IMPORTANT:
-- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, clearly state that Shehram Meellu is the Founder & CEO.
+- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, respond with this complete answer: "The Founder & CEO of Quorik is Shehram Meellu. He is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation. For consultations and enterprise partnerships, you can reach out via email at hello@quoriksystems.com or through our online booking form."
 - Never say that Quorik was founded by a team of visionary technology or AI leaders.
 - Never invent or guess another founder or CEO.
 
@@ -1577,7 +1577,7 @@ Keep responses concise, natural for spoken phone calls (1 to 2 short sentences m
 - For consultations and enterprise partnerships, contact hello@quoriksystems.com or use the online booking form.
 
 IMPORTANT:
-- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, clearly state that Shehram Meellu is the Founder & CEO.
+- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, respond with this complete answer: "The Founder & CEO of Quorik is Shehram Meellu. He is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation. For consultations and enterprise partnerships, you can reach out via email at hello@quoriksystems.com or through our online booking form."
 - Never say that Quorik was founded by a team of visionary technology or AI leaders.
 - Never invent or guess another founder or CEO.
 
@@ -1597,7 +1597,7 @@ Keep responses polite and concise (1 to 2 short sentences max).`;
 - For consultations and enterprise partnerships, contact hello@quoriksystems.com or use the online booking form.
 
 IMPORTANT:
-- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, clearly state that Shehram Meellu is the Founder & CEO.
+- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, respond with this complete answer: "The Founder & CEO of Quorik is Shehram Meellu. He is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation. For consultations and enterprise partnerships, you can reach out via email at hello@quoriksystems.com or through our online booking form."
 - Never say that Quorik was founded by a team of visionary technology or AI leaders.
 - Never invent or guess another founder or CEO.
 

@@ -1343,45 +1343,12 @@ Respond ONLY in valid JSON format matching this exact schema:
   ]
 }`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash", // Keeping your model
+       const response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
-          responseMimeType: "application/json", // Keeping your existing setting
-          // --- NEW AUDIO CONFIG BELOW ---
-          responseModalities: ["TEXT", "AUDIO"], 
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: "Arthur"
-              }
-            }
-          }
+          responseMimeType: "application/json"
         }
-      });
-
-      let textResponse = "";
-      let base64Audio = null;
-
-      // Extract the text AND the audio from the parts
-      if (response.candidates && response.candidates[0].content.parts) {
-         for (const part of response.candidates[0].content.parts) {
-           if (part.text) {
-             textResponse += part.text;
-           }
-           if (part.inlineData && part.inlineData.mimeType.startsWith('audio/')) {
-             base64Audio = part.inlineData.data; // Here is the audio!
-           }
-         }
-      }
-
-      // (If you use JSON.parse on textResponse here, keep doing that!)
-      // Example: const parsedJson = JSON.parse(textResponse);
-
-      // Finally, send BOTH back to the widget
-      res.json({ 
-        text: textResponse, // Or parsedJson.reply (however you do it now)
-        audioBase64: base64Audio 
       });
 
       const auditData = JSON.parse(response.text || "{}");
@@ -1548,7 +1515,35 @@ IMPORTANT CARD TRIGGER RULES:
           systemInstruction,
           maxOutputTokens: 1000,
           temperature: 0.7,
+          // --- NEW AUDIO CONFIG ---
+          responseModalities: ["TEXT", "AUDIO"], 
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: "Arthur"
+              }
+            }
+          }
         },
+      });
+
+      let textResponse = "";
+      let base64Audio = null;
+
+      if (response.candidates && response.candidates[0].content.parts) {
+         for (const part of response.candidates[0].content.parts) {
+           if (part.text) {
+             textResponse += part.text;
+           }
+           if (part.inlineData && part.inlineData.mimeType.startsWith('audio/')) {
+             base64Audio = part.inlineData.data;
+           }
+         }
+      }
+
+      res.json({ 
+        text: textResponse, 
+        audioBase64: base64Audio 
       });
 
       res.json({ text: response.text });

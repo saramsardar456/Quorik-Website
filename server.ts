@@ -1515,7 +1515,6 @@ IMPORTANT CARD TRIGGER RULES:
           systemInstruction,
           maxOutputTokens: 1000,
           temperature: 0.7,
-          // --- NEW AUDIO CONFIG ---
           responseModalities: ["TEXT", "AUDIO"], 
           speechConfig: {
             voiceConfig: {
@@ -1530,22 +1529,39 @@ IMPORTANT CARD TRIGGER RULES:
       let textResponse = "";
       let base64Audio = null;
 
-      if (response.candidates && response.candidates[0].content.parts) {
+      // Extract the text
+      if (response.text) {
+        textResponse = response.text;
+      } else if (response.candidates && response.candidates[0]?.content?.parts) {
          for (const part of response.candidates[0].content.parts) {
-           if (part.text) {
-             textResponse += part.text;
+           if (part.text) textResponse += part.text;
+         }
+      }
+
+      // Extract the audio. In the GenAI SDK, it's often directly on the candidate or parts.
+      if (response.candidates && response.candidates[0]?.content?.parts) {
+         for (const part of response.candidates[0].content.parts) {
+           // Look for inlineData that is an audio type
+           if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('audio/')) {
+             base64Audio = part.inlineData.data; 
            }
-           if (part.inlineData && part.inlineData.mimeType.startsWith('audio/')) {
-             base64Audio = part.inlineData.data;
+           // Fallback for some SDK versions where it might be structured differently
+           if ((part as any).executableCode && (part as any).executableCode.code) {
+              // Ignore executable code
            }
          }
+      }
+      
+      // If we still didn't find it, let's log the full parts structure to the server console to see where Gemini is hiding it.
+      if (!base64Audio && response.candidates && response.candidates[0]?.content?.parts) {
+          console.log("Audio was requested but not found in parts. Full parts:", JSON.stringify(response.candidates[0].content.parts, null, 2));
       }
 
       res.json({ 
         text: textResponse, 
         audioBase64: base64Audio 
       });
-
+      
       res.json({ text: response.text });
     } catch (error: any) {
       console.error("Chat API error:", error);

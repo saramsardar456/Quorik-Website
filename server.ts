@@ -1,9 +1,6 @@
 import cors from 'cors';
-
 import dotenv from "dotenv";
-
 dotenv.config();
-
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -763,10 +760,10 @@ const authenticateToken = (req: express.Request, res: express.Response, next: ex
 async function startServer() {
   loadStore();
   const app = express();
-  const PORT = 3000;
-  // ADD THIS LINE RIGHT HERE:
-  app.use(cors({ origin: '*' }));
 
+   // ADD THIS LINE RIGHT HERE:
+  app.use(cors({ origin: '*' }));
+  const PORT = 3000;
 
   app.use(express.json({
     verify: (req: any, _res, buf) => {
@@ -1178,32 +1175,6 @@ ${message}
       });
     }
 
-    app.post("/api/clients/:id/log-voice-chat", (req, res) => {
-    const { id } = req.params;
-    const { durationSeconds, topic, leadCaptured } = req.body;
-    
-    const client = clientAccounts.find(c => c.id === id || c.id === id.replace("quorik-", ""));
-    
-    if (client) {
-      // Convert seconds to minutes (minimum 1 minute per interaction)
-      const minutesUsed = Math.ceil((durationSeconds || 60) / 60);
-      
-      client.voiceMinutesUsed += minutesUsed;
-      client.totalConversations += 1;
-      
-      if (leadCaptured) {
-        client.leadsCaptured += 1;
-      }
-      
-      client.lastActive = new Date().toISOString();
-      saveStore();
-      
-      res.json({ success: true, voiceMinutesUsed: client.voiceMinutesUsed });
-    } else {
-      res.status(404).json({ error: "Client not found" });
-    }
-  });
-
     saveStore();
     res.json({ success: true, client });
   });
@@ -1369,7 +1340,7 @@ Respond ONLY in valid JSON format matching this exact schema:
   ]
 }`;
 
-       const response = await ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
         contents: prompt,
         config: {
@@ -1444,7 +1415,7 @@ Respond ONLY in valid JSON format matching this exact schema:
 
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, history, accent, clientId } = req.body;
+      const { message, history, accent, clientId, isVoice, isVoiceMode, durationSeconds, visitorName, visitorPhone } = req.body;
       
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -1474,17 +1445,24 @@ Respond ONLY in valid JSON format matching this exact schema:
       let systemInstruction = "";
 
       if (clientTarget) {
-        // Dynamic client-specific AI prompt (e.g. Google Ads Agency, Real Estate, Dental, etc.)
-        systemInstruction = `You are ${clientTarget.voiceAgentName || "the 24/7 AI Concierge"}, the intelligent voice and chat representative for ${clientTarget.businessName}.
+        // Dynamic client-specific AI prompt for embedded widgets on client websites
+        const clientFounderText = clientTarget.clientName 
+          ? `- Leadership & Founder: The founder / leadership of ${clientTarget.businessName} is ${clientTarget.clientName}. If asked "who is the founder", "who is the CEO", or "who created this", state that ${clientTarget.businessName} is led/founded by ${clientTarget.clientName}.`
+          : `- Leadership & Management: If asked who is the founder or CEO, state that ${clientTarget.businessName} is led by our experienced management and leadership team. For direct executive inquiries, they can email ${clientTarget.email || clientTarget.websiteUrl}.`;
+
+        systemInstruction = `You are ${clientTarget.voiceAgentName || "Arthur (Executive Concierge)"}, the dedicated 24/7 AI voice and chat representative for "${clientTarget.businessName}".
 Industry / Specialty: ${clientTarget.industry}
 Contact & Website: ${clientTarget.websiteUrl} (${clientTarget.email || ""})
 Languages Supported: ${clientTarget.voiceLanguage || "English"}
 
-CORE OBJECTIVES:
-1. Greet visitors warmly and represent ${clientTarget.businessName} with high professional authority.
-2. Answer inquiries about services (e.g., if Google Ads agency: PPC campaign management, keyword research, ROAS scaling, ad copy creation, conversion tracking, monthly audits).
-3. Offer to book a strategy call or capture the visitor's name, email, and phone number so the team can follow up.
-4. Keep answers crisp, conversational, and direct (2-3 sentences max) so it sounds natural when spoken aloud over voice.`;
+${clientFounderText}
+
+CORE OBJECTIVES & PERSONA RULES:
+1. You represent ONLY ${clientTarget.businessName}. Do NOT mention any third-party providers or external agencies.
+2. Greet visitors warmly and speak on behalf of ${clientTarget.businessName} with high professional authority.
+3. Answer inquiries about ${clientTarget.businessName}'s services and offerings.
+4. Offer to book a consultation/appointment or capture the visitor's name, email, and phone number so the team can follow up.
+5. Keep answers crisp, conversational, and direct (2-3 sentences max) so it sounds natural when spoken aloud over voice.`;
       } else {
         let toneInstruction = "Tone: Professional, welcoming, and concise.";
         if (accent === "arthur") {
@@ -1534,8 +1512,6 @@ IMPORTANT CARD TRIGGER RULES:
         { role: "user", parts: [{ text: message }] }
       ];
 
-     
-   // 1. Get the intelligent text response from Gemini 3.6 Flash
       const response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
         contents: formattedContents,
@@ -1546,36 +1522,48 @@ IMPORTANT CARD TRIGGER RULES:
         },
       });
 
-      const textResponse = response.text || "I am having trouble processing that request.";
+      // Automatically track client voice minutes or text chats
+      if (clientTarget) {
+        const isVoiceCall = Boolean(isVoice || isVoiceMode);
+        if (isVoiceCall) {
+          // Calculate speech duration: caller speech + AI spoken reply
+          const textWords = (message ? message.split(/\s+/).length : 5) + (response.text ? response.text.split(/\s+/).length : 25);
+          const computedSeconds = Math.max(15, Math.round((textWords / 130) * 60) + 8);
+          const durSec = Number(durationSeconds) > 0 ? Number(durationSeconds) : computedSeconds;
+          const durMin = Number((durSec / 60).toFixed(2));
 
-      // 2. Fallback Audio Generation
-      // Since Gemini 3.6 currently blocks inline audio, we fetch the audio using a public TTS endpoint
-      let base64Audio = null;
-      try {
-        // We use a free translation TTS endpoint as a quick fallback to ensure your widget talks
-        // If you have ElevenLabs or OpenAI keys, you can replace this URL easily
-        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textResponse)}&tl=en&client=tw-ob`;
-        
-        const audioRes = await fetch(ttsUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+          clientTarget.voiceMinutesUsed = Math.round((clientTarget.voiceMinutesUsed + durMin) * 100) / 100;
+          clientTarget.totalConversations = (clientTarget.totalConversations || 0) + 1;
+          clientTarget.lastActive = new Date().toISOString();
+
+          clientTarget.conversations.unshift({
+            id: "conv-" + Math.random().toString(36).substring(2, 9),
+            visitorName: visitorName || "Website Voice Caller",
+            visitorPhone: visitorPhone || "N/A",
+            date: new Date().toISOString(),
+            durationSeconds: durSec,
+            durationMinutes: durMin,
+            topic: message.length > 50 ? message.substring(0, 47) + "..." : (message || "Voice Inquiry"),
+            transcriptSummary: `Caller asked: "${message.substring(0, 100)}". AI answered: "${(response.text || "").substring(0, 120)}..."`,
+            leadCaptured: false,
+            status: "completed"
+          });
+
+          if (clientTarget.voiceMinutesUsed >= (clientTarget.monthlyVoiceMinutesLimit || 300)) {
+            clientTarget.status = "limit_reached";
           }
-        });
-        
-        if (audioRes.ok) {
-          const arrayBuffer = await audioRes.arrayBuffer();
-          base64Audio = Buffer.from(arrayBuffer).toString('base64');
+        } else {
+          clientTarget.textChatsUsed = (clientTarget.textChatsUsed || 0) + 1;
+          clientTarget.totalConversations = (clientTarget.totalConversations || 0) + 1;
+          clientTarget.lastActive = new Date().toISOString();
+
+          if (clientTarget.textChatsUsed >= (clientTarget.monthlyTextChatLimit || 1000) && clientTarget.voiceMinutesUsed >= (clientTarget.monthlyVoiceMinutesLimit || 300)) {
+            clientTarget.status = "limit_reached";
+          }
         }
-      } catch (err) {
-        console.error("Fallback audio generation failed:", err);
+        saveStore();
       }
 
-      // 3. Send BOTH text and audio back to your Quorik widget
-      res.json({ 
-        text: textResponse, 
-        audioBase64: base64Audio 
-      });
-      
       res.json({ text: response.text });
     } catch (error: any) {
       console.error("Chat API error:", error);
@@ -1612,60 +1600,27 @@ IMPORTANT CARD TRIGGER RULES:
 
       if (customCompany?.name) {
         personaName = customCompany?.agentName || (gender === 'female' ? 'Zephyr' : 'Arthur');
+        const customFounderText = customCompany?.founder
+          ? `Founder & Leadership: ${customCompany.name} is founded / led by ${customCompany.founder}.`
+          : `Leadership: ${customCompany.name} is led by our experienced management team.`;
         systemPersonaInstruction = `You are ${personaName}, the 24/7 AI Receptionist & Customer Voice Assistant for "${companyName}".
-
-        COMPANY FACTS — USE THESE AS AUTHORITATIVE INFORMATION:
-- Quorik Founder & CEO: Shehram Meellu.
-- Shehram Meellu is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation.
-- For consultations and enterprise partnerships, contact hello@quoriksystems.com or use the online booking form.
-
-IMPORTANT:
-- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, respond with this complete answer: "The Founder & CEO of Quorik is Shehram Meellu. He is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation. For consultations and enterprise partnerships, you can reach out via email at hello@quoriksystems.com or through our online booking form."
-- Never say that Quorik was founded by a team of visionary technology or AI leaders.
-- Never invent or guess another founder or CEO.
-
-
 Language: Professional, welcoming, articulate English. Start greetings with 'Hello and thank you for calling ${companyName}! My name is ${personaName}.'
 Key Services Offered by ${companyName}: ${companyServices}.
-Goal: Provide helpful information regarding ${companyName}'s 3 core services (${companyServices}), answer customer questions, and schedule appointment slots for caller bookings.
+${customFounderText}
+Goal: Provide helpful information regarding ${companyName}'s services, answer customer questions, and schedule appointment slots for caller bookings.
 Keep responses concise, natural for spoken phone calls (1 to 2 short sentences max).`;
-
       } else if (personaId === 'uk-refined') {
         personaName = gender === 'female' ? 'Clara' : 'Arthur';
         systemPersonaInstruction = `You are ${personaName}, a 24/7 AI Assistant for Quorik (Web Development & AI Automation Agency).
-
-        COMPANY FACTS — USE THESE AS AUTHORITATIVE INFORMATION:
-- Quorik Founder & CEO: Shehram Meellu.
-- Shehram Meellu is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation.
-- For consultations and enterprise partnerships, contact hello@quoriksystems.com or use the online booking form.
-
-IMPORTANT:
-- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, respond with this complete answer: "The Founder & CEO of Quorik is Shehram Meellu. He is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation. For consultations and enterprise partnerships, you can reach out via email at hello@quoriksystems.com or through our online booking form."
-- Never say that Quorik was founded by a team of visionary technology or AI leaders.
-- Never invent or guess another founder or CEO.
-
-
 Language: Courteous Refined British English. Start greetings with 'Good day' or 'Thank you for reaching Quorik'.
+Founder & Leadership: Quorik is founded by Shehram Meellu, Founder & CEO (AI engineering architect). If asked who is the founder or CEO, state that Shehram Meellu is the Founder & CEO of Quorik.
 Company Services: Custom web engineering, AI chatbots, and automated voice workflows.
 Keep responses polite and concise (1 to 2 short sentences max).`;
-
-
       } else {
         personaName = gender === 'female' ? 'Zephyr' : 'Arthur';
         systemPersonaInstruction = `You are ${personaName}, a 24/7 AI Executive Assistant for Quorik (Web Development & AI Automation Agency).
-
-        COMPANY FACTS — USE THESE AS AUTHORITATIVE INFORMATION:
-- Quorik Founder & CEO: Shehram Meellu.
-- Shehram Meellu is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation.
-- For consultations and enterprise partnerships, contact hello@quoriksystems.com or use the online booking form.
-
-IMPORTANT:
-- If the caller asks who founded Quorik, who the founder is, who the CEO is, or who leads Quorik, respond with this complete answer: "The Founder & CEO of Quorik is Shehram Meellu. He is an AI engineering architect and digital growth executive specializing in custom web architecture and AI automation. For consultations and enterprise partnerships, you can reach out via email at hello@quoriksystems.com or through our online booking form."
-- Never say that Quorik was founded by a team of visionary technology or AI leaders.
-- Never invent or guess another founder or CEO.
-
-
 Language: Professional American English. Start greetings with 'Hello' or 'Thank you for reaching Quorik'. 
+Founder & Leadership: Quorik is founded by Shehram Meellu, Founder & CEO (AI engineering architect). If asked who is the founder or CEO, state that Shehram Meellu is the Founder & CEO of Quorik.
 Company Services: Custom web development, AI chatbots, and voice automation.
 Keep responses direct, crisp, and high-efficiency (1 to 2 short sentences max).`;
       }

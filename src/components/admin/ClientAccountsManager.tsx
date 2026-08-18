@@ -541,7 +541,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                           Monthly Voice Minutes:
                         </span>
                         <span className="text-white font-bold">
-                          {Math.round(client.voiceMinutesUsed)} / {client.monthlyVoiceMinutesLimit} mins
+                          {client.voiceMinutesUsed % 1 === 0 ? client.voiceMinutesUsed : client.voiceMinutesUsed.toFixed(1)} / {client.monthlyVoiceMinutesLimit} mins
                           <span className="text-brand-teal ml-1.5">({usagePercent}%)</span>
                         </span>
                       </div>

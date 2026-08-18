@@ -127,17 +127,37 @@ interface NotificationLog {
 const notificationsLog: NotificationLog[] = [];
 
 // In-memory store for Client Accounts & Interactive Voice/Text Minutes Tracking
+export interface TranscriptMessage {
+  sender: 'user' | 'ai' | 'visitor' | 'agent';
+  role?: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface LeadInfo {
+  name?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  notes?: string;
+  requestedSlot?: string;
+}
+
 export interface VoiceConversation {
   id: string;
   visitorName: string;
   visitorPhone?: string;
+  visitorEmail?: string;
   date: string;
+  createdAt: string;
   durationSeconds: number;
   durationMinutes: number;
   topic: string;
   transcriptSummary: string;
+  transcript?: TranscriptMessage[];
+  leadInfo?: LeadInfo;
   leadCaptured: boolean;
-  status: 'completed' | 'dropped';
+  status: 'completed' | 'dropped' | 'in_progress';
 }
 
 export interface ClientAccount {
@@ -761,7 +781,6 @@ const authenticateToken = (req: express.Request, res: express.Response, next: ex
 async function startServer() {
   loadStore();
   const app = express();
-
   // ADD THIS LINE RIGHT HERE:
   app.use(cors({ origin: '*' }));
   const PORT = 3000;
@@ -1063,7 +1082,56 @@ ${message}
       clientAccounts.unshift(client);
       saveStore();
     }
-    res.json(client.conversations || []);
+
+    // Normalize conversations so every item includes valid dates, createdAt, and leadInfo
+    const normalized = (client.conversations || []).map((conv: any) => {
+      const createdDate = conv.createdAt || conv.date || new Date().toISOString();
+      const visitorName = conv.visitorName && conv.visitorName !== 'Anonymous' && conv.visitorName !== 'Unknown' 
+        ? conv.visitorName 
+        : (conv.leadInfo?.name || (conv.visitorEmail ? conv.visitorEmail.split('@')[0] : 'Website Visitor'));
+      
+      const transcriptArray = Array.isArray(conv.transcript) && conv.transcript.length > 0
+        ? conv.transcript
+        : [
+            {
+              sender: 'user',
+              role: 'user',
+              text: conv.topic || 'Website Inquiry',
+              timestamp: createdDate
+            },
+            {
+              sender: 'ai',
+              role: 'agent',
+              text: conv.transcriptSummary || 'Agent responded to visitor query.',
+              timestamp: createdDate
+            }
+          ];
+
+      return {
+        ...conv,
+        id: conv.id || "conv-" + Math.random().toString(36).substring(2, 9),
+        visitorName,
+        visitorPhone: conv.visitorPhone || conv.leadInfo?.phone || undefined,
+        visitorEmail: conv.visitorEmail || conv.leadInfo?.email || undefined,
+        date: createdDate,
+        createdAt: createdDate,
+        topic: conv.topic || "Customer Inquiry",
+        transcriptSummary: conv.transcriptSummary || "Visitor contacted the AI voice & chat assistant.",
+        transcript: transcriptArray,
+        leadInfo: conv.leadInfo || {
+          name: visitorName,
+          phone: conv.visitorPhone,
+          email: conv.visitorEmail,
+          notes: conv.transcriptSummary
+        },
+        durationMinutes: typeof conv.durationMinutes === 'number' ? conv.durationMinutes : 1,
+        durationSeconds: typeof conv.durationSeconds === 'number' ? conv.durationSeconds : 60,
+        status: conv.status || "completed",
+        leadCaptured: Boolean(conv.leadCaptured || conv.visitorEmail || conv.visitorPhone || conv.leadInfo?.email || conv.leadInfo?.phone)
+      };
+    });
+
+    res.json(normalized);
   });
 
   app.get("/api/clients/:id", (req, res) => {
@@ -1649,6 +1717,47 @@ IMPORTANT CARD TRIGGER RULES:
       // Automatically track client voice minutes or text chats
       if (clientTarget) {
         const isVoiceCall = Boolean(isVoice || isVoiceMode);
+        const timestampNow = new Date().toISOString();
+
+        // Extract potential lead details
+        const emailMatch = (message || "").match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        const phoneMatch = (message || "").match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+        const nameMatch = (message || "").match(/(?:my name is|i am|i'm|this is|name:\s*)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/i);
+        
+        const extractedEmail = emailMatch ? emailMatch[1] : (visitorEmail || "");
+        const extractedPhone = phoneMatch ? phoneMatch[0] : (visitorPhone || "");
+        const extractedName = nameMatch ? nameMatch[1].trim() : (visitorName || "");
+        const isLead = Boolean(extractedEmail || extractedPhone || extractedName);
+
+        // Build transcript history array
+        const transcriptArray: TranscriptMessage[] = [];
+        if (Array.isArray(history)) {
+          for (const item of history) {
+            const role = item.role === 'model' ? 'ai' : 'user';
+            const textContent = item.parts?.map((p: any) => p.text).join(" ") || item.text || "";
+            if (textContent) {
+              transcriptArray.push({
+                sender: role,
+                role: role,
+                text: textContent,
+                timestamp: timestampNow
+              });
+            }
+          }
+        }
+        transcriptArray.push({
+          sender: 'user',
+          role: 'user',
+          text: message || "",
+          timestamp: timestampNow
+        });
+        transcriptArray.push({
+          sender: 'ai',
+          role: 'model',
+          text: response.text || "",
+          timestamp: timestampNow
+        });
+
         if (isVoiceCall) {
           // Calculate speech duration: caller speech + AI spoken reply
           const textWords = (message ? message.split(/\s+/).length : 5) + (response.text ? response.text.split(/\s+/).length : 25);
@@ -1656,27 +1765,34 @@ IMPORTANT CARD TRIGGER RULES:
           const durSec = Number(durationSeconds) > 0 ? Number(durationSeconds) : computedSeconds;
           const durMin = Number((durSec / 60).toFixed(2));
 
-          const hasEmail = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/.test(message || "");
-          const hasPhone = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(message || "");
-          const isLead = hasEmail || hasPhone;
-
           clientTarget.voiceMinutesUsed = Math.round((clientTarget.voiceMinutesUsed + durMin) * 100) / 100;
           clientTarget.totalConversations = (clientTarget.totalConversations || 0) + 1;
           if (isLead) clientTarget.leadsCaptured = (clientTarget.leadsCaptured || 0) + 1;
-          clientTarget.lastActive = new Date().toISOString();
+          clientTarget.lastActive = timestampNow;
 
-          clientTarget.conversations.unshift({
+          const newConv: VoiceConversation = {
             id: "conv-" + Math.random().toString(36).substring(2, 9),
-            visitorName: visitorName || (hasEmail ? message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)?.[1] : "Website Voice Caller"),
-            visitorPhone: visitorPhone || (hasPhone ? message.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)?.[0] : "N/A"),
-            date: new Date().toISOString(),
+            visitorName: extractedName || (extractedEmail ? extractedEmail.split('@')[0] : "Website Voice Caller"),
+            visitorPhone: extractedPhone || undefined,
+            visitorEmail: extractedEmail || undefined,
+            date: timestampNow,
+            createdAt: timestampNow,
             durationSeconds: durSec,
             durationMinutes: durMin,
-            topic: message.length > 50 ? message.substring(0, 47) + "..." : (message || "Voice Inquiry"),
-            transcriptSummary: `Caller asked: "${message.substring(0, 100)}". AI answered: "${(response.text || "").substring(0, 120)}..."`,
+            topic: message.length > 60 ? message.substring(0, 57) + "..." : (message || "Voice Inquiry"),
+            transcriptSummary: `Caller asked: "${message.substring(0, 120)}". AI answered: "${(response.text || "").substring(0, 140)}..."`,
+            transcript: transcriptArray,
+            leadInfo: {
+              name: extractedName || undefined,
+              email: extractedEmail || undefined,
+              phone: extractedPhone || undefined,
+              notes: `Voice session inquiry regarding: ${message.substring(0, 80)}`
+            },
             leadCaptured: isLead,
             status: "completed"
-          });
+          };
+
+          clientTarget.conversations.unshift(newConv);
 
           if (clientTarget.voiceMinutesUsed >= (clientTarget.monthlyVoiceMinutesLimit || 300)) {
             clientTarget.status = "limit_reached";
@@ -1684,26 +1800,32 @@ IMPORTANT CARD TRIGGER RULES:
         } else {
           clientTarget.textChatsUsed = (clientTarget.textChatsUsed || 0) + 1;
           clientTarget.totalConversations = (clientTarget.totalConversations || 0) + 1;
-          clientTarget.lastActive = new Date().toISOString();
-
-          // Check if message contains email or phone to mark as lead
-          const hasEmail = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/.test(message || "");
-          const hasPhone = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(message || "");
-          const isLead = hasEmail || hasPhone;
+          clientTarget.lastActive = timestampNow;
           if (isLead) clientTarget.leadsCaptured = (clientTarget.leadsCaptured || 0) + 1;
 
-          clientTarget.conversations.unshift({
+          const newConv: VoiceConversation = {
             id: "conv-" + Math.random().toString(36).substring(2, 9),
-            visitorName: visitorName || (hasEmail ? message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)?.[1] : "Website Visitor"),
-            visitorPhone: visitorPhone || (hasPhone ? message.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)?.[0] : "N/A"),
-            date: new Date().toISOString(),
+            visitorName: extractedName || (extractedEmail ? extractedEmail.split('@')[0] : "Website Visitor"),
+            visitorPhone: extractedPhone || undefined,
+            visitorEmail: extractedEmail || undefined,
+            date: timestampNow,
+            createdAt: timestampNow,
             durationSeconds: 30,
             durationMinutes: 0.5,
-            topic: message.length > 50 ? message.substring(0, 47) + "..." : (message || "Text Inquiry"),
-            transcriptSummary: `Visitor asked: "${message.substring(0, 100)}". AI answered: "${(response.text || "").substring(0, 120)}..."`,
+            topic: message.length > 60 ? message.substring(0, 57) + "..." : (message || "Text Inquiry"),
+            transcriptSummary: `Visitor asked: "${message.substring(0, 120)}". AI answered: "${(response.text || "").substring(0, 140)}..."`,
+            transcript: transcriptArray,
+            leadInfo: {
+              name: extractedName || undefined,
+              email: extractedEmail || undefined,
+              phone: extractedPhone || undefined,
+              notes: `Live chat inquiry regarding: ${message.substring(0, 80)}`
+            },
             leadCaptured: isLead,
             status: "completed"
-          });
+          };
+
+          clientTarget.conversations.unshift(newConv);
 
           if (clientTarget.textChatsUsed >= (clientTarget.monthlyTextChatLimit || 1000) && clientTarget.voiceMinutesUsed >= (clientTarget.monthlyVoiceMinutesLimit || 300)) {
             clientTarget.status = "limit_reached";

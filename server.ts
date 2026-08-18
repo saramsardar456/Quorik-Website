@@ -762,7 +762,7 @@ async function startServer() {
   loadStore();
   const app = express();
 
-    // ADD THIS LINE RIGHT HERE:
+  // ADD THIS LINE RIGHT HERE:
   app.use(cors({ origin: '*' }));
   const PORT = 3000;
 
@@ -1033,13 +1033,70 @@ ${message}
     res.json(clientAccounts);
   });
 
-  app.get("/api/clients/:id", (req, res) => {
-    const client = clientAccounts.find(c => c.id === req.params.id);
-    if (client) {
-      res.json(client);
-    } else {
-      res.status(404).json({ error: "Client not found" });
+  app.get("/api/clients/:id/conversations", (req, res) => {
+    const { id } = req.params;
+    let client = clientAccounts.find(c => c.id === id);
+    if (!client) {
+      // Auto-provision client profile if not yet created so dashboard displays cleanly
+      client = {
+        id,
+        clientName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        businessName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        industry: "Digital Services & Marketing",
+        email: `contact@${id.toLowerCase()}.com`,
+        phone: "+1 (555) 019-2834",
+        websiteUrl: `https://${id.toLowerCase()}.com`,
+        tier: "growth",
+        monthlyVoiceMinutesLimit: 1200,
+        voiceMinutesUsed: 0,
+        monthlyTextChatLimit: 5000,
+        textChatsUsed: 0,
+        status: "active",
+        voiceAgentName: "Arthur (Executive Concierge)",
+        voiceLanguage: "English",
+        totalConversations: 0,
+        leadsCaptured: 0,
+        lastActive: new Date().toISOString(),
+        conversations: [],
+        createdAt: new Date().toISOString()
+      };
+      clientAccounts.unshift(client);
+      saveStore();
     }
+    res.json(client.conversations || []);
+  });
+
+  app.get("/api/clients/:id", (req, res) => {
+    const { id } = req.params;
+    let client = clientAccounts.find(c => c.id === id);
+    if (!client) {
+      // Auto-provision client profile if not yet created
+      client = {
+        id,
+        clientName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        businessName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        industry: "Digital Services & Marketing",
+        email: `contact@${id.toLowerCase()}.com`,
+        phone: "+1 (555) 019-2834",
+        websiteUrl: `https://${id.toLowerCase()}.com`,
+        tier: "growth",
+        monthlyVoiceMinutesLimit: 1200,
+        voiceMinutesUsed: 0,
+        monthlyTextChatLimit: 5000,
+        textChatsUsed: 0,
+        status: "active",
+        voiceAgentName: "Arthur (Executive Concierge)",
+        voiceLanguage: "English",
+        totalConversations: 0,
+        leadsCaptured: 0,
+        lastActive: new Date().toISOString(),
+        conversations: [],
+        createdAt: new Date().toISOString()
+      };
+      clientAccounts.unshift(client);
+      saveStore();
+    }
+    res.json(client);
   });
 
   app.post("/api/clients", authenticateToken, (req, res) => {
@@ -1467,7 +1524,33 @@ Respond ONLY in valid JSON format matching this exact schema:
       let clientTarget = null;
       if (clientId) {
         clientTarget = clientAccounts.find(c => c.id === clientId);
-        if (clientTarget) {
+        if (!clientTarget) {
+          // Auto-register client profile if new
+          clientTarget = {
+            id: clientId,
+            clientName: clientId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+            businessName: clientId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+            industry: "Digital Services & Marketing",
+            email: `contact@${clientId.toLowerCase()}.com`,
+            phone: "+1 (555) 019-2834",
+            websiteUrl: `https://${clientId.toLowerCase()}.com`,
+            tier: "growth",
+            monthlyVoiceMinutesLimit: 1200,
+            voiceMinutesUsed: 0,
+            monthlyTextChatLimit: 5000,
+            textChatsUsed: 0,
+            status: "active",
+            voiceAgentName: "Arthur (Executive Concierge)",
+            voiceLanguage: "English",
+            totalConversations: 0,
+            leadsCaptured: 0,
+            lastActive: new Date().toISOString(),
+            conversations: [],
+            createdAt: new Date().toISOString()
+          };
+          clientAccounts.unshift(clientTarget);
+          saveStore();
+        } else {
           if (clientTarget.status === 'paused' || clientTarget.status === 'limit_reached') {
             return res.status(403).json({ error: "This client voice and chat portal is currently paused by admin or limit reached." });
           }
@@ -1573,20 +1656,25 @@ IMPORTANT CARD TRIGGER RULES:
           const durSec = Number(durationSeconds) > 0 ? Number(durationSeconds) : computedSeconds;
           const durMin = Number((durSec / 60).toFixed(2));
 
+          const hasEmail = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/.test(message || "");
+          const hasPhone = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(message || "");
+          const isLead = hasEmail || hasPhone;
+
           clientTarget.voiceMinutesUsed = Math.round((clientTarget.voiceMinutesUsed + durMin) * 100) / 100;
           clientTarget.totalConversations = (clientTarget.totalConversations || 0) + 1;
+          if (isLead) clientTarget.leadsCaptured = (clientTarget.leadsCaptured || 0) + 1;
           clientTarget.lastActive = new Date().toISOString();
 
           clientTarget.conversations.unshift({
             id: "conv-" + Math.random().toString(36).substring(2, 9),
-            visitorName: visitorName || "Website Voice Caller",
-            visitorPhone: visitorPhone || "N/A",
+            visitorName: visitorName || (hasEmail ? message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)?.[1] : "Website Voice Caller"),
+            visitorPhone: visitorPhone || (hasPhone ? message.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)?.[0] : "N/A"),
             date: new Date().toISOString(),
             durationSeconds: durSec,
             durationMinutes: durMin,
             topic: message.length > 50 ? message.substring(0, 47) + "..." : (message || "Voice Inquiry"),
             transcriptSummary: `Caller asked: "${message.substring(0, 100)}". AI answered: "${(response.text || "").substring(0, 120)}..."`,
-            leadCaptured: false,
+            leadCaptured: isLead,
             status: "completed"
           });
 
@@ -1597,6 +1685,25 @@ IMPORTANT CARD TRIGGER RULES:
           clientTarget.textChatsUsed = (clientTarget.textChatsUsed || 0) + 1;
           clientTarget.totalConversations = (clientTarget.totalConversations || 0) + 1;
           clientTarget.lastActive = new Date().toISOString();
+
+          // Check if message contains email or phone to mark as lead
+          const hasEmail = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/.test(message || "");
+          const hasPhone = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(message || "");
+          const isLead = hasEmail || hasPhone;
+          if (isLead) clientTarget.leadsCaptured = (clientTarget.leadsCaptured || 0) + 1;
+
+          clientTarget.conversations.unshift({
+            id: "conv-" + Math.random().toString(36).substring(2, 9),
+            visitorName: visitorName || (hasEmail ? message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)?.[1] : "Website Visitor"),
+            visitorPhone: visitorPhone || (hasPhone ? message.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)?.[0] : "N/A"),
+            date: new Date().toISOString(),
+            durationSeconds: 30,
+            durationMinutes: 0.5,
+            topic: message.length > 50 ? message.substring(0, 47) + "..." : (message || "Text Inquiry"),
+            transcriptSummary: `Visitor asked: "${message.substring(0, 100)}". AI answered: "${(response.text || "").substring(0, 120)}..."`,
+            leadCaptured: isLead,
+            status: "completed"
+          });
 
           if (clientTarget.textChatsUsed >= (clientTarget.monthlyTextChatLimit || 1000) && clientTarget.voiceMinutesUsed >= (clientTarget.monthlyVoiceMinutesLimit || 300)) {
             clientTarget.status = "limit_reached";

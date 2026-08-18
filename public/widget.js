@@ -208,7 +208,7 @@
         chatHistory.push({ role: 'model', parts: [{ text: data.text }] });
 
         
-        // PASTE THIS NEW CODE HERE:
+       // Play the Gemini audio if the backend sent it, OTHERWISE use native browser voice
         if (data.audioBase64) {
           try {
              const audioSrc = "data:audio/mp3;base64," + data.audioBase64;
@@ -216,6 +216,21 @@
              audio.play();
           } catch (err) {
              console.error("Failed to play Gemini audio:", err);
+          }
+        } else {
+          // Native Browser Voice Fallback! (Guaranteed to work)
+          if ('speechSynthesis' in window) {
+             window.speechSynthesis.cancel(); // Stop any currently playing voice
+             const utterance = new SpeechSynthesisUtterance(data.text);
+             utterance.lang = "en-US";
+             utterance.rate = 1.05; // Slightly faster for natural feel
+             
+             // Try to pick a high-quality system voice
+             const voices = window.speechSynthesis.getVoices();
+             const bestVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Samantha") || v.name.includes("Arthur"));
+             if (bestVoice) utterance.voice = bestVoice;
+             
+             window.speechSynthesis.speak(utterance);
           }
         }
 

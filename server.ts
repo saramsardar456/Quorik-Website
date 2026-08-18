@@ -1178,6 +1178,32 @@ ${message}
       });
     }
 
+    app.post("/api/clients/:id/log-voice-chat", (req, res) => {
+    const { id } = req.params;
+    const { durationSeconds, topic, leadCaptured } = req.body;
+    
+    const client = clientAccounts.find(c => c.id === id || c.id === id.replace("quorik-", ""));
+    
+    if (client) {
+      // Convert seconds to minutes (minimum 1 minute per interaction)
+      const minutesUsed = Math.ceil((durationSeconds || 60) / 60);
+      
+      client.voiceMinutesUsed += minutesUsed;
+      client.totalConversations += 1;
+      
+      if (leadCaptured) {
+        client.leadsCaptured += 1;
+      }
+      
+      client.lastActive = new Date().toISOString();
+      saveStore();
+      
+      res.json({ success: true, voiceMinutesUsed: client.voiceMinutesUsed });
+    } else {
+      res.status(404).json({ error: "Client not found" });
+    }
+  });
+
     saveStore();
     res.json({ success: true, client });
   });

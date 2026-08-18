@@ -32,6 +32,7 @@
   let recognition = null;
   let isListening = false;
 
+
   // Render Launcher Button
   root.innerHTML = `
     <style>
@@ -176,7 +177,31 @@
     voiceBtn.onclick = () => toggleVoiceCall();
   }
 
-  async function handleSendChat(text) {
+  recognition.onstart = () => {
+      isListening = true;
+      callSeconds = 0; // Reset timer
+      callTimer = setInterval(() => callSeconds++, 1000); // Start counting seconds
+      appendMessage('ai', '🎙️ Listening to your voice... Speak now.');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      removeLastThinking();
+      handleSendChat(transcript, true); // <--- PASS 'true' HERE to say it's a voice call
+    };
+
+    recognition.onerror = () => {
+      isListening = false;
+      clearInterval(callTimer); // Stop timer on error
+      removeLastThinking();
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      clearInterval(callTimer); // Stop timer when done
+    };
+
+  async function handleSendChat(text, isVoiceCall = false) {
     if (!text || !text.trim()) return;
     const input = modal.querySelector('#q-text-input');
     input.value = '';
@@ -234,12 +259,24 @@
           }
         }
 
-        // Log text chat meter & lead check to client account
-        fetch(`${serverOrigin}/api/clients/${clientId}/log-text-chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadCaptured: text.toLowerCase().includes('book') || text.toLowerCase().includes('call') || /\d{10}/.test(text) })
-        }).catch(() => {});
+        if (isVoice) {
+          fetch(`${serverOrigin}/api/clients/${clientId}/log-voice-chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              durationSeconds: callSeconds > 0 ? callSeconds : 30,
+              topic: text.substring(0, 50),
+              leadCaptured: text.toLowerCase().includes('book') || text.toLowerCase().includes('call') || /\d{10}/.test(text) 
+            })
+          }).catch(() => {});
+        } else {
+          fetch(`${serverOrigin}/api/clients/${clientId}/log-text-chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadCaptured: text.toLowerCase().includes('book') || text.toLowerCase().includes('call') || /\d{10}/.test(text) })
+          }).catch(() => {});
+        }
+        
       } else {
         appendMessage('ai', 'Sorry, I am having trouble connecting right now.');
       }

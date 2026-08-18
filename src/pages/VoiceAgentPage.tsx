@@ -50,14 +50,14 @@ export function VoiceAgentPage() {
     {
       id: 'uk-refined',
       femaleName: 'Clara',
-      maleName: 'Arthur',
+      maleName: 'Oliver',
       region: 'United Kingdom & Europe',
       accent: 'UK Refined Received Pronunciation',
       flag: '🇬🇧',
       tone: 'Courteous, Calm & Elegant',
       engLocale: 'en-GB',
       femaleTranscript: "Good day and thank you for reaching Quorik. My name is Clara. I can assist you with your custom web development or AI automation project and secure a consultation with our project director for tomorrow. May I have your full name, please?",
-      maleTranscript: "Good day and thank you for reaching Quorik. My name is Arthur. I can assist you with your custom web development or AI automation project and secure a consultation with our project director for tomorrow. May I have your full name, please?"
+      maleTranscript: "Good day and thank you for reaching Quorik. My name is Oliver. I can assist you with your custom web development or AI automation project and secure a consultation with our project director for tomorrow. May I have your full name, please?"
     }
   ];
 
@@ -378,7 +378,7 @@ export function VoiceAgentPage() {
               Female & Male Voice Personas
             </h2>
             <p className="text-gray-400 text-sm mt-3">
-              Switch seamlessly between Female (Zephyr, Clara) and Male (Arthur) neural voice profiles.
+              Switch seamlessly between Female (Zephyr, Clara) and Male (Arthur, Oliver) neural voice profiles.
             </p>
 
             {/* Gender Toggle Control */}
@@ -409,7 +409,7 @@ export function VoiceAgentPage() {
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                <User className="w-3.5 h-3.5" /> Male Voices (Arthur)
+                <User className="w-3.5 h-3.5" /> Male Voices (Arthur / Oliver)
               </button>
             </div>
           </div>

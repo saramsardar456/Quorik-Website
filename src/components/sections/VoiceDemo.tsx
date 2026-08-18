@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send, Loader2, Sparkles } from 'lucide-react';
+import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send, Loader2, Sparkles, Clock } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 export function VoiceDemo() {
@@ -17,14 +17,20 @@ export function VoiceDemo() {
   // Dynamic Outcome Extraction
   const [leadDetails, setLeadDetails] = useState<{
     callerName: string;
+    callerEmail: string;
+    callerPhone: string;
     topic: string;
     requestedSlot: string;
+    bookingStatus: 'collecting' | 'confirmed' | 'inquiry';
     whatsappMessage: string;
   }>({
-    callerName: 'Alex Smith',
-    topic: 'Custom Website & AI Voice Agent Consultation',
-    requestedSlot: 'Tomorrow @ 11:00 AM EST',
-    whatsappMessage: '🚀 NEW QUALIFIED INBOUND LEAD: Alex Smith requested a discovery consultation for Custom Website & AI Voice Agent. Slot confirmed.'
+    callerName: '',
+    callerEmail: '',
+    callerPhone: '',
+    topic: 'Discovery Consultation',
+    requestedSlot: '',
+    bookingStatus: 'collecting',
+    whatsappMessage: 'Awaiting caller interaction...'
   });
   const [bookedCalendar, setBookedCalendar] = useState<boolean>(false);
   const [whatsappSent, setWhatsappSent] = useState<boolean>(false);
@@ -257,10 +263,14 @@ export function VoiceDemo() {
     setSimMessages(updatedMessages);
     setIsAiThinking(true);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     try {
       const response = await fetch('/api/voice-agent/simulate-call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           personaId: activePersonaId,
           gender: selectedGender,
@@ -268,6 +278,8 @@ export function VoiceDemo() {
           conversationHistory: updatedMessages
         })
       });
+
+      clearTimeout(timeoutId);
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
@@ -277,7 +289,7 @@ export function VoiceDemo() {
       const data = await response.json();
       setIsAiThinking(false);
 
-      if (data.success && data.aiSpeechText) {
+      if (response.ok && data.success && data.aiSpeechText) {
         const aiTimeStr = `00:${String(updatedMessages.length * 6 + 6).padStart(2, '0')}`;
         setSimMessages(prev => [
           ...prev,
@@ -287,22 +299,85 @@ export function VoiceDemo() {
         speakText(data.aiSpeechText);
 
         if (data.extractedLead) {
-          setLeadDetails({
-            callerName: data.extractedLead.callerName || 'Valued Client',
-            topic: data.extractedLead.topic || 'Inbound Inquiry',
-            requestedSlot: data.extractedLead.requestedSlot || 'Tomorrow @ 11:00 AM EST',
-            whatsappMessage: data.extractedLead.whatsappMessage || 'Lead received.'
-          });
+          setLeadDetails(prev => ({
+            callerName: data.extractedLead.callerName || prev.callerName,
+            callerEmail: data.extractedLead.callerEmail || prev.callerEmail,
+            callerPhone: data.extractedLead.callerPhone || prev.callerPhone,
+            topic: data.extractedLead.topic || prev.topic,
+            requestedSlot: data.extractedLead.requestedSlot || prev.requestedSlot,
+            bookingStatus: data.extractedLead.bookingStatus || prev.bookingStatus,
+            whatsappMessage: data.extractedLead.whatsappMessage || prev.whatsappMessage
+          }));
           setBookedCalendar(true);
           setWhatsappSent(true);
         }
+      } else {
+        throw new Error(data.error || 'Failed to generate voice turn');
       }
-    } catch (err) {
-      console.error("AI turn error:", err);
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err?.name !== 'AbortError') {
+        console.warn("AI turn error fallback:", err?.message || err);
+      }
       setIsAiThinking(false);
-      const fallbackAi = "Thank you! I have registered your details and confirmed your discovery consultation slot.";
-      setSimMessages(prev => [...prev, { sender: 'ai', text: fallbackAi, time: '00:30' }]);
+      const aiTimeStr = `00:${String(updatedMessages.length * 6 + 6).padStart(2, '0')}`;
+      const allText = updatedMessages.map(m => m.text).join(" ").toLowerCase();
+      const lowerQuery = textToSend.toLowerCase();
+
+      const nameMatch = (allText + " " + textToSend).match(/(?:my name is|i am|i'm|this is|name:\s*)\s+([a-zA-Z]+)/i);
+      const callerName = nameMatch ? nameMatch[1] : '';
+
+      const emailMatch = (allText + " " + textToSend).match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      const callerEmail = emailMatch ? emailMatch[1] : '';
+
+      const phoneMatch = (allText + " " + textToSend).match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+      const callerPhone = phoneMatch ? phoneMatch[0] : '';
+
+      const greeting = callerName ? `Hello ${callerName}!` : `Hello!`;
+
+      let fallbackAi = `${greeting} Thank you for reaching Quorik. I'm ${selectedGender === 'female' ? 'Zephyr' : 'Arthur'}. How can I assist you with web development or AI automation?`;
+
+      if (lowerQuery.includes('founder') || lowerQuery.includes('ceo') || lowerQuery.includes('who founded') || lowerQuery.includes('who owns') || lowerQuery.includes('shehram') || lowerQuery.includes('who built')) {
+        fallbackAi = "Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect and technology strategist who founded Quorik to build high-performance custom web applications and zero-latency 24/7 AI Voice Agents for modern businesses. Under his technical leadership, Quorik develops autonomous AI receptionists and digital platforms that drive measurable growth. Would you like to schedule a discovery consultation with him and our team?";
+        setLeadDetails(prev => ({
+          ...prev,
+          topic: 'Founder & Executive Leadership Inquiry',
+          bookingStatus: 'inquiry',
+          whatsappMessage: '👑 FOUNDER INQUIRY: Caller asked for detailed background on Founder & CEO Shehram Meellu.'
+        }));
+        setWhatsappSent(true);
+      } else if (allText.includes('book') || allText.includes('consultation') || allText.includes('meeting') || allText.includes('schedule') || allText.includes('appointment')) {
+        let topic = 'AI Voice Agent setup';
+        if (allText.includes('website') || allText.includes('web')) topic = 'custom website development';
+        else if (allText.includes('chatbot')) topic = 'AI chatbot integration';
+
+        if (!callerName && !allText.includes('tomorrow') && !allText.includes('pm') && !allText.includes('am')) {
+          fallbackAi = `I'd be delighted to book your discovery consultation for ${topic}! May I have your name and preferred day and time for the meeting?`;
+        } else if (!callerEmail || !callerPhone) {
+          fallbackAi = `Great ${callerName || ''}! Could you please share your email address and phone number so I can send the calendar invitation and confirmation?`;
+        } else {
+          fallbackAi = `Perfect ${callerName}! I have scheduled your ${topic} consultation. A calendar invite has been sent to ${callerEmail}, and a confirmation to your phone.`;
+        }
+
+        setLeadDetails(prev => ({
+          callerName: callerName || prev.callerName,
+          callerEmail: callerEmail || prev.callerEmail,
+          callerPhone: callerPhone || prev.callerPhone,
+          topic: `Discovery Consultation (${topic})`,
+          requestedSlot: 'Tomorrow @ 11:00 AM EST',
+          bookingStatus: (callerEmail && callerPhone) ? 'confirmed' : 'collecting',
+          whatsappMessage: `🚀 NEW INBOUND LEAD: ${callerName || 'Client'} scheduled a ${topic} consultation.`
+        }));
+        setBookedCalendar(true);
+        setWhatsappSent(true);
+      } else if (lowerQuery.includes('price') || lowerQuery.includes('cost') || lowerQuery.includes('rate')) {
+        fallbackAi = "Quorik offers transparent pricing starting at $1,490 for custom web platforms and $490 per month for 24/7 AI Voice Receptionist automation.";
+      }
+
+      setSimMessages(prev => [...prev, { sender: 'ai', text: fallbackAi, time: aiTimeStr }]);
       speakText(fallbackAi);
+    } finally {
+      setIsAiThinking(false);
     }
   };
 
@@ -539,20 +614,43 @@ export function VoiceDemo() {
                   </div>
 
                   {/* Preset Quick Caller Starters */}
-                  <div className="flex flex-wrap gap-2 text-[10px] font-mono">
-                    <span className="text-gray-500 py-1">Quick Prompts:</span>
-                    <button
-                      onClick={() => handleSendCallerTurn("Hello! My name is Alex. I want to build a high-performance custom website and AI Chatbot with Quorik.")}
-                      className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors"
-                    >
-                      🌐 Web & AI Chatbot Inquiry
-                    </button>
-                    <button
-                      onClick={() => handleSendCallerTurn("Hello! My name is Sarah. I would like to book a 15-minute discovery consultation for AI Voice Agent setup.")}
-                      className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors"
-                    >
-                      🤖 AI Voice Agent Consultation
-                    </button>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-gray-400">
+                      <span>Interactive Voice Prompts:</span>
+                      <span className="text-brand-teal">Simulate Full Booking Flow</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[10px] font-mono">
+                      <button
+                        onClick={() => handleSendCallerTurn("I would like to book a discovery consultation for AI Voice Agent setup.")}
+                        className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1"
+                      >
+                        <span>1️⃣ Request Meeting</span>
+                      </button>
+                      <button
+                        onClick={() => handleSendCallerTurn("My name is Sarah, and tomorrow at 2:00 PM works best for me.")}
+                        className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1"
+                      >
+                        <span>2️⃣ Give Name & Time</span>
+                      </button>
+                      <button
+                        onClick={() => handleSendCallerTurn("My email is sarah@gmail.com and my phone number is +1 (555) 234-5678.")}
+                        className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1"
+                      >
+                        <span>3️⃣ Give Email & Phone</span>
+                      </button>
+                      <button
+                        onClick={() => handleSendCallerTurn("Hello! Can you tell me in detail about the founder and CEO of Quorik?")}
+                        className="px-2.5 py-1 bg-white/5 border border-purple-500/30 text-purple-300 hover:border-purple-400 hover:text-white transition-colors flex items-center gap-1 font-bold"
+                      >
+                        <span>👑 Ask About Founder & CEO</span>
+                      </button>
+                      <button
+                        onClick={() => handleSendCallerTurn("Hello, my name is Alex. I want to build a custom website with AI chatbot. My email is alex@gmail.com, phone +1-555-9876, available Friday at 11 AM.")}
+                        className="px-2.5 py-1 bg-brand-teal/10 border border-brand-teal/30 text-brand-teal hover:bg-brand-teal hover:text-[#05060A] transition-colors flex items-center gap-1 font-bold"
+                      >
+                        <span>⚡ All-In-One Booking</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -562,26 +660,60 @@ export function VoiceDemo() {
           {/* Real-Time Outcome Panel: Dynamic Google Calendar + WhatsApp Notification */}
           <div className="lg:col-span-5 space-y-6 flex flex-col justify-between">
             {/* Google Calendar Sync Card */}
-            <div className={`p-6 bg-[#0A0E1A] border transition-all ${bookedCalendar ? 'border-green-500 bg-green-500/5' : 'border-white/10'}`}>
+            <div className={`p-6 bg-[#0A0E1A] border transition-all ${
+              leadDetails.bookingStatus === 'confirmed' 
+                ? 'border-green-500 bg-green-500/5' 
+                : bookedCalendar 
+                  ? 'border-brand-teal/50 bg-brand-teal/5' 
+                  : 'border-white/10'
+            }`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
                   <Calendar className="w-5 h-5 text-brand-teal" />
-                  <h4 className="text-sm font-bold text-white uppercase font-mono">GOOGLE CALENDAR BOOKING</h4>
+                  <h4 className="text-sm font-bold text-white uppercase font-mono">GOOGLE CALENDAR CRM</h4>
                 </div>
-                {bookedCalendar ? (
+                {leadDetails.bookingStatus === 'confirmed' ? (
                   <span className="px-2.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-green-500/30">
-                    <Check className="w-3 h-3" /> Dynamic Slot Booked
+                    <Check className="w-3 h-3" /> Confirmed & Synced
+                  </span>
+                ) : leadDetails.callerName || leadDetails.requestedSlot ? (
+                  <span className="px-2.5 py-0.5 bg-yellow-500/20 text-yellow-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-yellow-500/30">
+                    <Clock className="w-3 h-3" /> Collecting Details
                   </span>
                 ) : (
-                  <span className="text-[10px] text-gray-500 font-mono uppercase">AWAITING BOOKING</span>
+                  <span className="text-[10px] text-gray-500 font-mono uppercase">AWAITING CALLER</span>
                 )}
               </div>
 
-              <div className="bg-[#05060A] border border-white/10 p-4 text-xs font-mono space-y-2">
-                <div className="text-gray-400">Event: <span className="text-white font-bold">{leadDetails.topic}</span></div>
-                <div className="text-gray-400">Client Name: <span className="text-brand-teal">{leadDetails.callerName}</span></div>
-                <div className="text-gray-400">Time Slot: <span className="text-green-400">{leadDetails.requestedSlot}</span></div>
-                <div className="text-gray-400">Assigned Staff: <span className="text-white">Senior Representative</span></div>
+              <div className="bg-[#05060A] border border-white/10 p-4 text-xs font-mono space-y-2.5">
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                  <span className="text-gray-400">Consultation Topic:</span>
+                  <span className="text-white font-bold text-right max-w-[60%] truncate">{leadDetails.topic}</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                  <span className="text-gray-400">Caller Name:</span>
+                  <span className={leadDetails.callerName ? "text-brand-teal font-bold" : "text-gray-600 italic"}>
+                    {leadDetails.callerName || "Awaiting Name..."}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                  <span className="text-gray-400">Preferred Time Slot:</span>
+                  <span className={leadDetails.requestedSlot ? "text-green-400 font-bold" : "text-gray-600 italic"}>
+                    {leadDetails.requestedSlot || "Awaiting Time Slot..."}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                  <span className="text-gray-400">Email Address:</span>
+                  <span className={leadDetails.callerEmail ? "text-cyan-300 font-bold" : "text-gray-600 italic"}>
+                    {leadDetails.callerEmail || "Awaiting Email..."}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Phone Number:</span>
+                  <span className={leadDetails.callerPhone ? "text-emerald-300 font-bold" : "text-gray-600 italic"}>
+                    {leadDetails.callerPhone || "Awaiting Phone..."}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -594,7 +726,7 @@ export function VoiceDemo() {
                 </div>
                 {whatsappSent ? (
                   <span className="px-2.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-green-500/30">
-                    <Check className="w-3 h-3" /> Dispatched
+                    <Check className="w-3 h-3" /> Real-Time Feed
                   </span>
                 ) : (
                   <span className="text-[10px] text-gray-500 font-mono uppercase">AWAITING CALL COMPLETION</span>
@@ -603,10 +735,10 @@ export function VoiceDemo() {
 
               <div className="bg-[#0B141A] border border-green-500/20 p-4 font-sans text-xs text-green-100 leading-relaxed rounded relative">
                 <div className="text-[10px] font-mono text-green-400 uppercase mb-1 flex items-center justify-between">
-                  <span>WHATSAPP BUSINESS NOTIFICATION</span>
-                  <span>JUST NOW</span>
+                  <span>WHATSAPP CRM DISPATCH</span>
+                  <span>LIVE SYNC</span>
                 </div>
-                "{leadDetails.whatsappMessage}"
+                "{leadDetails.whatsappMessage || "Ready to dispatch lead data once caller provides meeting details."}"
               </div>
             </div>
           </div>

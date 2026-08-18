@@ -490,8 +490,13 @@
         chatHistory.push({ role: 'user', parts: [{ text }] });
         chatHistory.push({ role: 'model', parts: [{ text: data.text }] });
 
-        // Speak back aloud. In voice mode, automatically loop back to listening after speech finishes
-        speakText(data.text, isVoiceMode || isVoiceActive);
+        // Only speak aloud if visitor used Voice mode (Microphone / Voice call)
+        if (isVoiceCall) {
+          speakText(data.text, true);
+        } else {
+          stopSpeaking();
+          updateUIStatus('idle');
+        }
       }
     } catch (e) {
       removeLastThinking();

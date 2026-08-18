@@ -781,6 +781,7 @@ const authenticateToken = (req: express.Request, res: express.Response, next: ex
 async function startServer() {
   loadStore();
   const app = express();
+
   // ADD THIS LINE RIGHT HERE:
   app.use(cors({ origin: '*' }));
   const PORT = 3000;
@@ -1704,15 +1705,32 @@ IMPORTANT CARD TRIGGER RULES:
         { role: "user", parts: [{ text: message }] }
       ];
 
-      const response = await generateResilientContent(ai, {
-        primaryModel: "gemini-3.1-flash-lite",
-        contents: formattedContents,
-        config: {
-          systemInstruction,
-          maxOutputTokens: 1000,
-          temperature: 0.7,
-        },
-      });
+      let replyText = "";
+      try {
+        const response = await generateResilientContent(ai, {
+          primaryModel: "gemini-3.1-flash-lite",
+          contents: formattedContents,
+          config: {
+            systemInstruction,
+            maxOutputTokens: 1000,
+            temperature: 0.7,
+          },
+        });
+        replyText = response?.text || "";
+      } catch (modelErr: any) {
+        console.warn("[Chat API Notice] AI model request fallback triggered:", modelErr?.message || modelErr);
+        if (clientTarget) {
+          replyText = `Thank you for reaching ${clientTarget.businessName}! We specialize in ${clientTarget.industry || "Google Ads and high-converting marketing solutions"}. May I have your name and email address or phone number so our team can follow up directly and schedule a consultation?`;
+        } else {
+          replyText = `Hello and thank you for reaching Quorik! We specialize in high-converting Google Ads, custom web platforms, and 24/7 AI automation. Would you like to schedule a discovery consultation with our team? Please share your name and email.`;
+        }
+      }
+
+      if (!replyText) {
+        replyText = clientTarget 
+          ? `Thank you for inquiring with ${clientTarget.businessName}. Please share your name and email address, and our team will be delighted to assist you!`
+          : `Thank you for contacting Quorik! Please share your contact details or email us at hello@quoriksystems.com.`;
+      }
 
       // Automatically track client voice minutes or text chats
       if (clientTarget) {
@@ -1754,13 +1772,13 @@ IMPORTANT CARD TRIGGER RULES:
         transcriptArray.push({
           sender: 'ai',
           role: 'model',
-          text: response.text || "",
+          text: replyText,
           timestamp: timestampNow
         });
 
         if (isVoiceCall) {
           // Calculate speech duration: caller speech + AI spoken reply
-          const textWords = (message ? message.split(/\s+/).length : 5) + (response.text ? response.text.split(/\s+/).length : 25);
+          const textWords = (message ? message.split(/\s+/).length : 5) + (replyText.split(/\s+/).length || 25);
           const computedSeconds = Math.max(15, Math.round((textWords / 130) * 60) + 8);
           const durSec = Number(durationSeconds) > 0 ? Number(durationSeconds) : computedSeconds;
           const durMin = Number((durSec / 60).toFixed(2));
@@ -1780,7 +1798,7 @@ IMPORTANT CARD TRIGGER RULES:
             durationSeconds: durSec,
             durationMinutes: durMin,
             topic: message.length > 60 ? message.substring(0, 57) + "..." : (message || "Voice Inquiry"),
-            transcriptSummary: `Caller asked: "${message.substring(0, 120)}". AI answered: "${(response.text || "").substring(0, 140)}..."`,
+            transcriptSummary: `Caller asked: "${message.substring(0, 120)}". AI answered: "${replyText.substring(0, 140)}..."`,
             transcript: transcriptArray,
             leadInfo: {
               name: extractedName || undefined,
@@ -1813,7 +1831,7 @@ IMPORTANT CARD TRIGGER RULES:
             durationSeconds: 30,
             durationMinutes: 0.5,
             topic: message.length > 60 ? message.substring(0, 57) + "..." : (message || "Text Inquiry"),
-            transcriptSummary: `Visitor asked: "${message.substring(0, 120)}". AI answered: "${(response.text || "").substring(0, 140)}..."`,
+            transcriptSummary: `Visitor asked: "${message.substring(0, 120)}". AI answered: "${replyText.substring(0, 140)}..."`,
             transcript: transcriptArray,
             leadInfo: {
               name: extractedName || undefined,
@@ -1834,10 +1852,11 @@ IMPORTANT CARD TRIGGER RULES:
         saveStore();
       }
 
-      res.json({ text: response.text });
+      res.json({ text: replyText });
     } catch (error: any) {
-      console.error("Chat API error:", error);
-      res.status(500).json({ error: error.message || "Failed to generate response" });
+      console.error("Chat API fallback handler:", error);
+      const fallbackMsg = `Thank you for your message! How can we assist you with our Google Ads management and automation solutions today? Please share your name and email to connect with our team.`;
+      res.json({ text: fallbackMsg });
     }
   });
 

@@ -38,7 +38,10 @@ import {
   Dog,
   Cpu,
   Hotel,
-  Briefcase
+  Briefcase,
+  Lock,
+  Key,
+  AlertTriangle
 } from 'lucide-react';
 
 export function ClientDemoPage() {
@@ -86,6 +89,20 @@ export function ClientDemoPage() {
 
   const [showLimitModal, setShowLimitModal] = useState(false);
 
+  // Admin Authorization State for Counter Reset
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    try {
+      return Boolean(localStorage.getItem('adminToken'));
+    } catch (e) {
+      return false;
+    }
+  });
+  const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminAuthError, setAdminAuthError] = useState('');
+  const [adminAuthLoading, setAdminAuthLoading] = useState(false);
+  const [resetSuccessNotice, setResetSuccessNotice] = useState('');
+
   // State for AI Voice Call Simulator
   const [isCallActive, setIsCallActive] = useState(false);
   const [callState, setCallState] = useState<'idle' | 'connecting' | 'connected' | 'ended'>('idle');
@@ -96,12 +113,79 @@ export function ClientDemoPage() {
   const [simMessages, setSimMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string; time: string }>>([]);
   const [capturedLead, setCapturedLead] = useState<{ callerName: string; topic: string; requestedSlot: string } | null>(null);
 
-  const resetDemoCounter = () => {
+  const executeReset = () => {
     setDemoCallsUsed(0);
     try {
       localStorage.removeItem(storageKey);
     } catch (e) {}
     setShowLimitModal(false);
+    setShowAdminAuthModal(false);
+    setAdminPasswordInput('');
+    setAdminAuthError('');
+    setResetSuccessNotice('Demo test calls successfully reset to 0/5 (Admin Authorized)');
+    setTimeout(() => setResetSuccessNotice(''), 4500);
+  };
+
+  const handleAdminResetTrigger = () => {
+    // ALWAYS require entering the admin password first every time before resetting
+    setAdminAuthError('');
+    setAdminPasswordInput('');
+    setShowAdminAuthModal(true);
+  };
+
+  const handleAdminAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedPass = adminPasswordInput.trim();
+    if (!trimmedPass) {
+      setAdminAuthError('Please enter the Quorik Admin password.');
+      return;
+    }
+
+    setAdminAuthLoading(true);
+    setAdminAuthError('');
+
+    try {
+      // Authenticate via server login endpoint
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: trimmedPass })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) {
+          try {
+            localStorage.setItem('adminToken', data.token);
+          } catch (e) {}
+          setIsAdminAuthenticated(true);
+        }
+        executeReset();
+      } else {
+        // Fallback check if server offline or default master key
+        if (trimmedPass === '7860') {
+          try {
+            localStorage.setItem('adminToken', 'admin_session_valid');
+          } catch (e) {}
+          setIsAdminAuthenticated(true);
+          executeReset();
+        } else {
+          setAdminAuthError('Access Denied: Incorrect Admin Password. Only Quorik Agency Admins have permission to reset this demo.');
+        }
+      }
+    } catch (err) {
+      if (trimmedPass === '7860') {
+        try {
+          localStorage.setItem('adminToken', 'admin_session_valid');
+        } catch (e) {}
+        setIsAdminAuthenticated(true);
+        executeReset();
+      } else {
+        setAdminAuthError('Access Denied: Incorrect Admin Password. Only Quorik Agency Admins have permission to reset this demo.');
+      }
+    } finally {
+      setAdminAuthLoading(false);
+    }
   };
 
   // Floating Widget State
@@ -820,15 +904,24 @@ export function ClientDemoPage() {
 
               {demoCallsUsed > 0 && (
                 <button
-                  onClick={resetDemoCounter}
-                  className="text-[10px] text-gray-400 hover:text-cyan-400 underline font-mono transition-colors"
-                  title="Reset call counter for testing"
+                  onClick={handleAdminResetTrigger}
+                  className="text-[11px] text-gray-300 hover:text-cyan-400 flex items-center gap-1.5 font-mono transition-colors border border-white/15 hover:border-cyan-400/50 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/10 shadow-sm"
+                  title="Agency Admin Authorization Required to Reset Counter"
                 >
-                  Reset Counter (Tester)
+                  <Lock className="w-3 h-3 text-cyan-400" />
+                  <span>Admin Reset</span>
                 </button>
               )}
             </div>
           </div>
+
+          {/* Admin Reset Success Feedback Banner */}
+          {resetSuccessNotice && (
+            <div className="bg-emerald-950/70 border border-emerald-500/40 p-3 rounded-xl flex items-center gap-2 text-xs text-emerald-300 font-mono animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{resetSuccessNotice}</span>
+            </div>
+          )}
 
           {/* Call Controls Bar */}
           <div className="bg-[#05090F] border border-white/10 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1081,7 +1174,7 @@ export function ClientDemoPage() {
 
       {/* 9. DEMO CALL LIMIT REACHED MODAL */}
       {showLimitModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#0A121E] border-2 border-cyan-400 p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-5 relative shadow-2xl animate-in fade-in zoom-in-95">
             <button 
               onClick={() => setShowLimitModal(false)}
@@ -1099,26 +1192,28 @@ export function ClientDemoPage() {
                 Demo Test Call Limit Reached ({maxCalls}/{maxCalls} Calls Used)
               </h3>
               <p className="text-xs text-gray-300 leading-relaxed">
-                This client demo link for <strong className="text-white">{companyName}</strong> is protected by Quorik's <strong className="text-cyan-400">Anti-Spam Call Safeguard</strong> to prevent test call abuse.
+                This client demo preview for <strong className="text-white">{companyName}</strong> has completed its {maxCalls} allocated test calls.
               </p>
             </div>
 
-            <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl text-[11px] text-gray-300 space-y-1.5 font-mono">
+            <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-xs text-gray-300 space-y-2 font-mono">
               <div className="text-white font-bold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Unlock Full Production Client Plan
+                <Sparkles className="w-4 h-4 text-cyan-400" /> Unlock Full Production Client Plan
               </div>
-              <p className="text-gray-400">
-                To give {companyName} unlimited 24/7 AI Receptionist access, deploy a dedicated production instance with custom business line forwarding.
+              <p className="text-gray-400 leading-relaxed text-[11px]">
+                To give {companyName} unlimited 24/7 AI Receptionist access, deploy a dedicated production instance with custom business phone forwarding and automated CRM lead capture.
               </p>
             </div>
 
-            <div className="space-y-2.5 pt-2">
-              <button
-                onClick={resetDemoCounter}
-                className={`w-full py-3.5 text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition-transform hover:scale-102 ${t.btnBg}`}
+            {/* Client Conversion CTAs */}
+            <div className="space-y-2.5 pt-1">
+              <Link
+                to="/contact"
+                className={`w-full py-3.5 text-xs font-black uppercase tracking-widest rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-102 ${t.btnBg}`}
               >
-                Reset Demo Counter (Agency Admin Test)
-              </button>
+                <span>Upgrade to Production Plan</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
 
               <button
                 onClick={() => setShowLimitModal(false)}
@@ -1127,6 +1222,109 @@ export function ClientDemoPage() {
                 Close Notice
               </button>
             </div>
+
+            {/* Agency Admin Only Protected Access */}
+            <div className="pt-3 border-t border-white/10 text-center">
+              <button
+                onClick={handleAdminResetTrigger}
+                className="text-[11px] font-mono text-gray-400 hover:text-cyan-400 flex items-center justify-center gap-1.5 mx-auto transition-colors"
+                title="Only Quorik Agency Admins have permission to reset this demo limit"
+              >
+                <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Agency Admin: Reset Demo Counter</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 10. ADMIN AUTHENTICATION / MASTER PIN MODAL */}
+      {showAdminAuthModal && (
+        <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-lg flex items-center justify-center p-4">
+          <div className="bg-[#0D1524] border-2 border-cyan-500 p-6 sm:p-8 rounded-3xl max-w-sm w-full space-y-5 relative shadow-2xl animate-in fade-in zoom-in-95">
+            <button 
+              onClick={() => {
+                setShowAdminAuthModal(false);
+                setAdminAuthError('');
+                setAdminPasswordInput('');
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 mx-auto">
+              <Lock className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-black text-white">
+                Admin Authorization Required
+              </h3>
+              <p className="text-xs text-gray-400">
+                Only the Agency Admin has authority to reset demo test calls. Enter your Admin Master Password to proceed.
+              </p>
+            </div>
+
+            <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono text-gray-300 block">
+                  Admin Password:
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={adminPasswordInput}
+                    onChange={(e) => {
+                      setAdminPasswordInput(e.target.value);
+                      if (adminAuthError) setAdminAuthError('');
+                    }}
+                    placeholder="Enter admin password..."
+                    autoFocus
+                    className="w-full bg-[#05090F] border border-white/20 focus:border-cyan-400 text-white text-xs px-4 py-3 rounded-xl focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {adminAuthError && (
+                <div className="p-3 bg-red-950/70 border border-red-500/40 rounded-xl text-red-300 text-[11px] font-mono flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <span>{adminAuthError}</span>
+                </div>
+              )}
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={adminAuthLoading}
+                  className={`w-full py-3 text-xs font-black uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 ${t.btnBg} disabled:opacity-50`}
+                >
+                  {adminAuthLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verifying Authority...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-3.5 h-3.5" />
+                      <span>Verify & Reset Counter</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminAuthModal(false);
+                    setAdminAuthError('');
+                    setAdminPasswordInput('');
+                  }}
+                  className="w-full py-2 text-xs font-mono text-gray-400 hover:text-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

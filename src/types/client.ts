@@ -24,7 +24,7 @@ export interface ClientAccount {
   voiceMinutesUsed: number;
   monthlyTextChatLimit: number;
   textChatsUsed: number;
-  status: 'active' | 'limit_reached' | 'paused';
+  status: 'active' | 'limit_reached' | 'paused' | 'voice_paused' | 'chat_paused';
   voiceAgentName: string;
   voiceLanguage: string;
   totalConversations: number;

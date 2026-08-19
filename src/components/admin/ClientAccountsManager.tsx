@@ -82,6 +82,10 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
   };
 
   // Calculations for agency stats
+  const activeSelectedClient = selectedClientForHistory 
+    ? clients.find(c => c.id === selectedClientForHistory.id) || selectedClientForHistory
+    : null;
+
   const totalClients = clients.length;
   const activeClients = clients.filter(c => c.status === 'active').length;
   const totalMinutesUsed = clients.reduce((acc, c) => acc + c.voiceMinutesUsed, 0);
@@ -233,7 +237,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        showNotification(`🔄 Voice minutes reset to 0 for "${name}". Status set to Active.`);
+        showNotification(`🔄 Voice minutes and text chats reset to 0 for "${name}". Status set to Active.`);
         onRefresh();
       }
     } catch (err) {
@@ -241,16 +245,27 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
     }
   };
 
-  // Handle Toggle Status
-  const handleToggleStatus = async (id: string) => {
+  // Handle Set Status
+  const handleSetStatus = async (id: string, status: 'active' | 'voice_paused' | 'chat_paused' | 'paused') => {
     try {
       const token = localStorage.getItem('adminToken') || 'admin';
       const res = await fetch(`/api/clients/${id}/toggle-status`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ status })
       });
       if (res.ok) {
-        showNotification(`Client status updated.`);
+        const label = status === 'active' 
+          ? 'All On (Voice & Text 24/7)' 
+          : status === 'voice_paused' 
+          ? 'Voice Off (Text Chat Active)' 
+          : status === 'chat_paused'
+          ? 'Chat Off (Voice Calling Active)'
+          : 'All Off (Fully Paused)';
+        showNotification(`Client status updated to: ${label}`);
         onRefresh();
       }
     } catch (err) {
@@ -409,9 +424,11 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
             className="bg-[#05060A] border border-white/10 text-gray-300 text-xs font-mono px-3 py-2 rounded-xl focus:outline-none focus:border-brand-teal"
           >
             <option value="all">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="limit_reached">Limit Reached (100%)</option>
-            <option value="paused">Paused</option>
+            <option value="active">All On (Active)</option>
+            <option value="voice_paused">Voice Off (Chat Active)</option>
+            <option value="chat_paused">Chat Off (Voice Active)</option>
+            <option value="paused">All Off (Paused)</option>
+            <option value="limit_reached">Quota Limit Reached</option>
           </select>
 
           {/* Add New Client Button */}
@@ -440,20 +457,32 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
             // Status Badge Formatting
             let statusBadge = (
               <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold uppercase rounded-full flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Active Voice Portal
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> All On (Voice & Text)
               </span>
             );
 
-            if (client.status === 'limit_reached') {
+            if (client.status === 'voice_paused') {
               statusBadge = (
                 <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold uppercase rounded-full flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Limit Reached (Switched to Text Form)
+                  <AlertTriangle className="w-3 h-3" /> Voice Off (Chat Active)
+                </span>
+              );
+            } else if (client.status === 'chat_paused') {
+              statusBadge = (
+                <span className="px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-mono font-bold uppercase rounded-full flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Chat Off (Voice Active)
+                </span>
+              );
+            } else if (client.status === 'limit_reached') {
+              statusBadge = (
+                <span className="px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono font-bold uppercase rounded-full flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Quota Limit Reached
                 </span>
               );
             } else if (client.status === 'paused') {
               statusBadge = (
                 <span className="px-2.5 py-1 bg-gray-500/10 border border-gray-500/20 text-gray-400 text-[10px] font-mono font-bold uppercase rounded-full flex items-center gap-1">
-                  <PauseCircle className="w-3 h-3" /> Paused
+                  <PauseCircle className="w-3 h-3" /> All Off (Fully Paused)
                 </span>
               );
             }
@@ -661,29 +690,64 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                     </button>
                   </div>
 
-                  {/* Right Actions: Reset, Status Toggle, Edit, Delete */}
-                  <div className="flex items-center gap-2">
+                  {/* Right Actions: Reset, Status Control, Edit, Delete */}
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     <button
                       onClick={() => handleResetUsage(client.id, client.businessName)}
-                      title="Reset used minutes to 0 for a new billing cycle"
-                      className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 rounded-lg flex items-center gap-1 transition-colors"
+                      title="Reset used minutes and chats to 0 for a new billing cycle"
+                      className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 rounded-lg flex items-center gap-1 transition-colors text-xs font-mono"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Reset Minutes</span>
+                      <span className="hidden sm:inline">Reset Quotas</span>
                     </button>
 
-                    <button
-                      onClick={() => handleToggleStatus(client.id)}
-                      title={client.status === 'paused' ? 'Resume voice agent' : 'Pause voice agent'}
-                      className={`px-2.5 py-1.5 border rounded-lg flex items-center gap-1 transition-colors ${
-                        client.status === 'paused' 
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' 
-                          : 'bg-white/5 text-gray-400 hover:text-white border-white/10'
-                      }`}
-                    >
-                      {client.status === 'paused' ? <PlayCircle className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
-                      <span className="hidden sm:inline">{client.status === 'paused' ? 'Resume' : 'Pause'}</span>
-                    </button>
+                    {/* 4 Dedicated Status Controls: All On, Voice Off, Chat Off, All Off */}
+                    <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-0.5 rounded-lg text-xs font-mono">
+                      <button
+                        onClick={() => handleSetStatus(client.id, 'active')}
+                        title="All On: Enable Voice Calling and Text Chat 24/7"
+                        className={`px-2 py-1 rounded transition-colors ${
+                          client.status === 'active'
+                            ? 'bg-emerald-500 text-black font-bold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        All On
+                      </button>
+                      <button
+                        onClick={() => handleSetStatus(client.id, 'voice_paused')}
+                        title="Voice Off: Pause Voice Calling (Keep Text Chat Active)"
+                        className={`px-2 py-1 rounded transition-colors ${
+                          client.status === 'voice_paused'
+                            ? 'bg-amber-500 text-black font-bold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Voice Off
+                      </button>
+                      <button
+                        onClick={() => handleSetStatus(client.id, 'chat_paused')}
+                        title="Chat Off: Pause Text Chat (Keep Voice Calling Active)"
+                        className={`px-2 py-1 rounded transition-colors ${
+                          client.status === 'chat_paused'
+                            ? 'bg-blue-500 text-white font-bold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Chat Off
+                      </button>
+                      <button
+                        onClick={() => handleSetStatus(client.id, 'paused')}
+                        title="All Off: Pause Everything (Voice & Text Off)"
+                        className={`px-2 py-1 rounded transition-colors ${
+                          client.status === 'paused'
+                            ? 'bg-red-500 text-white font-bold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        All Off
+                      </button>
+                    </div>
 
                     <button
                       onClick={() => setEditingClient(client)}
@@ -994,9 +1058,11 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                     onChange={(e) => setEditingClient({ ...editingClient, status: e.target.value as any })}
                     className="w-full bg-[#05060A] border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-brand-teal"
                   >
-                    <option value="active">Active (Voice Portal Live)</option>
-                    <option value="limit_reached">Limit Reached (Auto-switch to Text)</option>
-                    <option value="paused">Paused</option>
+                    <option value="active">All On (Voice & Text 24/7)</option>
+                    <option value="voice_paused">Voice Off (AI Text Chat Active)</option>
+                    <option value="chat_paused">Chat Off (AI Voice Calling Active)</option>
+                    <option value="paused">All Off (Fully Paused)</option>
+                    <option value="limit_reached">Limit Reached (Text Only)</option>
                   </select>
                 </div>
                 <div>
@@ -1032,17 +1098,17 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
       )}
 
       {/* --- MODAL 3: VIEW VISITOR TRANSCRIPTS & LOGS MODAL --- */}
-      {selectedClientForHistory && (
+      {activeSelectedClient && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0A0E1A] border border-white/10 rounded-2xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex justify-between items-center pb-4 border-b border-white/10 shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-white font-display flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-brand-teal" />
-                  Visitor Voice Transcripts: {selectedClientForHistory.businessName}
+                  Visitor Voice Transcripts: {activeSelectedClient.businessName}
                 </h3>
                 <p className="text-xs text-gray-400 font-mono mt-0.5">
-                  Logged interactions between website visitors and {selectedClientForHistory.voiceAgentName}.
+                  Logged interactions between website visitors and {activeSelectedClient.voiceAgentName}.
                 </p>
               </div>
               <button onClick={() => setSelectedClientForHistory(null)} className="text-gray-400 hover:text-white">
@@ -1051,13 +1117,13 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
             </div>
 
             <div className="overflow-y-auto space-y-3 flex-1 pr-1 font-mono text-xs">
-              {selectedClientForHistory.conversations.length === 0 ? (
+              {activeSelectedClient.conversations.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p>No visitor voice conversations recorded yet for this client.</p>
                 </div>
               ) : (
-                selectedClientForHistory.conversations.map((conv) => (
+                activeSelectedClient.conversations.map((conv) => (
                   <div key={conv.id} className="p-4 bg-[#05060A] border border-white/5 rounded-xl space-y-2">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
@@ -1092,7 +1158,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
 
             <div className="pt-4 border-t border-white/10 flex justify-between items-center text-xs font-mono shrink-0">
               <span className="text-gray-400">
-                Total Used: <strong className="text-white">{Math.round(selectedClientForHistory.voiceMinutesUsed)} / {selectedClientForHistory.monthlyVoiceMinutesLimit} mins</strong>
+                Total Used: <strong className="text-white">{Math.round(activeSelectedClient.voiceMinutesUsed)} / {activeSelectedClient.monthlyVoiceMinutesLimit} mins</strong>
               </span>
               <button
                 onClick={() => setSelectedClientForHistory(null)}

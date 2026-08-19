@@ -1,33 +1,45 @@
 /**
  * Quorik Systems - Multi-Tenant AI Real-Time Voice & Chatbot Embedded Widget
- * Lightweight, zero-dependency, bidirectional Voice-to-Voice and Chat with live kill-switch
+ * Lightweight, zero-dependency, bidirectional Voice-to-Voice and Chat with live kill-switch & granular 4-tier status
  */
 (function() {
-  const currentScript = document.currentScript || document.querySelector('script[data-client-id]');
-  if (!currentScript) return;
+  const currentScript = document.currentScript || document.querySelector('script[data-client-id]') || document.querySelector('script[src*="widget.js"]');
 
-  const clientId = currentScript.getAttribute('data-client-id');
-  const serverOrigin = new URL(currentScript.src).origin;
-  const primaryColor = currentScript.getAttribute('data-accent') || '#00E5FF';
-
+  let clientId = currentScript ? currentScript.getAttribute('data-client-id') : null;
   if (!clientId) {
-    console.error('[Quorik AI] Error: data-client-id attribute is required on the script tag.');
-    return;
+    if (window.location.hostname.includes('quoriksystem') || window.location.hostname.includes('quorik')) {
+      clientId = 'quorik-google-ads';
+    } else {
+      clientId = window.location.hostname.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase() || 'quorik-google-ads';
+    }
   }
+
+  let serverOrigin = '';
+  if (currentScript && currentScript.src) {
+    try {
+      serverOrigin = new URL(currentScript.src).origin;
+    } catch (e) {
+      serverOrigin = window.location.origin;
+    }
+  } else {
+    serverOrigin = window.location.origin;
+  }
+
+  const primaryColor = (currentScript && currentScript.getAttribute('data-accent')) || '#00E5FF';
 
   // Inject Audio & Animation CSS
   const styleEl = document.createElement('style');
   styleEl.innerHTML = `
     #quorik-voice-widget-root {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
+      bottom: 16px;
+      right: 16px;
       z-index: 999999;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     #quorik-launcher {
-      width: 58px;
-      height: 58px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       background: linear-gradient(135deg, #0A0E1A, #161F38);
       border: 2px solid ${primaryColor};
@@ -45,12 +57,12 @@
     #quorik-modal {
       display: none;
       position: fixed;
-      bottom: 94px;
-      right: 24px;
-      width: 375px;
-      max-width: calc(100vw - 40px);
-      height: 530px;
-      max-height: calc(100vh - 120px);
+      bottom: 84px;
+      right: 16px;
+      width: 380px;
+      max-width: calc(100vw - 32px);
+      height: 540px;
+      max-height: calc(100vh - 100px);
       background: #0A0E1A;
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 20px;
@@ -88,6 +100,9 @@
   let isVoiceActive = false;
   let chatHistory = [];
   let isPausedOrLimited = false;
+  let isVoiceOnlyExhausted = false;
+  let isChatOnlyExhausted = false;
+  let isSupportViewOpen = false;
   let recognition = null;
   let isListening = false;
   let isSpeaking = false;
@@ -96,7 +111,7 @@
   let activeUtterances = [];
   let voiceStartTime = 0;
 
-  // Unlock Audio on user gesture (Crucial for mobile and modern Chrome/Safari autoplay policies)
+  // Unlock Audio on user gesture
   function unlockAudio() {
     if ('speechSynthesis' in window) {
       try {
@@ -126,34 +141,54 @@
 
   function getBestVoice(gender) {
     if (!('speechSynthesis' in window)) return { voice: null, pitch: 1 };
-    const voices = window.speechSynthesis.getVoices() || [];
-    const isFemale = gender === 'female';
+    const allVoices = window.speechSynthesis.getVoices() || [];
+    const englishVoices = allVoices.filter(v => {
+      const l = (v.lang || '').toLowerCase().replace(/_/g, '-');
+      return l.startsWith('en-') || l === 'en' || l.startsWith('eng');
+    });
 
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+    const pitch = isMobile ? 1.0 : (gender === 'female' ? 1.02 : 0.98);
+
+    if (englishVoices.length === 0) {
+      return { voice: null, pitch: pitch };
+    }
+
+    const isFemale = gender === 'female';
     if (isFemale) {
-      const match = voices.find(v => {
+      const match = englishVoices.find(v => {
         const n = v.name.toLowerCase();
-        return (n.includes('female') || n.includes('samantha') || n.includes('victoria') || n.includes('zira') || n.includes('karen') || n.includes('google us english') || n.includes('moira'));
-      }) || voices.find(v => v.lang && v.lang.startsWith('en'));
-      return { voice: match || null, pitch: 1.1 };
+        const isMale = n.includes('david') || n.includes('mark') || n.includes('george') || n.includes('guy') || n.includes('daniel') || n.includes('male') || n.includes('arthur') || n.includes('oliver');
+        if (isMale) return false;
+        return (n.includes('female') || n.includes('samantha') || n.includes('victoria') || n.includes('zira') || n.includes('karen') || n.includes('google us english') || n.includes('moira') || n.includes('aria') || n.includes('jenny'));
+      }) || englishVoices[0];
+      return { voice: match || null, pitch: pitch };
     } else {
-      const match = voices.find(v => {
+      const match = englishVoices.find(v => {
         const n = v.name.toLowerCase();
-        return (n.includes('david') || n.includes('mark') || n.includes('george') || n.includes('guy') || n.includes('daniel') || n.includes('male') || n.includes('arthur') || n.includes('richard') || n.includes('oliver'));
-      }) || voices.find(v => v.lang && v.lang.startsWith('en'));
-      return { voice: match || null, pitch: 0.88 };
+        return (n.includes('david') || n.includes('mark') || n.includes('george') || n.includes('guy') || n.includes('daniel') || n.includes('male') || n.includes('arthur') || n.includes('richard') || n.includes('oliver') || n.includes('google uk english male') || n.includes('google us english male'));
+      }) || englishVoices[0];
+      return { voice: match || null, pitch: pitch };
     }
   }
 
   function speakText(text, autoListenAfter = false) {
-    if (!text) return;
+    if (!text || isVoiceOnlyExhausted) return;
     
     // Stop any ongoing speech
     stopSpeaking();
 
     const clean = text
-      .replace(/\[CARD:[A-Z_]+\]/g, '')
+      .replace(/\[CARD:[A-Z_]+\]/gi, '')
+      .replace(/https?:\/\/\S+/gi, '')
+      .replace(/www\.\S+/gi, '')
       .replace(/[*#_`~]/g, '')
-      .replace(/https?:\/\/\S+/g, 'our website link')
+      .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
+      .replace(/\bQuorik\b/gi, 'Korik')
+      .replace(/\bAI\b/g, 'A.I.')
+      .replace(/\bROI\b/g, 'R.O.I.')
+      .replace(/\bCRM\b/g, 'C.R.M.')
+      .replace(/\s+/g, ' ')
       .trim();
 
     if (!clean) return;
@@ -164,83 +199,75 @@
       try {
         window.speechSynthesis.resume();
         const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.rate = 0.95;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+        utterance.rate = isMobile ? 1.0 : 0.98;
+        utterance.lang = 'en-US';
 
-        const { voice, pitch } = getBestVoice(clientData?.voiceGender || 'male');
-        utterance.pitch = pitch;
-        if (voice) {
-          utterance.voice = voice;
-          utterance.lang = voice.lang || 'en-US';
-        } else {
-          utterance.lang = 'en-US';
+        const gender = (clientData?.voiceAgentName || '').toLowerCase().includes('sarah') || (clientData?.voiceAgentName || '').toLowerCase().includes('elena') ? 'female' : 'male';
+        const bestVoiceObj = getBestVoice(gender);
+        if (bestVoiceObj.voice) {
+          utterance.voice = bestVoiceObj.voice;
         }
-
-        activeUtterances.push(utterance);
+        utterance.pitch = bestVoiceObj.pitch;
 
         utterance.onstart = () => {
           isSpeaking = true;
           updateUIStatus('speaking');
         };
 
-        const onEndCleanup = () => {
+        utterance.onend = () => {
           isSpeaking = false;
-          activeUtterances = activeUtterances.filter(u => u !== utterance);
+          activeUtterances = [];
           updateUIStatus('idle');
           if (autoListenAfter && isVoiceActive) {
-            startListening();
+            setTimeout(() => {
+              if (isVoiceActive && !isSpeaking && !isThinking) {
+                startListening();
+              }
+            }, 400);
           }
         };
 
-        utterance.onend = onEndCleanup;
-        utterance.onerror = (err) => {
-          console.warn('[Quorik Voice Widget] Speech error, falling back to audio stream:', err);
-          onEndCleanup();
-          fallbackTTS(clean, autoListenAfter);
+        utterance.onerror = () => {
+          isSpeaking = false;
+          activeUtterances = [];
+          updateUIStatus('idle');
         };
 
+        activeUtterances.push(utterance);
         window.speechSynthesis.speak(utterance);
         return;
-      } catch (e) {
-        console.warn('[Quorik Voice Widget] Speech synthesis failed:', e);
-        fallbackTTS(clean, autoListenAfter);
+      } catch (err) {
+        console.warn('[Quorik Voice Widget] SpeechSynthesis failed, falling back:', err);
       }
-    } else {
-      fallbackTTS(clean, autoListenAfter);
     }
-  }
 
-  function fallbackTTS(text, autoListenAfter = false) {
+    // Server-side / Audio element fallback
     try {
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
-      }
-      const encoded = encodeURIComponent(text.slice(0, 200));
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
-      currentAudio = new Audio(url);
-      currentAudio.playbackRate = 0.95;
-      
+      const encoded = encodeURIComponent(clean.slice(0, 180));
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
+      currentAudio = new Audio(ttsUrl);
       currentAudio.onplay = () => {
         isSpeaking = true;
         updateUIStatus('speaking');
       };
-      
-      const onEnd = () => {
+      currentAudio.onended = () => {
         isSpeaking = false;
         currentAudio = null;
         updateUIStatus('idle');
         if (autoListenAfter && isVoiceActive) {
-          startListening();
+          setTimeout(() => {
+            if (isVoiceActive && !isSpeaking && !isThinking) {
+              startListening();
+            }
+          }, 400);
         }
       };
-
-      currentAudio.onended = onEnd;
       currentAudio.onerror = () => {
         isSpeaking = false;
         currentAudio = null;
         updateUIStatus('idle');
       };
-
       currentAudio.play().catch(() => {
         isSpeaking = false;
         updateUIStatus('idle');
@@ -253,64 +280,80 @@
 
   function stopSpeaking() {
     isSpeaking = false;
+    activeUtterances = [];
     if ('speechSynthesis' in window) {
-      try { window.speechSynthesis.cancel(); } catch (e) {}
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
     }
     if (currentAudio) {
-      try { currentAudio.pause(); } catch (e) {}
+      try {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      } catch (e) {}
       currentAudio = null;
     }
-    activeUtterances = [];
     updateUIStatus('idle');
   }
 
-  function updateUIStatus(status) {
+  function updateUIStatus(state) {
     const vBtn = modal?.querySelector('#q-voice-toggle-btn');
     const statusText = modal?.querySelector('#q-voice-status-text');
     const banner = modal?.querySelector('#q-voice-active-banner');
-
     if (!vBtn) return;
 
-    if (status === 'listening') {
+    if (isVoiceOnlyExhausted) {
+      vBtn.classList.remove('quorik-pulse', 'quorik-speaking-glow');
+      vBtn.style.background = 'rgba(239,68,68,0.12)';
+      vBtn.style.borderColor = 'rgba(239,68,68,0.4)';
+      vBtn.style.color = '#F87171';
+      vBtn.title = 'Voice calling paused • 24/7 AI Text Chat is active.';
+      if (statusText) statusText.innerText = '🎙️ Voice calling paused • 24/7 Text Chat is active';
+      return;
+    }
+
+    if (state === 'listening') {
       vBtn.classList.add('quorik-pulse');
       vBtn.classList.remove('quorik-speaking-glow');
       vBtn.style.background = '#EF4444';
       vBtn.style.borderColor = '#EF4444';
-      vBtn.style.color = '#FFFFFF';
+      vBtn.style.color = '#fff';
       if (statusText) statusText.innerText = 'Listening to your voice... (Speak now)';
       if (banner) {
         banner.style.display = 'flex';
-        banner.innerHTML = `
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#EF4444;" class="quorik-pulse"></span>
-          <span style="font-size:11px;color:#FCA5A5;font-weight:600;">Live Voice Mode: Listening...</span>
-        `;
+        banner.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#EF4444;display:inline-block;" class="quorik-pulse"></span> <span style="color:#EF4444;font-weight:600;font-size:11px;">Listening... Speak now</span>';
       }
-    } else if (status === 'speaking') {
+    } else if (state === 'speaking') {
       vBtn.classList.remove('quorik-pulse');
       vBtn.classList.add('quorik-speaking-glow');
       vBtn.style.background = primaryColor;
       vBtn.style.borderColor = primaryColor;
-      vBtn.style.color = '#000000';
-      if (statusText) statusText.innerText = 'AI is speaking back...';
+      vBtn.style.color = '#000';
+      if (statusText) statusText.innerText = 'AI Agent is speaking...';
       if (banner) {
         banner.style.display = 'flex';
-        banner.innerHTML = `
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00E5FF;" class="quorik-pulse"></span>
-          <span style="font-size:11px;color:#00E5FF;font-weight:600;">Live Voice Mode: Speaking...</span>
-        `;
+        banner.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${primaryColor};display:inline-block;"></span> <span style="color:${primaryColor};font-weight:600;font-size:11px;">AI Speaking...</span>`;
       }
-    } else if (status === 'thinking') {
+    } else if (state === 'thinking') {
       vBtn.classList.remove('quorik-pulse', 'quorik-speaking-glow');
-      vBtn.style.background = `${primaryColor}33`;
-      vBtn.style.borderColor = primaryColor;
-      vBtn.style.color = primaryColor;
-      if (statusText) statusText.innerText = 'AI is formulating response...';
+      vBtn.style.background = 'rgba(255,255,255,0.1)';
+      vBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+      vBtn.style.color = '#94A3B8';
+      if (statusText) statusText.innerText = 'Processing response...';
+      if (banner) {
+        banner.style.display = 'flex';
+        banner.innerHTML = '<span style="color:#94A3B8;font-size:11px;">Processing...</span>';
+      }
     } else {
       vBtn.classList.remove('quorik-pulse', 'quorik-speaking-glow');
       vBtn.style.background = isVoiceActive ? `${primaryColor}22` : 'rgba(255,255,255,0.06)';
       vBtn.style.borderColor = isVoiceActive ? primaryColor : 'rgba(255,255,255,0.15)';
       vBtn.style.color = isVoiceActive ? primaryColor : '#94A3B8';
-      if (statusText) statusText.innerText = isVoiceActive ? 'Voice Mode Active • Tap mic to speak' : 'Type or tap mic to start voice';
+      if (isChatOnlyExhausted) {
+        if (statusText) statusText.innerText = '💬 Text chat paused • Tap microphone to speak voice-to-voice';
+      } else {
+        if (statusText) statusText.innerText = isVoiceActive ? 'Voice Mode Active • Tap mic to speak' : 'Type message or tap mic to speak';
+      }
       if (banner && !isVoiceActive) {
         banner.style.display = 'none';
       }
@@ -338,11 +381,42 @@
       const res = await fetch(`${serverOrigin}/api/clients/${clientId}`);
       if (!res.ok) {
         isPausedOrLimited = true;
+        isVoiceOnlyExhausted = false;
+        isChatOnlyExhausted = false;
         renderModal();
         return null;
       }
       clientData = await res.json();
-      isPausedOrLimited = (clientData.status === 'paused' || clientData.status === 'limit_reached');
+      
+      const vLimit = clientData.monthlyVoiceMinutesLimit || 300;
+      const vUsed = clientData.voiceMinutesUsed || 0;
+      const tLimit = clientData.monthlyTextChatLimit || 1000;
+      const tUsed = clientData.textChatsUsed || 0;
+
+      const vExhausted = (vUsed >= vLimit) || (clientData.status === 'voice_paused');
+      const tExhausted = (tUsed >= tLimit) || (clientData.status === 'chat_paused');
+
+      if (clientData.status === 'paused' || clientData.status === 'limit_reached' || (vExhausted && tExhausted)) {
+        isPausedOrLimited = true;
+        isVoiceOnlyExhausted = false;
+        isChatOnlyExhausted = false;
+      } else if (vExhausted && !tExhausted) {
+        // Voice Off, Chat Active
+        isPausedOrLimited = false;
+        isVoiceOnlyExhausted = true;
+        isChatOnlyExhausted = false;
+      } else if (!vExhausted && tExhausted) {
+        // Chat Off, Voice Active
+        isPausedOrLimited = false;
+        isVoiceOnlyExhausted = false;
+        isChatOnlyExhausted = true;
+      } else {
+        // All On
+        isPausedOrLimited = false;
+        isVoiceOnlyExhausted = false;
+        isChatOnlyExhausted = false;
+      }
+
       renderModal();
       return clientData;
     } catch (e) {
@@ -352,23 +426,152 @@
   }
 
   function renderModal() {
-    if (isPausedOrLimited) {
-      modal.innerHTML = `
-        <div style="padding:20px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#06080E;">
-          <div style="width:54px;height:54px;border-radius:50%;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
-          </div>
-          <h4 style="margin:0 0 8px;font-size:16px;font-weight:700;color:#fff;">Assistant Currently Paused</h4>
-          <p style="margin:0 0 16px;font-size:12px;color:#94A3B8;line-height:1.5;">This voice portal is currently paused by admin or has reached monthly quota.</p>
-          <a href="mailto:${clientData?.email || 'hello@quoriksystems.com'}" style="padding:8px 16px;background:rgba(255,255,255,0.05);color:#fff;border-radius:10px;text-decoration:none;font-size:11px;border:1px solid rgba(255,255,255,0.1);">Contact Support</a>
-        </div>
-      `;
-      return;
-    }
-
     const business = clientData?.businessName || 'Business Concierge';
     const agent = clientData?.voiceAgentName || 'Arthur (AI Concierge)';
 
+    // Support View Mode
+    if (isSupportViewOpen) {
+      modal.innerHTML = `
+        <div style="padding:16px;height:100%;display:flex;flex-direction:column;background:#0A0E1A;box-sizing:border-box;overflow-y:auto;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:28px;height:28px;border-radius:50%;background:${primaryColor}22;border:1px solid ${primaryColor}66;display:flex;align-items:center;justify-content:center;color:${primaryColor};font-size:13px;">
+                ⚙️
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#fff;">Quorik Priority Support</div>
+                <div style="font-size:10px;color:#94A3B8;">${business} Portal Assistance</div>
+              </div>
+            </div>
+            <button id="q-support-back-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#94A3B8;cursor:pointer;font-size:11px;padding:5px 10px;border-radius:8px;transition:all 0.2s;">
+              ✕ Close
+            </button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+            <a href="https://wa.me/923484742270?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#000;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:700;font-size:11px;box-shadow:0 4px 14px rgba(37,211,102,0.25);">
+              <span>💬 WhatsApp</span>
+            </a>
+            <a href="tel:+923484742270" style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:11px;">
+              <span>📞 Call Admin</span>
+            </a>
+          </div>
+
+          <form id="q-support-form" style="display:flex;flex-direction:column;gap:10px;flex:1;">
+            <div style="font-size:11px;color:#94A3B8;">Or submit an urgent ticket directly to Quorik Engineering:</div>
+            <input id="q-sup-name" type="text" placeholder="Your Name" required style="background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;outline:none;" />
+            <input id="q-sup-contact" type="text" placeholder="Your WhatsApp / Phone or Email" required style="background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;outline:none;" />
+            <textarea id="q-sup-message" placeholder="Describe your request (e.g. quota recharge, custom integration, or resume assistant)..." rows="3" required style="background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;outline:none;resize:none;font-family:inherit;line-height:1.4;"></textarea>
+            
+            <button type="submit" id="q-sup-submit-btn" style="background:${primaryColor};border:none;color:#000;font-weight:700;padding:10px;border-radius:8px;cursor:pointer;font-size:12px;margin-top:2px;transition:opacity 0.2s;">
+              Send Priority Ticket ➤
+            </button>
+            <div id="q-sup-feedback" style="font-size:11px;text-align:center;min-height:16px;"></div>
+          </form>
+
+          <div style="font-size:10px;color:#64748B;text-align:center;margin-top:8px;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">
+            Support: <a href="mailto:saramsardar456@gmail.com" style="color:${primaryColor};text-decoration:none;">saramsardar456@gmail.com</a>
+          </div>
+        </div>
+      `;
+
+      modal.querySelector('#q-support-back-btn').onclick = () => {
+        isSupportViewOpen = false;
+        renderModal();
+      };
+
+      const form = modal.querySelector('#q-support-form');
+      if (form) {
+        form.onsubmit = async (e) => {
+          e.preventDefault();
+          const btn = modal.querySelector('#q-sup-submit-btn');
+          const feedback = modal.querySelector('#q-sup-feedback');
+          const name = modal.querySelector('#q-sup-name')?.value || '';
+          const contact = modal.querySelector('#q-sup-contact')?.value || '';
+          const message = modal.querySelector('#q-sup-message')?.value || '';
+          
+          if (btn) {
+            btn.innerText = 'Submitting Ticket...';
+            btn.style.opacity = '0.7';
+          }
+          if (feedback) feedback.innerHTML = '';
+
+          try {
+            const res = await fetch(`${serverOrigin}/api/contacts`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: name,
+                email: contact.includes('@') ? contact : `support-${clientId}@quoriksystems.com`,
+                phone: contact.replace(/[^\d+]/g, '') || contact,
+                service: 'AI Voice Widget Quota & Activation Support',
+                message: `[Priority Support Ticket from Client: ${clientId} (${business})]\nContact: ${contact}\nUser: ${name}\n\nMessage:\n${message}`
+              })
+            });
+
+            if (res.ok) {
+              if (feedback) feedback.innerHTML = '<span style="color:#10B981;font-weight:600;">✅ Ticket submitted! Our support team will contact you shortly.</span>';
+              if (btn) btn.innerText = '✓ Ticket Submitted';
+              setTimeout(() => {
+                isSupportViewOpen = false;
+                renderModal();
+              }, 2500);
+            } else {
+              if (feedback) feedback.innerHTML = '<span style="color:#EF4444;">Could not submit ticket. Please click WhatsApp button above.</span>';
+              if (btn) {
+                btn.innerText = 'Send Priority Ticket ➤';
+                btn.style.opacity = '1';
+              }
+            }
+          } catch (err) {
+            if (feedback) feedback.innerHTML = '<span style="color:#EF4444;">Network error. Please click WhatsApp button above.</span>';
+            if (btn) {
+              btn.innerText = 'Send Priority Ticket ➤';
+              btn.style.opacity = '1';
+            }
+          }
+        };
+      }
+      return;
+    }
+
+    // Fully Paused or Both Quotas Reached Screen (All Off)
+    if (isPausedOrLimited) {
+      modal.innerHTML = `
+        <div style="padding:24px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#06080E;box-sizing:border-box;">
+          <div style="width:56px;height:56px;border-radius:50%;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+          </div>
+          <h4 style="margin:0 0 8px;font-size:16px;font-weight:700;color:#fff;">Assistant Currently Paused</h4>
+          <p style="margin:0 0 20px;font-size:12px;color:#94A3B8;line-height:1.5;max-width:280px;">
+            This voice and chat portal is currently paused by admin or has completed the monthly usage allowance.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:260px;">
+            <button id="q-contact-support-btn" style="padding:11px 16px;background:${primaryColor};color:#000;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 14px rgba(0,229,255,0.25);">
+              <span>🛠️ Contact Support & Upgrade</span>
+            </button>
+            <a href="https://wa.me/923484742270?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="padding:10px 16px;background:#25D366;color:#000;border-radius:10px;text-decoration:none;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <span>💬 WhatsApp Priority Desk</span>
+            </a>
+          </div>
+          <button id="q-close-paused-btn" style="margin-top:16px;background:none;border:none;color:#64748B;font-size:11px;cursor:pointer;padding:4px 8px;">
+            Close Window ✕
+          </button>
+        </div>
+      `;
+
+      modal.querySelector('#q-contact-support-btn').onclick = () => {
+        isSupportViewOpen = true;
+        renderModal();
+      };
+      modal.querySelector('#q-close-paused-btn').onclick = () => {
+        isOpen = false;
+        modal.style.display = 'none';
+      };
+      return;
+    }
+
+    // Active Chat Interface (All On / Voice Off / Chat Off)
     modal.innerHTML = `
       <div style="background:#0F1424;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:10px;">
@@ -377,33 +580,70 @@
           </div>
           <div>
             <div style="font-size:13px;font-weight:bold;color:#fff;">${business}</div>
-            <div style="font-size:11px;color:#00E5FF;display:flex;align-items:center;gap:4px;">
+            <div style="font-size:11px;color:${primaryColor};display:flex;align-items:center;gap:4px;">
               <span style="width:6px;height:6px;border-radius:50%;background:#10B981;display:inline-block;"></span> ${agent}
             </div>
           </div>
         </div>
-        <button id="q-close-btn" style="background:none;border:none;color:#94A3B8;cursor:pointer;font-size:18px;padding:4px;" title="Close">✕</button>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button id="q-header-support-btn" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;cursor:pointer;font-size:10px;padding:4px 8px;border-radius:6px;" title="Support & Quota Help">
+            🛠️ Support
+          </button>
+          <button id="q-close-btn" style="background:none;border:none;color:#94A3B8;cursor:pointer;font-size:18px;padding:4px;" title="Close">✕</button>
+        </div>
       </div>
+
+      ${isVoiceOnlyExhausted ? `
+        <div style="background:rgba(245,158,11,0.12);border-bottom:1px solid rgba(245,158,11,0.25);padding:7px 14px;font-size:11px;color:#FCD34D;display:flex;align-items:center;gap:6px;justify-content:center;">
+          <span>🎙️</span> <span>Voice calling is paused • <strong>24/7 AI Text Chat is active!</strong></span>
+        </div>
+      ` : ''}
+
+      ${isChatOnlyExhausted ? `
+        <div style="background:rgba(59,130,246,0.12);border-bottom:1px solid rgba(59,130,246,0.25);padding:7px 14px;font-size:11px;color:#93C5FD;display:flex;align-items:center;gap:6px;justify-content:center;">
+          <span>💬</span> <span>AI Text Chat is paused • <strong>Tap the mic for Voice-to-Voice Call!</strong></span>
+        </div>
+      ` : ''}
 
       <div id="q-voice-active-banner" style="display:none;background:rgba(0,229,255,0.08);border-bottom:1px solid rgba(0,229,255,0.15);padding:6px 14px;align-items:center;gap:8px;justify-content:center;">
       </div>
 
       <div id="q-chat-feed" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:13px;background:#070A12;">
         <div style="align-self:flex-start;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:14px;border-top-left-radius:2px;max-width:85%;line-height:1.4;">
-          Hello! I am the 24/7 AI Voice & Chat Concierge for <strong>${business}</strong>. You can speak to me or type below to book an appointment or ask about our services!
+          Hello! I am the 24/7 AI Concierge for <strong>${business}</strong>. ${
+            isChatOnlyExhausted 
+              ? 'Please tap the microphone button below to speak directly with our AI assistant.' 
+              : isVoiceOnlyExhausted 
+              ? 'Please type below to chat or request an appointment.' 
+              : 'You can speak to me or type below to book an appointment or ask about our services!'
+          }
         </div>
       </div>
 
       <div style="padding:6px 16px;background:#0A0E1A;border-top:1px solid rgba(255,255,255,0.05);font-size:10px;color:#64748B;" id="q-voice-status-text">
-        Tap the microphone to speak voice-to-voice or type below
+        ${
+          isChatOnlyExhausted 
+            ? '💬 Text chat paused • Tap microphone button to speak' 
+            : isVoiceOnlyExhausted 
+            ? '🎙️ Voice paused • Type below for instant AI assistance' 
+            : 'Tap microphone to speak voice-to-voice or type below'
+        }
       </div>
 
       <div style="padding:12px;background:#0F1424;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:8px;">
-        <button id="q-voice-toggle-btn" style="width:42px;height:42px;border-radius:50%;background:${primaryColor}22;border:1px solid ${primaryColor};color:${primaryColor};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;" title="Start Voice-to-Voice Call">
+        <button id="q-voice-toggle-btn" style="width:42px;height:42px;border-radius:50%;background:${isVoiceOnlyExhausted ? 'rgba(239,68,68,0.12)' : primaryColor + '22'};border:1px solid ${isVoiceOnlyExhausted ? 'rgba(239,68,68,0.4)' : primaryColor};color:${isVoiceOnlyExhausted ? '#F87171' : primaryColor};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;" title="${isVoiceOnlyExhausted ? 'Voice calling paused. Text chat is active.' : 'Start Voice-to-Voice Call'}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
         </button>
-        <input id="q-text-input" type="text" placeholder="Ask a question or request booking..." style="flex:1;background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:10px 14px;border-radius:20px;font-size:12px;outline:none;" />
-        <button id="q-send-btn" style="background:${primaryColor};border:none;color:#000;font-weight:bold;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <input 
+          id="q-text-input" 
+          type="text" 
+          placeholder="${isChatOnlyExhausted ? 'AI Text Chat paused • Tap mic button to speak' : 'Ask a question or request booking...'}" 
+          ${isChatOnlyExhausted ? 'disabled style="flex:1;background:#05060A;border:1px solid rgba(255,255,255,0.06);color:#64748B;padding:10px 14px;border-radius:20px;font-size:12px;outline:none;cursor:not-allowed;opacity:0.6;"' : 'style="flex:1;background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:10px 14px;border-radius:20px;font-size:12px;outline:none;"'} 
+        />
+        <button 
+          id="q-send-btn" 
+          ${isChatOnlyExhausted ? 'disabled style="background:rgba(255,255,255,0.1);border:none;color:#64748B;font-weight:bold;width:34px;height:34px;border-radius:50%;cursor:not-allowed;display:flex;align-items:center;justify-content:center;flex-shrink:0;"' : `style="background:${primaryColor};border:none;color:#000;font-weight:bold;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"`}
+        >
           ➤
         </button>
       </div>
@@ -418,21 +658,40 @@
       modal.style.display = 'none';
     };
 
+    const headerSupportBtn = modal.querySelector('#q-header-support-btn');
+    if (headerSupportBtn) {
+      headerSupportBtn.onclick = () => {
+        isSupportViewOpen = true;
+        renderModal();
+      };
+    }
+
     const textInput = modal.querySelector('#q-text-input');
     const sendBtn = modal.querySelector('#q-send-btn');
     const voiceBtn = modal.querySelector('#q-voice-toggle-btn');
 
-    sendBtn.onclick = () => {
-      unlockAudio();
-      handleSendChat(textInput.value, false);
-    };
-    textInput.onkeydown = (e) => {
-      if (e.key === 'Enter') {
+    if (!isChatOnlyExhausted) {
+      sendBtn.onclick = () => {
         unlockAudio();
         handleSendChat(textInput.value, false);
-      }
-    };
+      };
+      textInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          unlockAudio();
+          handleSendChat(textInput.value, false);
+        }
+      };
+    }
+
     voiceBtn.onclick = () => {
+      if (isVoiceOnlyExhausted) {
+        const statusText = modal.querySelector('#q-voice-status-text');
+        if (statusText) {
+          statusText.innerHTML = '<span style="color:#FCA5A5;">🎙️ Voice calling is paused. Please type below!</span>';
+        }
+        textInput.focus();
+        return;
+      }
       unlockAudio();
       toggleVoiceCall();
     };
@@ -452,7 +711,7 @@
     isThinking = true;
     updateUIStatus('thinking');
 
-    const isVoiceCall = Boolean(isVoiceMode || isVoiceActive);
+    const isVoiceCall = Boolean((isVoiceMode || isVoiceActive) && !isVoiceOnlyExhausted);
     let measuredSeconds = 0;
     if (isVoiceCall && voiceStartTime > 0) {
       measuredSeconds = Math.max(8, Math.round((Date.now() - voiceStartTime) / 1000));
@@ -476,7 +735,20 @@
       isThinking = false;
 
       if (!res.ok) {
-        appendMessage('ai', 'Service is currently unavailable. Please try again or email us.');
+        const errorData = await res.json().catch(() => ({}));
+        if (errorData.voiceQuotaExhausted) {
+          isVoiceOnlyExhausted = true;
+          appendMessage('ai', 'Voice calling is paused. I am happy to continue assisting you right here in text chat!');
+          updateUIStatus('idle');
+          return;
+        }
+        if (errorData.chatPaused) {
+          isChatOnlyExhausted = true;
+          appendMessage('ai', 'AI Text Chat is currently paused. Please tap the microphone button to start a voice call!');
+          updateUIStatus('idle');
+          return;
+        }
+        appendMessage('ai', 'Service is temporarily busy. Please try again or tap Support.');
         updateUIStatus('idle');
         return;
       }
@@ -490,8 +762,17 @@
         chatHistory.push({ role: 'user', parts: [{ text }] });
         chatHistory.push({ role: 'model', parts: [{ text: data.text }] });
 
-        // Only speak aloud if visitor used Voice mode (Microphone / Voice call)
-        if (isVoiceCall) {
+        // Increment chat log count in background
+        if (!isVoiceCall) {
+          fetch(`${serverOrigin}/api/clients/${clientId}/log-text-chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+          }).catch(() => {});
+        }
+
+        // Only speak aloud if visitor used Voice mode AND voice is not exhausted
+        if (isVoiceCall && !isVoiceOnlyExhausted) {
           speakText(data.text, true);
         } else {
           stopSpeaking();
@@ -511,7 +792,7 @@
     if (!feed) return;
     const div = document.createElement('div');
     if (sender === 'user') {
-      div.style.cssText = 'align-self:flex-end;background:#00E5FF;color:#000;font-weight:500;padding:10px 14px;border-radius:14px;border-top-right-radius:2px;max-width:85%;line-height:1.4;';
+      div.style.cssText = `align-self:flex-end;background:${primaryColor};color:#000;font-weight:500;padding:10px 14px;border-radius:14px;border-top-right-radius:2px;max-width:85%;line-height:1.4;`;
       div.innerText = text;
     } else {
       div.className = text === 'Thinking...' ? 'q-thinking' : '';
@@ -528,6 +809,7 @@
   }
 
   function startListening() {
+    if (isVoiceOnlyExhausted) return;
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       alert('Speech Recognition is not supported in this browser. Please use Google Chrome, Edge, or Safari.');
       return;
@@ -579,6 +861,8 @@
   }
 
   function toggleVoiceCall() {
+    if (isVoiceOnlyExhausted) return;
+
     if (isSpeaking) {
       stopSpeaking();
       return;

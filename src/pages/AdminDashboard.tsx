@@ -371,9 +371,13 @@ export function AdminDashboard() {
     }
   };
 
-  const fetchData = async () => {
+  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  const fetchData = async (silent: boolean = false) => {
     if (!isAuthenticated) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
+    setIsSyncing(true);
     setError(null);
     try {
       const [appRes, contRes, postRes, testRes, notifRes, auditRes, clientRes] = await Promise.all([
@@ -403,16 +407,25 @@ export function AdminDashboard() {
       setNotifications(Array.isArray(notifData) ? [...notifData].reverse() : []);
       setAudits(Array.isArray(auditData) ? [...auditData].reverse() : []);
       setClients(Array.isArray(clientData) ? clientData : []);
+      setLastSyncTime(new Date());
     } catch (err: any) {
-      setError(err.message || 'An error occurred while fetching data.');
+      if (!silent) {
+        setError(err.message || 'An error occurred while fetching data.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      setIsSyncing(false);
     }
   };
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchData();
+      fetchData(false);
+      // Auto-poll every 3.5s so interactions from client sites (e.g. quoriksystem.online) update instantly
+      const interval = setInterval(() => {
+        fetchData(true);
+      }, 3500);
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -465,21 +478,28 @@ export function AdminDashboard() {
             <h2 className="text-4xl md:text-5xl font-display font-bold text-white mb-4">Admin <span className="text-brand-teal">Dashboard</span></h2>
             <p className="text-gray-400 font-sans text-lg">Manage leads and appointments booked by Quorik AI.</p>
           </div>
-          <div className="flex gap-4">
-            <button onClick={exportToPDF} className="flex items-center gap-2 px-6 py-3 bg-brand-teal text-[#07090F] font-bold text-sm uppercase tracking-widest transition-colors hover:bg-brand-teal/90">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 font-mono text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Live Sync Active (3.5s)</span>
+            </div>
+            <button onClick={exportToPDF} className="flex items-center gap-2 px-5 py-3 bg-brand-teal text-[#07090F] font-bold text-xs uppercase tracking-widest transition-colors hover:bg-brand-teal/90">
               <Download className="w-4 h-4" />
               Export PDF
             </button>
-            <button onClick={fetchData} className="flex items-center gap-2 px-6 py-3 bg-white/5 text-white border border-white/10 hover:bg-white/10 font-bold text-sm uppercase tracking-widest transition-colors">
-              <RefreshCw className="w-4 h-4" />
-              Refresh Data
+            <button 
+              onClick={() => fetchData(false)} 
+              className="flex items-center gap-2 px-5 py-3 bg-white/5 text-white border border-white/10 hover:bg-white/10 font-bold text-xs uppercase tracking-widest transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 text-brand-teal ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
             </button>
             <button 
               onClick={() => {
                 localStorage.removeItem('adminToken');
                 setIsAuthenticated(false);
               }}
-              className="flex items-center gap-2 px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-bold text-sm uppercase tracking-widest transition-colors"
+              className="flex items-center gap-2 px-5 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-bold text-xs uppercase tracking-widest transition-colors"
             >
               Logout
             </button>

@@ -41,9 +41,9 @@ export function ROICalculator() {
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
           
           {/* Controls */}
-          <div className="space-y-10 bg-[#0F1423] p-8 md:p-10 rounded-[32px] border border-white/5">
+          <div className="space-y-8 sm:space-y-10 bg-[#0F1423] p-5 sm:p-8 md:p-10 rounded-[24px] sm:rounded-[32px] border border-white/5">
             <div>
-              <div className="flex justify-between mb-4">
+              <div className="flex justify-between mb-4 text-sm sm:text-base">
                 <label className="text-white font-semibold">Team Size</label>
                 <span className="text-brand-teal font-bold">{teamSize} employees</span>
               </div>
@@ -58,7 +58,7 @@ export function ROICalculator() {
             </div>
             
             <div>
-              <div className="flex justify-between mb-4">
+              <div className="flex justify-between mb-4 text-sm sm:text-base">
                 <label className="text-white font-semibold">Manual Task Hours (Per employee / week)</label>
                 <span className="text-brand-teal font-bold">{manualHours} hrs</span>
               </div>
@@ -74,7 +74,7 @@ export function ROICalculator() {
             </div>
             
             <div>
-              <div className="flex justify-between mb-4">
+              <div className="flex justify-between mb-4 text-sm sm:text-base">
                 <label className="text-white font-semibold">Average Hourly Rate</label>
                 <span className="text-brand-teal font-bold">{formatPrice(hourlyRate)}/hr</span>
               </div>
@@ -96,7 +96,7 @@ export function ROICalculator() {
               key={savedAnnualCost}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-brand-teal/20 to-brand-blue/10 border border-brand-teal/30 p-8 rounded-[32px] relative overflow-hidden"
+              className="bg-gradient-to-br from-brand-teal/20 to-brand-blue/10 border border-brand-teal/30 p-5 sm:p-8 rounded-[24px] sm:rounded-[32px] relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-brand-teal/20 rounded-full blur-2xl" />
               <div className="relative z-10">
@@ -104,12 +104,12 @@ export function ROICalculator() {
                   <div className="w-10 h-10 bg-brand-teal/20 rounded-full flex items-center justify-center">
                     <DollarSign className="w-5 h-5 text-brand-teal" />
                   </div>
-                  <h4 className="text-gray-300 font-semibold text-lg">Estimated Annual Savings</h4>
+                  <h4 className="text-gray-300 font-semibold text-base sm:text-lg">Estimated Annual Savings</h4>
                 </div>
-                <div className="text-4xl md:text-6xl font-bold text-white tracking-tighter mb-2">
+                <div className="text-3xl sm:text-5xl md:text-6xl font-bold text-white tracking-tighter mb-2 break-words">
                   {formatPrice(savedAnnualCost)}
                 </div>
-                <p className="text-gray-400 text-sm">Money returned straight to your bottom line.</p>
+                <p className="text-gray-400 text-xs sm:text-sm">Money returned straight to your bottom line.</p>
               </div>
             </motion.div>
 
@@ -118,18 +118,18 @@ export function ROICalculator() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-[#05060A] border border-white/5 p-8 rounded-[32px]"
+              className="bg-[#05060A] border border-white/5 p-5 sm:p-8 rounded-[24px] sm:rounded-[32px]"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-brand-blue/10 rounded-full flex items-center justify-center">
                   <Clock className="w-5 h-5 text-brand-blue" />
                 </div>
-                <h4 className="text-gray-300 font-semibold text-lg">Hours Reclaimed (Annual)</h4>
+                <h4 className="text-gray-300 font-semibold text-base sm:text-lg">Hours Reclaimed (Annual)</h4>
               </div>
-              <div className="text-4xl md:text-5xl font-bold text-white tracking-tighter mb-2">
+              <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tighter mb-2">
                 {savedAnnualHours.toLocaleString()} hrs
               </div>
-              <p className="text-gray-400 text-sm">Time unlocked for strategic, high-value work.</p>
+              <p className="text-gray-400 text-xs sm:text-sm">Time unlocked for strategic, high-value work.</p>
             </motion.div>
           </div>
 

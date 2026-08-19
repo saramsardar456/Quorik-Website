@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, Send, Bot, User, Volume2, VolumeX, Globe, Sparkles, TrendingUp, Award, DollarSign, Calendar } from 'lucide-react';
 import { ChatROICalculatorCard, ChatPortfolioCard, ChatPricingCard } from './chat/ChatCards';
+import { speakEnglishUtterance, sanitizeTextForSpeech } from '../utils/speechUtils';
 
 interface Message {
   id: string;
@@ -56,48 +57,28 @@ export function ChatbotWidget() {
       return;
     }
 
-    const cleanText = text.replace(/\[CARD:(ROI|PORTFOLIO|PRICING)\]/g, '').trim();
+    const cleanText = sanitizeTextForSpeech(text);
     if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
     const activeAccent = overrideAccent || accent;
-    
-    // Choose synth voice based on accent setting
-    const voices = window.speechSynthesis.getVoices();
-    if (activeAccent === 'uk') {
-      utterance.lang = 'en-GB';
-      const ukVoice = voices.find(v => v.lang.includes('GB') || v.name.includes('UK') || v.name.includes('Great Britain'));
-      if (ukVoice) utterance.voice = ukVoice;
-      utterance.pitch = 1.0;
-      utterance.rate = 1.0;
-    } else if (activeAccent === 'us') {
-      utterance.lang = 'en-US';
-      const usVoice = voices.find(v => v.lang.includes('US') || v.name.includes('United States') || v.name.includes('Samantha') || v.name.includes('Alex'));
-      if (usVoice) utterance.voice = usVoice;
-      utterance.pitch = 1.0;
-      utterance.rate = 1.05;
-    } else if (activeAccent === 'arthur') {
-      utterance.lang = 'en-US';
-      const arthurVoice = voices.find(v => v.name.includes('David') || v.name.includes('Mark') || v.name.includes('Arthur') || v.name.includes('Male') || v.name.includes('Daniel') || v.name.includes('George'));
-      if (arthurVoice) utterance.voice = arthurVoice;
-      utterance.pitch = 0.9;
-      utterance.rate = 0.95;
-    } else { // casual
-      utterance.lang = 'en-US';
-      utterance.pitch = 1.1;
-      utterance.rate = 1.1;
-    }
+    const gender = activeAccent === 'arthur' ? 'male' : 'female';
+    const preferredLocale = activeAccent === 'uk' ? 'en-GB' : 'en-US';
 
     if (msgId) setIsSpeaking(msgId);
 
-    utterance.onend = () => {
-      setIsSpeaking(null);
-    };
-    utterance.onerror = () => {
-      setIsSpeaking(null);
-    };
-
-    window.speechSynthesis.speak(utterance);
+    speakEnglishUtterance(cleanText, {
+      gender,
+      preferredLocale,
+      onStart: () => {
+        if (msgId) setIsSpeaking(msgId);
+      },
+      onEnd: () => {
+        setIsSpeaking(null);
+      },
+      onError: () => {
+        setIsSpeaking(null);
+      }
+    });
   };
 
   const handleAccentSelect = (selectedAccent: VoiceAccent) => {
@@ -210,7 +191,7 @@ export function ChatbotWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -218,8 +199,8 @@ export function ChatbotWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute bottom-20 right-0 w-[360px] sm:w-[420px] bg-[#0F1423] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden flex flex-col"
-            style={{ height: '620px', maxHeight: 'calc(100vh - 120px)' }}
+            className="fixed sm:absolute bottom-20 right-4 sm:right-0 w-[calc(100vw-2rem)] sm:w-[420px] max-w-[420px] bg-[#0F1423] border border-white/10 rounded-[20px] sm:rounded-[24px] shadow-2xl overflow-hidden flex flex-col"
+            style={{ height: '580px', maxHeight: 'calc(100vh - 100px)' }}
           >
             {/* Header */}
             <div className="bg-[#0A0E1A] border-b border-white/5 p-3.5 flex items-center justify-between relative z-20">

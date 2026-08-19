@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { Contact } from '../components/sections/Contact';
 import { VoiceDemo } from '../components/sections/VoiceDemo';
 import { SEO } from '../components/SEO';
+import { speakEnglishUtterance } from '../utils/speechUtils';
 
 interface Persona {
   id: string;
@@ -68,7 +69,6 @@ export function VoiceAgentPage() {
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
-  const audioFallbackRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -77,6 +77,11 @@ export function VoiceAgentPage() {
         window.speechSynthesis.getVoices();
       };
     }
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -86,183 +91,49 @@ export function VoiceAgentPage() {
         if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
           window.speechSynthesis.resume();
         }
-      }, 1200);
+      }, 1000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [isAiSpeaking]);
 
-  // Phonetic formatting for English speech engine clarity
-  const formatPhoneticsForSpeech = (text: string) => {
-    return text.replace(/Quorik/gi, "Korik");
-  };
-
-  const getBestVoiceForGender = (gender: 'female' | 'male'): { voice: SpeechSynthesisVoice | null, pitch: number } => {
-    if (!('speechSynthesis' in window)) return { voice: null, pitch: 1.0 };
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices || voices.length === 0) return { voice: null, pitch: gender === 'female' ? 1.15 : 0.88 };
-
-    if (gender === 'female') {
-      const femaleVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        const isMaleName = name.includes('david') || name.includes('mark') || name.includes('george') || name.includes('guy') || name.includes('stefan') || name.includes('ryan') || name.includes('ravi') || name.includes('male') || name.includes('pavel') || name.includes('alex');
-        if (isMaleName) return false;
-
-        return name.includes('zira') || 
-               name.includes('samantha') || 
-               name.includes('victoria') || 
-               name.includes('hazel') || 
-               name.includes('susan') || 
-               name.includes('karen') || 
-               name.includes('aria') || 
-               name.includes('jenny') || 
-               name.includes('sonia') || 
-               name.includes('catherine') || 
-               name.includes('eva') || 
-               name.includes('female') || 
-               name.includes('google us english') || 
-               name.includes('google uk english female') || 
-               name.includes('natural female') || 
-               name.includes('moira') || 
-               name.includes('veena') || 
-               name.includes('tessa');
-      });
-
-      if (femaleVoice) return { voice: femaleVoice, pitch: 1.05 };
-
-      const nonMaleVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        return !name.includes('david') && !name.includes('mark') && !name.includes('george') && !name.includes('guy') && !name.includes('male');
-      });
-
-      if (nonMaleVoice) return { voice: nonMaleVoice, pitch: 1.15 };
-      return { voice: null, pitch: 1.15 };
-    } else {
-      const maleVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        return name.includes('david') || name.includes('mark') || name.includes('george') || name.includes('guy') || name.includes('stefan') || name.includes('ryan') || name.includes('ravi') || name.includes('male') || name.includes('pavel') || name.includes('daniel');
-      });
-
-      return { voice: maleVoice || null, pitch: 0.88 };
-    }
-  };
-
   const unlockAudio = () => {
     if ('speechSynthesis' in window) {
       try {
         window.speechSynthesis.resume();
-        const silentUtterance = new SpeechSynthesisUtterance('');
-        silentUtterance.volume = 0;
-        window.speechSynthesis.speak(silentUtterance);
       } catch (e) {}
     }
   };
 
-  const playAudioFallback = (text: string) => {
-    try {
-      if (audioFallbackRef.current) {
-        audioFallbackRef.current.pause();
-      }
-      const cleanText = formatPhoneticsForSpeech(text);
-      const encoded = encodeURIComponent(cleanText.slice(0, 200));
-      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
-      
-      const audio = new Audio(ttsUrl);
-      audioFallbackRef.current = audio;
-      audio.playbackRate = 0.95;
-      audio.onplay = () => setIsAiSpeaking(true);
-      audio.onended = () => {
-        setIsAiSpeaking(false);
-        setIsPlayingSample(false);
-      };
-      audio.onerror = () => {
-        setIsAiSpeaking(false);
-        setIsPlayingSample(false);
-      };
-      audio.play().catch(() => {
-        setIsAiSpeaking(false);
-        setIsPlayingSample(false);
-      });
-    } catch (e) {
-      setIsAiSpeaking(false);
-      setIsPlayingSample(false);
-    }
-  };
-
-  // Speak AI Speech Response out loud
+  // Speak AI Speech Response out loud with strict English mobile optimization
   const speakText = (text: string) => {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e){}
     }
 
-    if (!('speechSynthesis' in window)) {
-      playAudioFallback(text);
-      return;
-    }
-
-    try {
-      window.speechSynthesis.resume();
-
-      const executeSpeak = () => {
-        try {
-          const { voice, pitch } = getBestVoiceForGender(selectedGender);
-          const textToSpeak = formatPhoneticsForSpeech(text);
-
-          const utterance = new SpeechSynthesisUtterance(textToSpeak);
-          utterance.rate = 0.92;
-          utterance.pitch = pitch;
-
-          if (voice) {
-            utterance.voice = voice;
-            utterance.lang = voice.lang;
-          } else {
-            utterance.lang = 'en-US';
-          }
-
-          if (typeof window !== 'undefined') {
-            (window as any)._speechUtterances = (window as any)._speechUtterances || [];
-            (window as any)._speechUtterances.push(utterance);
-          }
-
-          const cleanup = () => {
-            setIsAiSpeaking(false);
-            setIsPlayingSample(false);
-            if (typeof window !== 'undefined' && (window as any)._speechUtterances) {
-              (window as any)._speechUtterances = (window as any)._speechUtterances.filter((u: any) => u !== utterance);
-            }
-          };
-
-          utterance.onstart = () => setIsAiSpeaking(true);
-          utterance.onend = cleanup;
-          utterance.onerror = (err) => {
-            console.warn("Speech Synthesis error, switching to audio stream fallback:", err);
-            cleanup();
-            playAudioFallback(text);
-          };
-
-          window.speechSynthesis.speak(utterance);
-        } catch (err) {
-          console.error("Speech Exception:", err);
-          playAudioFallback(text);
-        }
-      };
-
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
-        setTimeout(executeSpeak, 60);
-      } else {
-        executeSpeak();
+    speakEnglishUtterance(text, {
+      gender: selectedGender,
+      preferredLocale: (currentPersona.engLocale as any) || 'en-US',
+      onStart: () => {
+        setIsAiSpeaking(true);
+        setIsPlayingSample(true);
+      },
+      onEnd: () => {
+        setIsAiSpeaking(false);
+        setIsPlayingSample(false);
+      },
+      onError: () => {
+        setIsAiSpeaking(false);
+        setIsPlayingSample(false);
       }
-    } catch (err) {
-      playAudioFallback(text);
-    }
+    });
   };
 
   const handlePlaySample = () => {
     unlockAudio();
     if (isPlayingSample) {
-      window.speechSynthesis.cancel();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       setIsPlayingSample(false);
       setIsAiSpeaking(false);
       return;

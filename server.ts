@@ -1,4 +1,3 @@
-import cors from 'cors';
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -149,7 +148,7 @@ export interface VoiceConversation {
   visitorPhone?: string;
   visitorEmail?: string;
   date: string;
-  createdAt: string;
+  createdAt?: string;
   durationSeconds: number;
   durationMinutes: number;
   topic: string;
@@ -233,7 +232,12 @@ function loadStore() {
       if (Array.isArray(data.notificationsLog)) { notificationsLog.length = 0; notificationsLog.push(...data.notificationsLog); }
       if (Array.isArray(data.auditsLog)) { auditsLog.length = 0; auditsLog.push(...data.auditsLog); }
       if (Array.isArray(data.posts) && data.posts.length > 0) { posts.length = 0; posts.push(...data.posts); }
-      if (Array.isArray(data.clientAccounts) && data.clientAccounts.length > 0) { clientAccounts.length = 0; clientAccounts.push(...data.clientAccounts); }
+      if (Array.isArray(data.clientAccounts) && data.clientAccounts.length > 0) { 
+        clientAccounts.length = 0; 
+        // Keep only real clients, strip out any legacy mock dummy data (client-1, client-2, etc.)
+        const realClients = data.clientAccounts.filter((c: any) => !['client-1', 'client-2', 'client-3', 'client-4'].includes(c.id));
+        clientAccounts.push(...realClients); 
+      }
       if (Array.isArray(data.testimonials) && data.testimonials.length > 0) { 
         const hasAvatars = data.testimonials.some((t: any) => t.avatar);
         if (hasAvatars) {
@@ -241,192 +245,53 @@ function loadStore() {
           testimonials.push(...data.testimonials); 
         }
       }
-      return;
     } catch (err) {
       console.error("Failed to read data_store.json:", err);
     }
   }
 
-  // Seed default client accounts if empty
-  if (clientAccounts.length === 0) {
-    clientAccounts.push(
-      {
-        id: "client-1",
-        clientName: "Dr. Sarah Khan",
-        businessName: "Apex Dental & Smile Clinic",
-        industry: "Healthcare & Dental",
-        email: "sarah@apexdentalcare.com",
-        phone: "+1 555-019-2834",
-        websiteUrl: "https://apexdental-demo.com",
-        tier: "starter",
-        monthlyVoiceMinutesLimit: 300,
-        voiceMinutesUsed: 242,
-        monthlyTextChatLimit: 1000,
-        textChatsUsed: 420,
-        status: "active",
-        voiceAgentName: "Sarah (Dental Concierge)",
-        voiceLanguage: "English & Urdu",
-        totalConversations: 128,
-        leadsCaptured: 42,
-        lastActive: new Date(Date.now() - 15 * 60000).toISOString(),
-        conversations: [
-          {
-            id: "conv-1",
-            visitorName: "Emily Watson",
-            visitorPhone: "+1 555-234-5678",
-            date: new Date(Date.now() - 45 * 60000).toISOString(),
-            durationSeconds: 118,
-            durationMinutes: 1.97,
-            topic: "Emergency Root Canal & Pricing",
-            transcriptSummary: "Visitor inquired about Saturday emergency slots and teeth whitening rates. Voice agent qualified lead and booked consultation for Saturday at 11:30 AM.",
-            leadCaptured: true,
-            status: "completed"
-          },
-          {
-            id: "conv-2",
-            visitorName: "Michael Chang",
-            visitorPhone: "+1 555-876-5432",
-            date: new Date(Date.now() - 180 * 60000).toISOString(),
-            durationSeconds: 84,
-            durationMinutes: 1.4,
-            topic: "Invisalign Consultation",
-            transcriptSummary: "Visitor asked about insurance coverage for adult Invisalign braces. Agent verified in-network status and forwarded booking link.",
-            leadCaptured: true,
-            status: "completed"
-          },
-          {
-            id: "conv-3",
-            visitorName: "Anonymous Visitor (Web)",
-            date: new Date(Date.now() - 360 * 60000).toISOString(),
-            durationSeconds: 42,
-            durationMinutes: 0.7,
-            topic: "Clinic Opening Hours",
-            transcriptSummary: "Asked about Sunday operating hours and location parking details.",
-            leadCaptured: false,
-            status: "completed"
-          }
-        ],
-        createdAt: new Date(Date.now() - 30 * 86400000).toISOString()
-      },
-      {
-        id: "client-2",
-        clientName: "Tariq Mahmood",
-        businessName: "Vance Luxury Real Estate Group",
-        industry: "Real Estate & Estates",
-        email: "tariq@vancerealestate.com",
-        phone: "+92 300 8472910",
-        websiteUrl: "https://vancerealestate.com",
-        tier: "growth",
-        monthlyVoiceMinutesLimit: 1200,
-        voiceMinutesUsed: 890,
-        monthlyTextChatLimit: 5000,
-        textChatsUsed: 2150,
-        status: "active",
-        voiceAgentName: "Arthur (Executive Broker)",
-        voiceLanguage: "English & Roman Urdu",
-        totalConversations: 430,
-        leadsCaptured: 89,
-        lastActive: new Date(Date.now() - 5 * 60000).toISOString(),
-        conversations: [
-          {
-            id: "conv-4",
-            visitorName: "Zubair Ahmed",
-            visitorPhone: "+92 321 9876543",
-            date: new Date(Date.now() - 30 * 60000).toISOString(),
-            durationSeconds: 165,
-            durationMinutes: 2.75,
-            topic: "DHA Phase 6 Luxury Villa Viewing",
-            transcriptSummary: "Caller asked for floor plans and price brackets for 1-Kanal villas. Agent qualified budget ($450,000+) and scheduled VIP property tour for Sunday afternoon.",
-            leadCaptured: true,
-            status: "completed"
-          },
-          {
-            id: "conv-5",
-            visitorName: "David Sterling",
-            visitorPhone: "+1 415-555-0199",
-            date: new Date(Date.now() - 120 * 60000).toISOString(),
-            durationSeconds: 140,
-            durationMinutes: 2.33,
-            topic: "Penthouse Investment ROI",
-            transcriptSummary: "Overseas investor asked about rental yields and title deed registration. Agent synced WhatsApp brochure directly to client CRM.",
-            leadCaptured: true,
-            status: "completed"
-          }
-        ],
-        createdAt: new Date(Date.now() - 45 * 86400000).toISOString()
-      },
-      {
-        id: "client-3",
-        clientName: "Elena Rostova",
-        businessName: "Luxe eCommerce & Beauty Studio",
-        industry: "E-commerce & Retail",
-        email: "elena@luxestudio.com",
-        phone: "+1 555-432-1098",
-        websiteUrl: "https://luxestudio-demo.com",
-        tier: "starter",
-        monthlyVoiceMinutesLimit: 300,
-        voiceMinutesUsed: 300,
-        monthlyTextChatLimit: 1000,
-        textChatsUsed: 1000,
-        status: "limit_reached",
-        voiceAgentName: "Zephyr (Style Concierge)",
-        voiceLanguage: "English",
-        totalConversations: 195,
-        leadsCaptured: 64,
-        lastActive: new Date(Date.now() - 60 * 60000).toISOString(),
-        conversations: [
-          {
-            id: "conv-6",
-            visitorName: "Sophie Miller",
-            visitorPhone: "+1 555-678-9012",
-            date: new Date(Date.now() - 70 * 60000).toISOString(),
-            durationSeconds: 95,
-            durationMinutes: 1.58,
-            topic: "Return Policy & Skin Shade Match",
-            transcriptSummary: "Visitor requested shade recommendation and return window information. Reached 300 min limit. System cleanly switched widget to instant chat form.",
-            leadCaptured: true,
-            status: "completed"
-          }
-        ],
-        createdAt: new Date(Date.now() - 25 * 86400000).toISOString()
-      },
-      {
-        id: "client-4",
-        clientName: "Marcus Vance",
-        businessName: "Horizon Global Logistics Hub",
-        industry: "Logistics & Supply Chain",
-        email: "marcus@horizonlogistics.com",
-        phone: "+1 800-555-0144",
-        websiteUrl: "https://horizonlogistics-hub.com",
-        tier: "enterprise",
-        monthlyVoiceMinutesLimit: 4000,
-        voiceMinutesUsed: 2850,
-        monthlyTextChatLimit: 25000,
-        textChatsUsed: 8400,
-        status: "active",
-        voiceAgentName: "Horizon Ops Voice AI",
-        voiceLanguage: "Multi-lingual (EN/UR/AR)",
-        totalConversations: 1120,
-        leadsCaptured: 240,
-        lastActive: new Date(Date.now() - 2 * 60000).toISOString(),
-        conversations: [
-          {
-            id: "conv-7",
-            visitorName: "Captain Ray O'Connor",
-            visitorPhone: "+44 20 7946 0912",
-            date: new Date(Date.now() - 10 * 60000).toISOString(),
-            durationSeconds: 190,
-            durationMinutes: 3.17,
-            topic: "Air Freight Manifest Tracking",
-            transcriptSummary: "Queried live container status for customs clearance at Heathrow. Voice agent fetched database webhook and reported live ETA.",
-            leadCaptured: true,
-            status: "completed"
-          }
-        ],
-        createdAt: new Date(Date.now() - 60 * 86400000).toISOString()
-      }
-    );
+  // Ensure quorik-google-ads client is present as the primary client
+  const hasQuorikClient = clientAccounts.some(c => c.id === 'quorik-google-ads');
+  if (!hasQuorikClient) {
+    clientAccounts.unshift({
+      id: "quorik-google-ads",
+      clientName: "Saram Sardar",
+      businessName: "Quorik Google Ads",
+      industry: "Google Ads & Performance Marketing",
+      email: "saramsardar456@gmail.com",
+      phone: "+92 348 4742270",
+      websiteUrl: "https://quoriksystem.online",
+      tier: "starter",
+      monthlyVoiceMinutesLimit: 300,
+      voiceMinutesUsed: 0,
+      monthlyTextChatLimit: 1000,
+      textChatsUsed: 1,
+      status: "active",
+      voiceAgentName: "Arthur (Executive Concierge)",
+      voiceLanguage: "English Only",
+      totalConversations: 1,
+      leadsCaptured: 1,
+      lastActive: new Date().toISOString(),
+      conversations: [
+        {
+          id: "conv-init-quorik",
+          visitorName: "Website Visitor",
+          date: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          durationSeconds: 30,
+          durationMinutes: 0.5,
+          topic: "Google Ads Inquiry & Setup",
+          transcriptSummary: "Visitor inquired regarding high-converting Google Ads campaigns and AI voice receptionist integration.",
+          leadCaptured: true,
+          status: "completed"
+        }
+      ],
+      createdAt: new Date().toISOString()
+    });
   }
+
+  // Clean and save store
+  saveStore();
 
   // Seed default entries if initial store file doesn't exist
   if (auditsLog.length === 0) {
@@ -781,10 +646,18 @@ const authenticateToken = (req: express.Request, res: express.Response, next: ex
 async function startServer() {
   loadStore();
   const app = express();
-
-  // ADD THIS LINE RIGHT HERE:
-  app.use(cors({ origin: '*' }));
   const PORT = 3000;
+
+  // Cross-Origin Resource Sharing (CORS) Middleware for external client website embed scripts (e.g. quoriksystem.online)
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, data-client-id, client-id, Origin, Accept");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
 
   app.use(express.json({
     verify: (req: any, _res, buf) => {
@@ -1137,25 +1010,37 @@ ${message}
 
   app.get("/api/clients/:id", (req, res) => {
     const { id } = req.params;
-    let client = clientAccounts.find(c => c.id === id);
+    const cleanId = String(id).trim().toLowerCase();
+    let client = clientAccounts.find(c => 
+      c.id.toLowerCase() === cleanId ||
+      c.id.replace(/[-_]/g, '').toLowerCase() === cleanId.replace(/[-_]/g, '') ||
+      c.businessName.toLowerCase() === cleanId ||
+      (c.websiteUrl && c.websiteUrl.toLowerCase().includes(cleanId)) ||
+      cleanId.includes(c.id.toLowerCase())
+    );
+
+    if (!client && (cleanId.includes('quorik') || cleanId.includes('system'))) {
+      client = clientAccounts.find(c => c.id === 'quorik-google-ads');
+    }
+
     if (!client) {
       // Auto-provision client profile if not yet created
       client = {
         id,
         clientName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         businessName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        industry: "Digital Services & Marketing",
+        industry: "Google Ads & Performance Marketing",
         email: `contact@${id.toLowerCase()}.com`,
         phone: "+1 (555) 019-2834",
         websiteUrl: `https://${id.toLowerCase()}.com`,
-        tier: "growth",
-        monthlyVoiceMinutesLimit: 1200,
+        tier: "starter",
+        monthlyVoiceMinutesLimit: 300,
         voiceMinutesUsed: 0,
-        monthlyTextChatLimit: 5000,
+        monthlyTextChatLimit: 1000,
         textChatsUsed: 0,
         status: "active",
         voiceAgentName: "Arthur (Executive Concierge)",
-        voiceLanguage: "English",
+        voiceLanguage: "English Only",
         totalConversations: 0,
         leadsCaptured: 0,
         lastActive: new Date().toISOString(),
@@ -1351,13 +1236,16 @@ ${message}
 
     // Check if 100% voice limit is reached
     if (client.voiceMinutesUsed >= client.monthlyVoiceMinutesLimit) {
-      client.status = "limit_reached";
+      // Only set status to limit_reached if text chats are also exhausted!
+      if (client.textChatsUsed >= (client.monthlyTextChatLimit || 1000)) {
+        client.status = "limit_reached";
+      }
       // Send automated notification alert to client with direct upgrade prompt
       sendWhatsAppSMSNotification({
         recipientName: client.clientName,
         phone: client.phone,
         channel: "manual",
-        messageText: `⚠️ [Quorik Voice Alert] ${client.businessName} has reached 100% of their monthly voice minutes (${client.monthlyVoiceMinutesLimit} mins). Voice widget has auto-switched to instant lead chat. Upgrade to Growth (1,200 mins) to re-enable voice immediately.`
+        messageText: `⚠️ [Quorik Voice Alert] ${client.businessName} has reached 100% of their monthly voice minutes (${client.monthlyVoiceMinutesLimit} mins). Voice calling is temporarily paused while 24/7 AI Text Chat remains fully active. Upgrade to Growth (1,200 mins) to re-enable voice immediately.`
       });
     }
 
@@ -1380,7 +1268,7 @@ ${message}
     res.json({ success: true, client });
   });
 
-  // Toggle client status (active / paused)
+  // Toggle client status (active / voice_paused / paused)
   app.post("/api/clients/:id/toggle-status", authenticateToken, (req, res) => {
     const { id } = req.params;
     const client = clientAccounts.find(c => c.id === id);
@@ -1388,7 +1276,11 @@ ${message}
       return res.status(404).json({ error: "Client not found" });
     }
 
-    client.status = client.status === "paused" ? "active" : "paused";
+    if (req.body && req.body.status) {
+      client.status = req.body.status;
+    } else {
+      client.status = client.status === "paused" ? "active" : "paused";
+    }
     saveStore();
     res.json({ success: true, client });
   });
@@ -1582,7 +1474,7 @@ Respond ONLY in valid JSON format matching this exact schema:
 
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, history, accent, clientId, isVoice, isVoiceMode, durationSeconds, visitorName, visitorPhone } = req.body;
+      const { message, history, accent, clientId, isVoice, isVoiceMode, durationSeconds, visitorName, visitorPhone, visitorEmail } = req.body;
       
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -1590,39 +1482,90 @@ Respond ONLY in valid JSON format matching this exact schema:
       }
 
       // Check if this chat request comes from an embedded client portal
-      let clientTarget = null;
+      let clientTarget: any = null;
+      const originHeader = String(req.headers.origin || req.headers.referer || '').toLowerCase();
+
       if (clientId) {
-        clientTarget = clientAccounts.find(c => c.id === clientId);
-        if (!clientTarget) {
-          // Auto-register client profile if new
-          clientTarget = {
-            id: clientId,
-            clientName: clientId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-            businessName: clientId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-            industry: "Digital Services & Marketing",
-            email: `contact@${clientId.toLowerCase()}.com`,
-            phone: "+1 (555) 019-2834",
-            websiteUrl: `https://${clientId.toLowerCase()}.com`,
-            tier: "growth",
-            monthlyVoiceMinutesLimit: 1200,
-            voiceMinutesUsed: 0,
-            monthlyTextChatLimit: 5000,
-            textChatsUsed: 0,
-            status: "active",
-            voiceAgentName: "Arthur (Executive Concierge)",
-            voiceLanguage: "English",
-            totalConversations: 0,
-            leadsCaptured: 0,
-            lastActive: new Date().toISOString(),
-            conversations: [],
-            createdAt: new Date().toISOString()
-          };
-          clientAccounts.unshift(clientTarget);
-          saveStore();
-        } else {
-          if (clientTarget.status === 'paused' || clientTarget.status === 'limit_reached') {
-            return res.status(403).json({ error: "This client voice and chat portal is currently paused by admin or limit reached." });
-          }
+        const cleanId = String(clientId).trim().toLowerCase();
+        clientTarget = clientAccounts.find(c => 
+          c.id.toLowerCase() === cleanId ||
+          c.id.replace(/[-_]/g, '').toLowerCase() === cleanId.replace(/[-_]/g, '') ||
+          c.businessName.toLowerCase() === cleanId ||
+          (c.websiteUrl && c.websiteUrl.toLowerCase().includes(cleanId)) ||
+          cleanId.includes(c.id.toLowerCase())
+        );
+      }
+
+      // Domain & Referer fallback lookup (e.g. from quoriksystem.online)
+      if (!clientTarget && originHeader) {
+        clientTarget = clientAccounts.find(c => {
+          if (!c.websiteUrl) return false;
+          const cleanWeb = c.websiteUrl.replace(/https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+          return originHeader.includes(cleanWeb) || (cleanWeb.includes('quoriksystem') && originHeader.includes('quoriksystem'));
+        });
+      }
+
+      // Special fallback for quoriksystem.online domain
+      if (!clientTarget && (originHeader.includes('quoriksystem') || (clientId && String(clientId).toLowerCase().includes('quorik')))) {
+        clientTarget = clientAccounts.find(c => c.id === 'quorik-google-ads');
+      }
+
+      if (clientId && !clientTarget) {
+        // Auto-register client profile if new
+        const cleanId = String(clientId).trim();
+        clientTarget = {
+          id: cleanId,
+          clientName: cleanId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          businessName: cleanId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          industry: "Google Ads & Performance Marketing",
+          email: `contact@${cleanId.toLowerCase()}.com`,
+          phone: "+1 (555) 019-2834",
+          websiteUrl: originHeader ? String(req.headers.origin || req.headers.referer) : `https://${cleanId.toLowerCase()}.com`,
+          tier: "starter",
+          monthlyVoiceMinutesLimit: 300,
+          voiceMinutesUsed: 0,
+          monthlyTextChatLimit: 1000,
+          textChatsUsed: 0,
+          status: "active",
+          voiceAgentName: "Arthur (Executive Concierge)",
+          voiceLanguage: "English Only",
+          totalConversations: 0,
+          leadsCaptured: 0,
+          lastActive: new Date().toISOString(),
+          conversations: [],
+          createdAt: new Date().toISOString()
+        };
+        clientAccounts.unshift(clientTarget);
+        saveStore();
+      }
+
+      if (clientTarget) {
+        if (clientTarget.status === 'paused') {
+          return res.status(403).json({ error: "This client portal is currently paused by administrator." });
+        }
+        if (clientTarget.status === 'limit_reached') {
+          return res.status(403).json({ error: "Monthly voice and text quotas are reached for this client account. Please contact support." });
+        }
+
+        const isVoiceCall = Boolean(isVoice || isVoiceMode);
+        const isVoiceLimitReached = (clientTarget.voiceMinutesUsed >= clientTarget.monthlyVoiceMinutesLimit) || clientTarget.status === 'voice_paused';
+        const isTextLimitReached = (clientTarget.textChatsUsed >= (clientTarget.monthlyTextChatLimit || 1000)) || clientTarget.status === 'chat_paused';
+
+        if (isVoiceCall && isVoiceLimitReached) {
+          return res.status(403).json({ 
+            error: "Monthly voice call minutes quota reached for this account. 24/7 AI Text Chat remains fully active.",
+            voiceQuotaExhausted: true 
+          });
+        }
+
+        if (!isVoiceCall && isTextLimitReached) {
+          return res.status(403).json({ 
+            error: clientTarget.status === 'chat_paused' 
+              ? "AI Text Chat is currently paused for this portal. Voice calling is 100% active."
+              : "Monthly text chat quota reached for this account. Please contact support to upgrade.",
+            textQuotaExhausted: true,
+            chatPaused: clientTarget.status === 'chat_paused'
+          });
         }
       }
 

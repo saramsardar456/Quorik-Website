@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send, Loader2, Sparkles, Clock } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { speakEnglishUtterance, sanitizeTextForSpeech } from '../../utils/speechUtils';
 
 export function VoiceDemo() {
   const [activePersonaId] = useState<string>('us-executive');
@@ -37,7 +38,6 @@ export function VoiceDemo() {
 
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
-  const audioFallbackRef = useRef<HTMLAudioElement | null>(null);
 
   const activeVoiceName = selectedGender === 'female' ? 'Zephyr' : 'Arthur';
 
@@ -51,9 +51,6 @@ export function VoiceDemo() {
     return () => {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-      }
-      if (audioFallbackRef.current) {
-        audioFallbackRef.current.pause();
       }
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (recognitionRef.current) {
@@ -69,96 +66,18 @@ export function VoiceDemo() {
         if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
           window.speechSynthesis.resume();
         }
-      }, 1200);
+      }, 1000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [isAiSpeaking]);
 
-  const formatPhoneticsForSpeech = (text: string) => {
-    return text.replace(/Quorik/gi, "Korik");
-  };
-
-  const getBestVoiceForGender = (gender: 'female' | 'male'): { voice: SpeechSynthesisVoice | null, pitch: number } => {
-    if (!('speechSynthesis' in window)) return { voice: null, pitch: 1.0 };
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices || voices.length === 0) return { voice: null, pitch: gender === 'female' ? 1.15 : 0.88 };
-
-    if (gender === 'female') {
-      const femaleVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        const isMaleName = name.includes('david') || name.includes('mark') || name.includes('george') || name.includes('guy') || name.includes('stefan') || name.includes('ryan') || name.includes('ravi') || name.includes('male') || name.includes('pavel') || name.includes('alex');
-        if (isMaleName) return false;
-
-        return name.includes('zira') || 
-               name.includes('samantha') || 
-               name.includes('victoria') || 
-               name.includes('hazel') || 
-               name.includes('susan') || 
-               name.includes('karen') || 
-               name.includes('aria') || 
-               name.includes('jenny') || 
-               name.includes('sonia') || 
-               name.includes('catherine') || 
-               name.includes('eva') || 
-               name.includes('female') || 
-               name.includes('google us english') || 
-               name.includes('google uk english female') || 
-               name.includes('natural female') || 
-               name.includes('moira') || 
-               name.includes('veena') || 
-               name.includes('tessa');
-      });
-
-      if (femaleVoice) return { voice: femaleVoice, pitch: 1.05 };
-
-      const nonMaleVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        return !name.includes('david') && !name.includes('mark') && !name.includes('george') && !name.includes('guy') && !name.includes('male');
-      });
-
-      if (nonMaleVoice) return { voice: nonMaleVoice, pitch: 1.15 };
-      return { voice: null, pitch: 1.15 };
-    } else {
-      const maleVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        return name.includes('david') || name.includes('mark') || name.includes('george') || name.includes('guy') || name.includes('stefan') || name.includes('ryan') || name.includes('ravi') || name.includes('male') || name.includes('pavel') || name.includes('daniel');
-      });
-
-      return { voice: maleVoice || null, pitch: 0.88 };
-    }
-  };
-
   const unlockAudio = () => {
     if ('speechSynthesis' in window) {
       try {
         window.speechSynthesis.resume();
-        const silentUtterance = new SpeechSynthesisUtterance('');
-        silentUtterance.volume = 0;
-        window.speechSynthesis.speak(silentUtterance);
       } catch (e) {}
-    }
-  };
-
-  const playAudioFallback = (text: string) => {
-    try {
-      if (audioFallbackRef.current) {
-        audioFallbackRef.current.pause();
-      }
-      const cleanText = formatPhoneticsForSpeech(text);
-      const encoded = encodeURIComponent(cleanText.slice(0, 200));
-      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
-      
-      const audio = new Audio(ttsUrl);
-      audioFallbackRef.current = audio;
-      audio.playbackRate = 0.95;
-      audio.onplay = () => setIsAiSpeaking(true);
-      audio.onended = () => setIsAiSpeaking(false);
-      audio.onerror = () => setIsAiSpeaking(false);
-      audio.play().catch(() => setIsAiSpeaking(false));
-    } catch (e) {
-      setIsAiSpeaking(false);
     }
   };
 
@@ -168,66 +87,13 @@ export function VoiceDemo() {
     }
     setIsRecordingMic(false);
 
-    if (!('speechSynthesis' in window)) {
-      playAudioFallback(text);
-      return;
-    }
-
-    try {
-      window.speechSynthesis.resume();
-
-      const executeSpeak = () => {
-        try {
-          const { voice, pitch } = getBestVoiceForGender(selectedGender);
-          const textToSpeak = formatPhoneticsForSpeech(text);
-
-          const utterance = new SpeechSynthesisUtterance(textToSpeak);
-          utterance.rate = 0.92;
-          utterance.pitch = pitch;
-
-          if (voice) {
-            utterance.voice = voice;
-            utterance.lang = voice.lang;
-          } else {
-            utterance.lang = 'en-US';
-          }
-
-          if (typeof window !== 'undefined') {
-            (window as any)._speechUtterances = (window as any)._speechUtterances || [];
-            (window as any)._speechUtterances.push(utterance);
-          }
-
-          const cleanup = () => {
-            setIsAiSpeaking(false);
-            if (typeof window !== 'undefined' && (window as any)._speechUtterances) {
-              (window as any)._speechUtterances = (window as any)._speechUtterances.filter((u: any) => u !== utterance);
-            }
-          };
-
-          utterance.onstart = () => setIsAiSpeaking(true);
-          utterance.onend = cleanup;
-          utterance.onerror = (err) => {
-            console.warn("Speech Synthesis API error, using stream fallback:", err);
-            cleanup();
-            playAudioFallback(text);
-          };
-
-          window.speechSynthesis.speak(utterance);
-        } catch (err) {
-          console.error("Speech Synthesis Exception:", err);
-          playAudioFallback(text);
-        }
-      };
-
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
-        setTimeout(executeSpeak, 60);
-      } else {
-        executeSpeak();
-      }
-    } catch (err) {
-      playAudioFallback(text);
-    }
+    speakEnglishUtterance(text, {
+      gender: selectedGender,
+      preferredLocale: 'en-US',
+      onStart: () => setIsAiSpeaking(true),
+      onEnd: () => setIsAiSpeaking(false),
+      onError: () => setIsAiSpeaking(false)
+    });
   };
 
   const startSimulatedCall = () => {
@@ -464,28 +330,28 @@ export function VoiceDemo() {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-12 gap-8 items-stretch">
+        <div className="grid lg:grid-cols-12 gap-6 sm:gap-8 items-stretch">
           {/* Call Screen Simulator Box */}
-          <div className="lg:col-span-7 bg-[#0A0E1A] border border-brand-teal/40 p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+          <div className="lg:col-span-7 bg-[#0A0E1A] border border-brand-teal/40 p-4 sm:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden rounded-xl sm:rounded-none">
             <div className="absolute top-0 right-0 w-80 h-80 bg-brand-teal/10 blur-[120px] rounded-full pointer-events-none" />
 
             <div>
               {/* Voice Status Header */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 mb-6 gap-3">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
+                  <div className={`w-3 h-3 rounded-full shrink-0 ${
                     simState === 'ringing' ? 'bg-yellow-400 animate-ping' :
                     simState === 'connected' ? 'bg-green-400 animate-pulse' :
                     simState === 'completed' ? 'bg-blue-400' : 'bg-gray-600'
                   }`} />
                   <div>
-                    <h4 className="text-sm font-bold text-white uppercase font-mono">
+                    <h4 className="text-xs sm:text-sm font-bold text-white uppercase font-mono">
                       {simState === 'idle' && 'AI VOICE SANDBOX: OFFLINE'}
                       {simState === 'ringing' && 'Connecting to Voice AI Pipeline...'}
                       {simState === 'connected' && `Active Session: ${activeVoiceName} (${selectedGender.toUpperCase()}) Connected`}
                       {simState === 'completed' && 'Session Finished: Booking Dispatched'}
                     </h4>
-                    <p className="text-[11px] text-gray-400 font-mono">
+                    <p className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
                       Zero-Latency Voice Channel Ready
                     </p>
                   </div>
@@ -494,14 +360,14 @@ export function VoiceDemo() {
                 {simState === 'idle' ? (
                   <button
                     onClick={startSimulatedCall}
-                    className="px-5 py-2.5 bg-brand-teal text-[#05060A] font-bold font-mono text-xs uppercase tracking-wider hover:bg-white transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                    className="w-full sm:w-auto justify-center px-5 py-2.5 bg-brand-teal text-[#05060A] font-bold font-mono text-xs uppercase tracking-wider hover:bg-white transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
                   >
                     <Mic className="w-4 h-4" /> Start Voice Demo
                   </button>
                 ) : (
                   <button
                     onClick={endSimulatedCall}
-                    className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/40 font-mono text-xs uppercase hover:bg-red-500/30 transition-colors flex items-center gap-1.5"
+                    className="w-full sm:w-auto justify-center px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/40 font-mono text-xs uppercase hover:bg-red-500/30 transition-colors flex items-center gap-1.5"
                   >
                     <MicOff className="w-3.5 h-3.5" /> End Session
                   </button>
@@ -509,7 +375,7 @@ export function VoiceDemo() {
               </div>
 
               {/* Live Transcript Stream */}
-              <div className="bg-[#05060A] border border-white/10 p-6 h-[320px] overflow-y-auto space-y-4 font-sans text-sm">
+              <div className="bg-[#05060A] border border-white/10 p-3.5 sm:p-6 h-[320px] overflow-y-auto space-y-4 font-sans text-sm">
                 {simState === 'idle' && (
                   <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 font-mono text-xs">
                     <Radio className="w-8 h-8 text-brand-teal/40 mb-3 animate-pulse" />

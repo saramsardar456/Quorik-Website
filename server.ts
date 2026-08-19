@@ -251,8 +251,8 @@ function loadStore() {
   }
 
   // Ensure quorik-google-ads client is present as the primary client
-  const hasQuorikClient = clientAccounts.some(c => c.id === 'quorik-google-ads');
-  if (!hasQuorikClient) {
+  const existingQuorik = clientAccounts.find(c => c.id === 'quorik-google-ads');
+  if (!existingQuorik) {
     clientAccounts.unshift({
       id: "quorik-google-ads",
       clientName: "Saram Sardar",
@@ -265,29 +265,28 @@ function loadStore() {
       monthlyVoiceMinutesLimit: 300,
       voiceMinutesUsed: 0,
       monthlyTextChatLimit: 1000,
-      textChatsUsed: 1,
+      textChatsUsed: 0,
       status: "active",
       voiceAgentName: "Arthur (Executive Concierge)",
       voiceLanguage: "English Only",
-      totalConversations: 1,
-      leadsCaptured: 1,
+      totalConversations: 0,
+      leadsCaptured: 0,
       lastActive: new Date().toISOString(),
-      conversations: [
-        {
-          id: "conv-init-quorik",
-          visitorName: "Website Visitor",
-          date: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          durationSeconds: 30,
-          durationMinutes: 0.5,
-          topic: "Google Ads Inquiry & Setup",
-          transcriptSummary: "Visitor inquired regarding high-converting Google Ads campaigns and AI voice receptionist integration.",
-          leadCaptured: true,
-          status: "completed"
-        }
-      ],
+      conversations: [],
       createdAt: new Date().toISOString()
     });
+  } else {
+    // Ensure founder name is accurately set to Saram Sardar if it was previously set to business name
+    if (!existingQuorik.clientName || existingQuorik.clientName === "Quorik Google Ads" || existingQuorik.clientName === "quorik-google-ads") {
+      existingQuorik.clientName = "Saram Sardar";
+    }
+    // Remove legacy fake conversation if present
+    if (Array.isArray(existingQuorik.conversations)) {
+      existingQuorik.conversations = existingQuorik.conversations.filter(c => c.id !== 'conv-init-quorik');
+      // Recalculate true leads count
+      existingQuorik.leadsCaptured = existingQuorik.conversations.filter(c => c.leadCaptured).length;
+      existingQuorik.totalConversations = existingQuorik.conversations.length;
+    }
   }
 
   // Clean and save store
@@ -1582,23 +1581,31 @@ Respond ONLY in valid JSON format matching this exact schema:
 
       if (clientTarget) {
         // Dynamic client-specific AI prompt for embedded widgets on client websites
-        const clientFounderText = clientTarget.clientName 
-          ? `- Leadership & Founder: The founder / leadership of ${clientTarget.businessName} is ${clientTarget.clientName}. If asked "who is the founder", "who is the CEO", or "who created this", state that ${clientTarget.businessName} is led/founded by ${clientTarget.clientName}.`
-          : `- Leadership & Management: If asked who is the founder or CEO, state that ${clientTarget.businessName} is led by our experienced management and leadership team. For direct executive inquiries, they can email ${clientTarget.email || clientTarget.websiteUrl}.`;
+        const hasValidFounder = clientTarget.clientName && 
+          clientTarget.clientName.trim().length > 1 &&
+          clientTarget.clientName.trim().toLowerCase() !== clientTarget.businessName.trim().toLowerCase();
+
+        const founderInfo = hasValidFounder
+          ? `FOUNDER & LEADERSHIP INFORMATION:
+- Founder / Owner: ${clientTarget.clientName} is the founder and head of ${clientTarget.businessName}.
+- If a visitor asks "who is the founder", "who is the CEO", "who owns this", or "who created this company", state clearly: "${clientTarget.businessName} was founded and is led by ${clientTarget.clientName}. We specialize in ${clientTarget.industry} to drive exceptional performance and measurable ROI."`
+          : `FOUNDER & LEADERSHIP INFORMATION:
+- Leadership: ${clientTarget.businessName} is led and operated by our executive leadership team and certified ${clientTarget.industry} specialists. If asked who the founder or CEO is, state that ${clientTarget.businessName} is led by our executive leadership team. For direct executive inquiries, they can email ${clientTarget.email || clientTarget.websiteUrl}.`;
 
         systemInstruction = `You are ${clientTarget.voiceAgentName || "Arthur (Executive Concierge)"}, the dedicated 24/7 AI voice and chat representative for "${clientTarget.businessName}".
 Industry / Specialty: ${clientTarget.industry}
 Contact & Website: ${clientTarget.websiteUrl} (${clientTarget.email || ""})
 Languages Supported: ${clientTarget.voiceLanguage || "English"}
 
-${clientFounderText}
+${founderInfo}
 
 CORE OBJECTIVES & PERSONA RULES:
-1. You represent ONLY ${clientTarget.businessName}. Do NOT mention any third-party providers or external agencies.
+1. You represent ONLY ${clientTarget.businessName}. Do NOT mention any third-party providers or external agency names unless referring to ${clientTarget.businessName}.
 2. Greet visitors warmly and speak on behalf of ${clientTarget.businessName} with high professional authority.
-3. Answer inquiries about ${clientTarget.businessName}'s services and offerings.
-4. Offer to book a consultation/appointment or capture the visitor's name, email, and phone number so the team can follow up.
-5. Keep answers crisp, conversational, and direct (2-3 sentences max) so it sounds natural when spoken aloud over voice.`;
+3. Answer inquiries about ${clientTarget.businessName}'s services and offerings accurately.
+4. When visitors ask about the founder or CEO, always answer directly and accurately using the founder information above.
+5. Offer to book a consultation/appointment or capture the visitor's name, email, and phone number so the team can follow up.
+6. Keep answers crisp, conversational, and direct (2-3 sentences max) so it sounds natural when spoken aloud over voice.`;
       } else {
         let toneInstruction = "Tone: Professional, welcoming, and concise.";
         if (accent === "arthur") {
@@ -1680,15 +1687,17 @@ IMPORTANT CARD TRIGGER RULES:
         const isVoiceCall = Boolean(isVoice || isVoiceMode);
         const timestampNow = new Date().toISOString();
 
-        // Extract potential lead details
-        const emailMatch = (message || "").match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        const phoneMatch = (message || "").match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
-        const nameMatch = (message || "").match(/(?:my name is|i am|i'm|this is|name:\s*)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/i);
+        // Extract potential lead details with high precision (avoid matching generic conversational text)
+        const emailMatch = (message || "").match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
+        const phoneMatch = (message || "").match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
+        const nameMatch = (message || "").match(/(?:my name is|my full name is|call me|name:\s*)\s+([a-zA-Z]{2,}(?:\s+[a-zA-Z]{2,})?)/i);
         
         const extractedEmail = emailMatch ? emailMatch[1] : (visitorEmail || "");
-        const extractedPhone = phoneMatch ? phoneMatch[0] : (visitorPhone || "");
-        const extractedName = nameMatch ? nameMatch[1].trim() : (visitorName || "");
-        const isLead = Boolean(extractedEmail || extractedPhone || extractedName);
+        const extractedPhone = phoneMatch && phoneMatch[0].replace(/\D/g, '').length >= 7 ? phoneMatch[0] : (visitorPhone || "");
+        const extractedName = nameMatch ? nameMatch[1].trim() : (visitorName && visitorName !== "Website Visitor" && visitorName !== "Website Caller" ? visitorName : "");
+        
+        // A true captured lead strictly requires a verifiable contact method (valid Email or 7+ digit Phone number)
+        const isLead = Boolean(extractedEmail || extractedPhone);
 
         // Build transcript history array
         const transcriptArray: TranscriptMessage[] = [];

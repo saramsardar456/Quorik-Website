@@ -332,27 +332,14 @@
       "monthlyVoiceMinutesLimit": 300,
       "voiceMinutesUsed": 0,
       "monthlyTextChatLimit": 1000,
-      "textChatsUsed": 1,
+      "textChatsUsed": 0,
       "status": "active",
       "voiceAgentName": "Arthur (Executive Concierge)",
       "voiceLanguage": "English Only",
-      "totalConversations": 1,
-      "leadsCaptured": 1,
+      "totalConversations": 0,
+      "leadsCaptured": 0,
       "lastActive": "2026-08-19T09:30:16.765Z",
-      "conversations": [
-        {
-          "id": "conv-init-quorik",
-          "visitorName": "Website Visitor",
-          "date": "2026-08-19T09:30:16.765Z",
-          "createdAt": "2026-08-19T09:30:16.765Z",
-          "durationSeconds": 30,
-          "durationMinutes": 0.5,
-          "topic": "Google Ads Inquiry & Setup",
-          "transcriptSummary": "Visitor inquired regarding high-converting Google Ads campaigns and AI voice receptionist integration.",
-          "leadCaptured": true,
-          "status": "completed"
-        }
-      ],
+      "conversations": [],
       "createdAt": "2026-08-19T09:30:16.765Z"
     }
   ]

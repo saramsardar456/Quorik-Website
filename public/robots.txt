@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-Sitemap: https://quorik.com/sitemap.xml
+Sitemap: https://quoriksystems.com/sitemap.xml

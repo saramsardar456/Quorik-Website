@@ -32,27 +32,73 @@
   styleEl.innerHTML = `
     #quorik-voice-widget-root {
       position: fixed;
-      bottom: 16px;
-      right: 16px;
+      bottom: 20px;
+      right: 20px;
       z-index: 999999;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
     }
-    #quorik-launcher {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #0A0E1A, #161F38);
-      border: 2px solid ${primaryColor};
-      box-shadow: 0 8px 32px rgba(0, 229, 255, 0.25);
+    #quorik-callout-bubble {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 10px;
+      background: #0D1322;
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      padding: 10px 14px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 229, 255, 0.15);
+      color: #fff;
+      cursor: pointer;
+      max-width: 290px;
+      animation: q-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #quorik-callout-bubble:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 229, 255, 0.25);
+    }
+    @keyframes q-slide-in {
+      from { opacity: 0; transform: translateY(12px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    #quorik-launcher-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #quorik-launcher {
+      position: relative;
+      height: 56px;
+      padding: 0 18px 0 14px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, #0A0E1A, #161F38);
+      border: 2px solid ${primaryColor};
+      box-shadow: 0 8px 28px rgba(0, 229, 255, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 10px;
       cursor: pointer;
       transition: transform 0.2s, box-shadow 0.2s;
     }
     #quorik-launcher:hover {
-      transform: scale(1.06);
-      box-shadow: 0 12px 36px rgba(0, 229, 255, 0.4);
+      transform: scale(1.04);
+      box-shadow: 0 12px 36px rgba(0, 229, 255, 0.45);
+    }
+    .quorik-online-beacon {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 8px #10B981;
+      display: inline-block;
+      animation: q-beacon 1.5s infinite ease-in-out;
+    }
+    @keyframes q-beacon {
+      0%, 100% { transform: scale(0.9); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 12px #10B981; }
     }
     #quorik-modal {
       display: none;
@@ -360,20 +406,72 @@
     }
   }
 
-  // Render Launcher Button
+  // Render Launcher Button & Proactive Greeting Callout
   root.innerHTML = `
-    <div id="quorik-launcher" title="24/7 AI Voice & Chat Assistant">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="${primaryColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-        <line x1="12" x2="12" y1="19" y2="22"/>
-      </svg>
+    <div id="quorik-callout-bubble" style="display:none;">
+      <div style="width:32px;height:32px;border-radius:50%;background:${primaryColor}22;border:1px solid ${primaryColor}66;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">
+        🤖
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+          <span class="quorik-online-beacon"></span>
+          <span id="q-callout-agent-name" style="font-size:11px;font-weight:700;color:${primaryColor};">AI Concierge</span>
+          <span style="font-size:9px;background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;color:#94A3B8;">24/7 Live</span>
+        </div>
+        <div id="q-callout-text" style="font-size:11px;color:#E2E8F0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          👋 Have questions? Tap to talk live or ask AI!
+        </div>
+      </div>
+      <button id="q-callout-close-btn" style="background:transparent;border:none;color:#64748B;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;line-height:1;" title="Dismiss">✕</button>
+    </div>
+
+    <div id="quorik-launcher-container">
+      <div id="quorik-launcher" title="24/7 AI Voice & Chat Assistant">
+        <div style="width:32px;height:32px;border-radius:50%;background:${primaryColor}18;display:flex;align-items:center;justify-content:center;position:relative;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${primaryColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" x2="12" y1="19" y2="22"/>
+          </svg>
+          <span class="quorik-online-beacon" style="position:absolute;top:-1px;right:-1px;"></span>
+        </div>
+        <div style="display:flex;flex-direction:column;line-height:1.1;">
+          <span style="font-size:12px;font-weight:700;color:#fff;letter-spacing:0.2px;">Talk with AI</span>
+          <span style="font-size:9px;color:${primaryColor};font-weight:600;">24/7 Live Assistant</span>
+        </div>
+      </div>
     </div>
     <div id="quorik-modal"></div>
   `;
 
   const launcher = root.querySelector('#quorik-launcher');
   const modal = root.querySelector('#quorik-modal');
+  const calloutBubble = root.querySelector('#quorik-callout-bubble');
+  const calloutCloseBtn = root.querySelector('#q-callout-close-btn');
+
+  if (calloutCloseBtn) {
+    calloutCloseBtn.onclick = (e) => {
+      e.stopPropagation();
+      calloutBubble.style.display = 'none';
+    };
+  }
+
+  if (calloutBubble) {
+    calloutBubble.onclick = async () => {
+      calloutBubble.style.display = 'none';
+      unlockAudio();
+      isOpen = true;
+      modal.style.display = 'flex';
+      await fetchClientStatus();
+    };
+  }
+
+  // Show proactive callout after 1.8s delay
+  setTimeout(() => {
+    if (!isOpen && calloutBubble && (!sessionStorage.getItem('q_callout_dismissed'))) {
+      calloutBubble.style.display = 'flex';
+    }
+  }, 1800);
 
   // Verify Client Status Live from Quorik Backend
   async function fetchClientStatus() {
@@ -387,6 +485,16 @@
         return null;
       }
       clientData = await res.json();
+      
+      // Update proactive callout bubble with client information
+      const agentEl = root.querySelector('#q-callout-agent-name');
+      const textEl = root.querySelector('#q-callout-text');
+      if (agentEl && clientData.voiceAgentName) {
+        agentEl.innerText = clientData.voiceAgentName.split(' ')[0] + ' (AI)';
+      }
+      if (textEl && clientData.businessName) {
+        textEl.innerText = `👋 Welcome to ${clientData.businessName}! Tap to speak or ask AI.`;
+      }
       
       const vLimit = clientData.monthlyVoiceMinutesLimit || 300;
       const vUsed = clientData.voiceMinutesUsed || 0;
@@ -881,6 +989,7 @@
   }
 
   launcher.onclick = async () => {
+    if (calloutBubble) calloutBubble.style.display = 'none';
     unlockAudio();
     isOpen = !isOpen;
     if (isOpen) {

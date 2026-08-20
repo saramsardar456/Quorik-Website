@@ -449,10 +449,10 @@
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-            <a href="https://wa.me/923484742270?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#000;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:700;font-size:11px;box-shadow:0 4px 14px rgba(37,211,102,0.25);">
+            <a href="https://wa.me/923700146156?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#000;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:700;font-size:11px;box-shadow:0 4px 14px rgba(37,211,102,0.25);">
               <span>💬 WhatsApp</span>
             </a>
-            <a href="tel:+923484742270" style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:11px;">
+            <a href="tel:+923700146156" style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:11px;">
               <span>📞 Call Admin</span>
             </a>
           </div>
@@ -550,7 +550,7 @@
             <button id="q-contact-support-btn" style="padding:11px 16px;background:${primaryColor};color:#000;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 14px rgba(0,229,255,0.25);">
               <span>🛠️ Contact Support & Upgrade</span>
             </button>
-            <a href="https://wa.me/923484742270?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="padding:10px 16px;background:#25D366;color:#000;border-radius:10px;text-decoration:none;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <a href="https://wa.me/923700146156?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="padding:10px 16px;background:#25D366;color:#000;border-radius:10px;text-decoration:none;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
               <span>💬 WhatsApp Priority Desk</span>
             </a>
           </div>

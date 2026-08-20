@@ -1409,7 +1409,7 @@ export function QuorikVoiceWidget() {
                     </span>
                     <button
                       onClick={() => {
-                        const htmlSnippet = `<!-- Quorik 24/7 AI Voice & Chat Assistant for ${embedModalClient.businessName} -->\n<script \n  src="${window.location.origin}/widget.js" \n  data-client-id="${embedModalClient.id}"\n  data-accent="#00E5FF"\n  async>\n</script>`;
+                        const htmlSnippet = `<!-- Quorik 24/7 AI Voice & Chat Assistant for ${embedModalClient.businessName} -->\n<script \n  src="${window.location.origin}/widget.js?v=2.0"\n  data-client-id="${embedModalClient.id}"\n  data-accent="#00E5FF"\n  async>\n</script>`;
                         copyToClipboard(htmlSnippet, 'html-snip');
                       }}
                       className="px-3 py-1 bg-brand-teal/10 hover:bg-brand-teal/20 border border-brand-teal/30 text-brand-teal rounded-lg flex items-center gap-1.5 text-xs transition-colors"
@@ -1431,7 +1431,7 @@ export function QuorikVoiceWidget() {
                   <pre className="bg-[#05060A] border border-white/10 rounded-xl p-4 text-[11px] text-gray-300 overflow-x-auto font-mono leading-relaxed">
 {`<!-- Quorik 24/7 AI Voice & Chat Assistant for ${embedModalClient.businessName} -->
 <script 
-  src="${window.location.origin}/widget.js" 
+  src="${window.location.origin}/widget.js?v=2.0" 
   data-client-id="${embedModalClient.id}"
   data-accent="#00E5FF"
   async>

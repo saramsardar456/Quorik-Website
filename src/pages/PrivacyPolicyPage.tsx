@@ -144,7 +144,7 @@ export function PrivacyPolicyPage() {
             </p>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-brand-teal font-mono text-xs">
               <Mail className="w-4 h-4" />
-              <a href="mailto:hello@quoriksystems.com" className="hover:underline">hello@quoriksystems.com</a>
+              <a href="mailto:info@quoriksystems.com" className="hover:underline">info@quoriksystems.com</a>
             </div>
           </section>
         </div>

@@ -236,8 +236,15 @@ export function VoiceDemo() {
         }));
         setBookedCalendar(true);
         setWhatsappSent(true);
-      } else if (lowerQuery.includes('price') || lowerQuery.includes('cost') || lowerQuery.includes('rate')) {
-        fallbackAi = "Quorik offers transparent pricing starting at $1,490 for custom web platforms and $490 per month for 24/7 AI Voice Receptionist automation.";
+      } else if (lowerQuery.includes('price') || lowerQuery.includes('cost') || lowerQuery.includes('rate') || lowerQuery.includes('package')) {
+        fallbackAi = "Quorik offers transparent packages starting at $999 setup and $199 per month for our Starter AI plan with a custom website and 300 voice minutes, or $1,999 setup and $399 per month for our popular Growth Suite. Would you like to schedule a 15-minute consultation to discuss your project?";
+        setLeadDetails(prev => ({
+          ...prev,
+          topic: 'Pricing & Packages Consultation',
+          bookingStatus: 'inquiry',
+          whatsappMessage: '🚀 INBOUND LEAD: Caller asked about Quorik pricing packages (Starter $999 / Growth $1,999).'
+        }));
+        setWhatsappSent(true);
       }
 
       setSimMessages(prev => [...prev, { sender: 'ai', text: fallbackAi, time: aiTimeStr }]);

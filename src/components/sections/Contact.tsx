@@ -97,7 +97,12 @@ export function Contact() {
                 </div>
                 <div className="pt-1.5">
                   <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Email Us</p>
-                  <p className="font-semibold text-white">hello@quoriksystems.com</p>
+                  <a href="mailto:info@quoriksystems.com" className="font-semibold text-white hover:text-brand-teal transition-colors block">
+                    info@quoriksystems.com
+                  </a>
+                  <p className="text-xs text-gray-400 font-mono mt-0.5">
+                    Sales & Custom Quotes: <a href="mailto:sales@quoriksystems.com" className="text-brand-teal hover:underline">sales@quoriksystems.com</a>
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-4 text-gray-300">

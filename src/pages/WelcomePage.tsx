@@ -82,8 +82,8 @@ export function WelcomePage() {
                 <Mail className="w-4 h-4 text-brand-teal shrink-0" />
                 <div>
                   <span className="text-gray-500 uppercase block text-[10px]">Direct Contact:</span>
-                  <a href="mailto:hello@quoriksystems.com" className="text-white hover:text-brand-teal transition-colors font-semibold">
-                    hello@quoriksystems.com
+                  <a href="mailto:info@quoriksystems.com" className="text-white hover:text-brand-teal transition-colors font-semibold">
+                    info@quoriksystems.com
                   </a>
                 </div>
               </div>

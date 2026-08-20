@@ -210,50 +210,51 @@ export const ChatPricingCard: React.FC<ChatCardProps> = ({ onSelectAction }) => 
 
   const plans = [
     {
-      name: "Starter",
-      setupFee: 1499,
+      name: "Starter AI",
+      setupFee: 999,
       rawUsd: 159,
       monthlyRawUsd: 199,
       period: "/ month",
-      desc: "Custom High-Speed Website + Embedded 24/7 AI Chatbot Widget for lead capture and instant FAQs.",
+      desc: "Custom High-Performance Website (Up to 5 Pages) + 1 Embedded In-Browser AI Voice Assistant & Chatbot.",
       features: [
-        "Custom High-Speed Responsive Website",
-        "24/7 Embedded AI Chatbot Widget",
-        "3,000 AI Chat Conversations / Mo",
-        "Lead Capture & Contact Form Sync",
-        "Admin Lead Management Portal"
+        "Modern React Website (Up to 5 Pages)",
+        "1 In-Browser AI Voice Agent",
+        "300 Voice Mins + 1,000 Chats / Mo",
+        "Instant Email & WhatsApp Lead Alerts",
+        "Google Calendar & Basic CRM Sync"
       ]
     },
     {
-      name: "Growth",
-      setupFee: 3299,
-      rawUsd: 399,
-      monthlyRawUsd: 499,
+      name: "Growth Suite",
+      setupFee: 1999,
+      rawUsd: 319,
+      monthlyRawUsd: 399,
       period: "/ month",
-      desc: "Full Web Application + 24/7 Web AI Voice Agent & Chatbot + Instant WhatsApp/SMS Lead Alerts.",
+      desc: "Full Custom Web Application + 2 Dedicated AI Voice Agents (Sales & Support) + Multi-Language & Voice Persona Support.",
       features: [
-        "Everything in Starter Plan",
-        "24/7 Web AI Voice Agent & Chatbot",
-        "10,000 AI Interactions / Mo",
-        "Bilingual Urdu + US/UK Voices",
-        "Instant WhatsApp & SMS Lead Alerts",
-        "Live Google/Outlook Calendar Sync"
+        "Full Custom Web App & Interactive UI",
+        "2 Dedicated AI Voice Agents (Sales/Support)",
+        "1,200 Voice Mins + 5,000 Chats / Mo",
+        "Multi-Language & Voice Persona Support",
+        "Two-Way CRM & Webhook Automation",
+        "Priority Engineering Support (12h SLA)"
       ],
       popular: true
     },
     {
-      name: "Enterprise",
-      setupFee: 7500,
-      rawUsd: 999,
-      monthlyRawUsd: 1299,
+      name: "Enterprise Ultra",
+      setupFee: 3999,
+      rawUsd: 639,
+      monthlyRawUsd: 799,
       period: "/ month",
-      desc: "Custom Enterprise Web Systems, Fine-Tuned AI Models (Voice & Chat), and Full CRM Automations.",
+      desc: "Full-Stack Enterprise Web Platform + Unlimited AI Voice Agents with Custom Cloned Neural Voice Models.",
       features: [
-        "Custom Full-Stack Web Platform & Client Portals",
-        "Unlimited Web AI Voice & Chatbot Interactions",
-        "Custom AI Fine-Tuned Models (Voice & Chat)",
-        "Full Webhook & CRM Integration (HubSpot/Salesforce)",
-        "Dedicated SLA & 24/7 Technical PM"
+        "Enterprise Full-Stack Web Platform",
+        "Unlimited AI Voice Agents & Cloned Voices",
+        "4,000+ Voice Mins + Unlimited Chats",
+        "Custom LLM Fine-Tuning & Knowledge (RAG)",
+        "Deep ERP, CRM & Webhook Integrations",
+        "Dedicated Solution Architect & Priority SLA"
       ]
     }
   ];

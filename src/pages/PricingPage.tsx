@@ -561,12 +561,12 @@ export function PricingPage() {
               >
                 <Calendar className="w-4 h-4" /> Book Consultation Call
               </Link>
-              <Link
-                to="/voice-agent"
+              <a
+                href="mailto:sales@quoriksystems.com"
                 className="w-full sm:w-auto px-8 py-3.5 bg-white/5 border border-white/10 text-white font-bold text-xs font-mono uppercase tracking-widest hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
               >
-                <Mic className="w-4 h-4" /> Try Live Website Voice Demo <ArrowRight className="w-4 h-4" />
-              </Link>
+                <Zap className="w-4 h-4 text-brand-teal" /> Email Sales Desk: sales@quoriksystems.com
+              </a>
             </div>
           </div>
         </div>

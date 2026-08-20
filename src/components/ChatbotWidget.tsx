@@ -12,7 +12,7 @@ interface Message {
   cardType?: 'ROI' | 'PORTFOLIO' | 'PRICING';
 }
 
-type VoiceAccent = 'arthur' | 'us' | 'uk' | 'casual' | 'pk';
+type VoiceAccent = 'arthur' | 'us' | 'uk' | 'casual';
 
 export function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -86,14 +86,14 @@ export function ChatbotWidget() {
     setShowAccentMenu(false);
 
     let systemGreeting = "";
-    if (selectedAccent === 'pk') {
-      systemGreeting = "Salam & Assalamu Alaikum! Quorik AI mein aapka khair-makhdam hai. Aap Roman Urdu ya Urdu mein sawal pooch sakte hain. Hum aap ki website aur AI automation ke baare mein kaise madad karain?";
-    } else if (selectedAccent === 'us') {
+    if (selectedAccent === 'us') {
       systemGreeting = "Hello & Welcome! Switched to US Executive Persona. How can we accelerate your digital growth, custom website, and AI automation today?";
     } else if (selectedAccent === 'uk') {
       systemGreeting = "Good day! Switched to British Refined Persona. Welcome to Quorik AI. How may we assist your enterprise today?";
     } else if (selectedAccent === 'casual') {
       systemGreeting = "Hey there! Switched to Casual Tech Persona. Welcome to Quorik AI. What awesome AI system or website are we building today?";
+    } else {
+      systemGreeting = "Hello & Welcome! Switched to Arthur Executive Persona. How can Quorik assist your business with AI and custom development today?";
     }
 
     const botMsg: Message = {
@@ -186,8 +186,7 @@ export function ChatbotWidget() {
     arthur: { label: 'Arthur Executive AI', badge: 'ARTHUR', style: 'Arthur Voice' },
     us: { label: 'US Executive', badge: 'US', style: 'Sharp American' },
     uk: { label: 'British Refined', badge: 'UK', style: 'Precise & Clear' },
-    casual: { label: 'Casual Tech', badge: 'TECH', style: 'Energetic & Startup' },
-    pk: { label: 'Urdu / Regional', badge: 'PK', style: 'Roman Urdu & English' }
+    casual: { label: 'Casual Tech', badge: 'TECH', style: 'Energetic & Startup' }
   };
 
   return (
@@ -471,4 +470,3 @@ export function ChatbotWidget() {
     </div>
   );
 }
-

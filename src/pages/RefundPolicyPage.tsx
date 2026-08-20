@@ -125,8 +125,8 @@ export function RefundPolicyPage() {
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-brand-teal" />
                 <div>
-                  <a href="mailto:hello@quoriksystems.com" className="font-mono text-sm text-white font-bold block hover:text-brand-teal transition-colors">
-                    hello@quoriksystems.com
+                  <a href="mailto:info@quoriksystems.com" className="font-mono text-sm text-white font-bold block hover:text-brand-teal transition-colors">
+                    info@quoriksystems.com
                   </a>
                   <span className="text-xs text-gray-400">Response time: &lt;24 hours</span>
                 </div>

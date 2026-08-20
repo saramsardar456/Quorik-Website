@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { Linkedin, ArrowUpRight } from 'lucide-react';
 
 export function About() {
   return (
@@ -47,11 +48,22 @@ export function About() {
               <p className="text-xl md:text-2xl text-white font-medium leading-relaxed mb-10 tracking-tight">
                 "We build tools that make your life easier and help your business make more money. Your technology should work harder than you do."
               </p>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-white font-bold text-base tracking-tight">Shehram Meellu</p>
                   <p className="text-brand-teal text-xs font-semibold uppercase tracking-wider mt-0.5">Founder & CEO, Quorik</p>
                 </div>
+                <a
+                  href="https://www.linkedin.com/in/shehram-meellu-218812370"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0A66C2]/10 border border-[#0A66C2]/30 text-xs font-mono text-gray-300 hover:text-white hover:border-[#0A66C2]/60 hover:bg-[#0A66C2]/20 transition-all duration-200 group"
+                  aria-label="Shehram Meellu LinkedIn Profile"
+                >
+                  <Linkedin className="w-3.5 h-3.5 text-[#0A66C2] group-hover:scale-110 transition-transform" />
+                  <span>Connect on LinkedIn</span>
+                  <ArrowUpRight className="w-3 h-3 text-[#0A66C2] group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                </a>
               </div>
             </div>
           </motion.div>

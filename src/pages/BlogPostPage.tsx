@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Clock, Check, Sparkles, Tag, ArrowUpRight, Copy, 
   Play, Pause, ThumbsUp, Bookmark, MessageSquare, Volume2, 
-  ExternalLink, ChevronRight, Award, Zap, Share2
+  ExternalLink, ChevronRight, Award, Zap, Share2, Linkedin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -493,13 +493,26 @@ export function BlogPostPage() {
                     Shehram Meellu is the Founder & CEO of Quorik. Shehram leads technical design, high-speed web engineering, and custom 24/7 AI Voice integrations at Quorik, delivering sub-second web platforms and automated lead generation engines for global businesses.
                   </p>
                   
-                  <Link
-                    to="/contact"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-teal text-[#05060A] font-mono font-bold text-xs uppercase tracking-wider rounded hover:bg-white transition-colors"
-                  >
-                    <span>Consult Directly with Shehram</span>
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      to="/contact"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-teal text-[#05060A] font-mono font-bold text-xs uppercase tracking-wider rounded hover:bg-white transition-colors"
+                    >
+                      <span>Consult Directly with Shehram</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </Link>
+
+                    <a
+                      href="https://www.linkedin.com/in/shehram-meellu-218812370"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#0A66C2]/10 border border-[#0A66C2]/30 text-[#0A66C2] hover:text-white hover:bg-[#0A66C2]/20 hover:border-[#0A66C2]/60 font-mono font-bold text-xs uppercase tracking-wider rounded transition-colors"
+                    >
+                      <Linkedin className="w-3.5 h-3.5" />
+                      <span>LinkedIn Profile</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

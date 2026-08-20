@@ -862,7 +862,7 @@ async function startServer() {
 
         const mailOptions = {
           from: process.env.EMAIL_USER,
-          to: process.env.NOTIFICATION_EMAIL || 'hello@quoriksystems.com',
+          to: process.env.NOTIFICATION_EMAIL || 'info@quoriksystems.com',
           subject: `New Lead from ${name} - Quorik`,
           text: `
 Name: ${name}
@@ -1624,19 +1624,19 @@ ${toneInstruction}
 FOUNDER & LEADERSHIP INFORMATION:
 - Founder & CEO: Shehram Meellu is the Founder & CEO of Quorik.
 - About Shehram Meellu: Shehram Meellu is a senior AI engineering architect, full-stack software engineer, and digital growth executive. He founded Quorik to bridge high-performance custom web development with autonomous, zero-latency 24/7 AI Voice Agents and intelligent chatbots. Under his leadership, Quorik builds robust digital systems, multi-lingual conversational AI, and automated lead pipelines for businesses worldwide to scale without missing calls or revenue.
-- Corporate Contact & Bookings: Clients can book a direct discovery consultation right on the website or connect with the Executive Desk via email at hello@quoriksystems.com.
+- Corporate Contact & Bookings: Clients can book a direct discovery consultation right on the website or connect with General Inquiries at info@quoriksystems.com, or Sales at sales@quoriksystems.com.
 
 RESPONSE STYLE RULES:
 - ALWAYS finish every single sentence completely. Never stop mid-sentence.
 - Provide clear, articulate, and complete responses in 2 to 3 full sentences.
-- When asked who the founder/owner/CEO of Quorik is or to tell about Shehram Meellu, respond with high-ticket corporate authority: "Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect and technology strategist who founded Quorik to build high-performance custom web applications and zero-latency 24/7 AI Voice Agents for modern businesses. Under his technical leadership, Quorik develops autonomous AI receptionists and digital platforms that drive measurable growth. You can schedule a direct discovery consultation with our team or connect via email at hello@quoriksystems.com."
-- DO NOT share or mention any direct WhatsApp phone number or personal cellular SIM numbers. Direct callers exclusively to email at hello@quoriksystems.com or the official booking form.
+- When asked who the founder/owner/CEO of Quorik is or to tell about Shehram Meellu, respond with high-ticket corporate authority: "Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect and technology strategist who founded Quorik to build high-performance custom web applications and zero-latency 24/7 AI Voice Agents for modern businesses. Under his technical leadership, Quorik develops autonomous AI receptionists and digital platforms that drive measurable growth. You can schedule a direct discovery consultation with our team or connect via email at info@quoriksystems.com."
+- DO NOT share or mention any direct WhatsApp phone number or personal cellular SIM numbers. Direct callers exclusively to email at info@quoriksystems.com or the official booking form.
 
 PRICING & SETUP FEES:
-Our engagement model consists of a 1-Time Custom Development & Setup Fee followed by a low Monthly Subscription:
-- Starter Tier: $1,499 One-Time Setup + $159/mo ($199/mo billed monthly)
-- Growth Tier: $3,299 One-Time Setup + $399/mo ($499/mo billed monthly)
-- Enterprise Tier: $7,500+ Custom Setup + $999/mo ($1,299/mo billed monthly)
+Our engagement model consists of a 1-Time Custom Development & Setup Fee followed by a monthly Subscription:
+- Starter AI: $999 One-Time Setup + $199/month (or $159/month billed annually). Includes custom high-speed React website (up to 5 pages), 1 in-browser AI Voice Agent, 300 interactive voice minutes/mo, 1,000 AI chats/mo, WhatsApp lead alerts, and Google Calendar sync.
+- Growth Suite (Most Popular): $1,999 One-Time Setup + $399/month (or $319/month billed annually). Includes full custom web app with CMS, 2 dedicated AI Voice Agents (Sales & Support), 1,200 interactive voice minutes/mo, 5,000 AI chats/mo, multi-language & voice persona support, automated WhatsApp follow-ups, two-way CRM integration, and priority 12h SLA support.
+- Enterprise Ultra: $3,999 One-Time Setup + $799/month (or $639/month billed annually). Includes bespoke full-stack enterprise web platform, unlimited custom AI Voice Agents with custom cloned neural voice, 4,000+ voice minutes/mo, unlimited chats, custom LLM fine-tuning (RAG), deep ERP & webhook integrations, and dedicated solution architect.
 
 CORE AI VOICE AGENT FEATURES YOU PROVIDE:
 - 🌙 After-Hours & Call Overflow Manager: Handles 100% of overflow web/phone inquiries 24/7.
@@ -1679,7 +1679,7 @@ IMPORTANT CARD TRIGGER RULES:
       if (!replyText) {
         replyText = clientTarget 
           ? `Thank you for inquiring with ${clientTarget.businessName}. Please share your name and email address, and our team will be delighted to assist you!`
-          : `Thank you for contacting Quorik! Please share your contact details or email us at hello@quoriksystems.com.`;
+          : `Thank you for contacting Quorik! Please share your contact details or email us at info@quoriksystems.com.`;
       }
 
       // Automatically track client voice minutes or text chats
@@ -1864,6 +1864,13 @@ FOUNDER & CEO INFORMATION:
 - Leadership: Leads Quorik's engineering team in deploying conversion-focused web platforms, multi-lingual Voice AI receptionists, and automated CRM pipelines that drive measurable revenue growth.
 - If the caller asks about the founder or CEO, deliver this detailed background with authority, warmth, and professionalism, and invite them to schedule a discovery consultation.`;
 
+      const pricingInformation = `
+PRICING & PACKAGES KNOWLEDGE:
+- Starter AI Plan: $999 One-Time Setup + $199/month (or $159/month billed annually). Includes custom 5-page React website, 1 AI Voice Agent, 300 voice minutes/month, 1,000 AI chats/month, and calendar sync.
+- Growth Suite Plan (Most Popular): $1,999 One-Time Setup + $399/month (or $319/month billed annually). Includes full custom web application, 2 dedicated AI Voice Agents (Sales & Support), 1,200 voice minutes/month, 5,000 AI chats/month, multi-language & voice persona support, and CRM integration.
+- Enterprise Ultra Plan: $3,999 One-Time Setup + $799/month (or $639/month billed annually). Includes bespoke enterprise web platform, unlimited custom AI Voice Agents with custom cloned voice, 4,000+ voice minutes, and full ERP integration.
+When the caller asks about pricing or costs, provide these transparent package prices clearly and concisely, and offer to schedule a discovery consultation.`;
+
       if (customCompany?.name) {
         personaName = customCompany?.agentName || (gender === 'female' ? 'Zephyr' : 'Arthur');
         const customFounderText = customCompany?.founder
@@ -1881,6 +1888,7 @@ Keep responses natural, concise, and friendly for spoken phone calls.`;
 Language: Courteous Refined British English.
 Key Services: ${companyServices}.
 ${founderDetailInformation}
+${pricingInformation}
 ${consultationBookingRules}
 Keep responses polite, articulate, and natural (2 to 3 concise spoken sentences).`;
       } else {
@@ -1889,6 +1897,7 @@ Keep responses polite, articulate, and natural (2 to 3 concise spoken sentences)
 Language: Professional American English.
 Key Services: ${companyServices}.
 ${founderDetailInformation}
+${pricingInformation}
 ${consultationBookingRules}
 Keep responses articulate, authoritative, and natural (2 to 3 concise spoken sentences).`;
       }
@@ -2015,17 +2024,17 @@ Respond ONLY in valid JSON matching this schema:
         }
 
         // Pricing query
-        if (currentLower.includes('price') || currentLower.includes('cost') || currentLower.includes('pricing') || currentLower.includes('rate')) {
+        if (currentLower.includes('price') || currentLower.includes('cost') || currentLower.includes('pricing') || currentLower.includes('rate') || currentLower.includes('package')) {
           return {
-            aiSpeechText: `Quorik offers transparent pricing starting at $1,490 for custom web platforms and $490 per month for 24/7 AI Voice Receptionists. Would you like me to book a 15-minute consultation to discuss your project?`,
+            aiSpeechText: `Quorik offers transparent packages starting at $999 setup and $199 per month for our Starter AI plan with a custom website and 300 voice minutes, or $1,999 setup and $399 per month for our popular Growth Suite. Would you like me to book a 15-minute consultation to discuss your project?`,
             callerName,
             callerEmail,
             callerPhone,
             requestedSlot: requestedSlot || 'Pending Slot Selection',
-            topic: 'Pricing & Packages',
+            topic: 'Pricing & Packages Consultation',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🚀 INBOUND LEAD: Pricing inquiry.`
+            whatsappMessage: `🚀 INBOUND LEAD: Pricing inquiry regarding Starter ($999) & Growth ($1,999) packages.`
           };
         }
 

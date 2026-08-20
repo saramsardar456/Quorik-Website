@@ -2124,7 +2124,10 @@ Respond ONLY in valid JSON matching this schema:
   app.get("/widget.js", (req: express.Request, res: express.Response) => {
     const widgetPath = path.join(process.cwd(), 'public', 'widget.js');
     if (fs.existsSync(widgetPath)) {
-      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(widgetPath);
     } else {
       res.status(404).send('Widget script not found');

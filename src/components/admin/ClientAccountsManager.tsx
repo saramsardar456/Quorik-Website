@@ -31,6 +31,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { ClientAccount, VoiceConversation } from '../../types/client';
+import { formatWhatsAppPhone } from '../../utils/phone';
 
 interface ClientAccountsManagerProps {
   clients: ClientAccount[];
@@ -512,10 +513,25 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                         {statusBadge}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap mt-1">
-                        <p className="text-xs text-gray-400 font-mono flex items-center gap-2">
+                        <p className="text-xs text-gray-400 font-mono flex items-center gap-2 flex-wrap">
                           <span>Owner: <strong className="text-gray-300">{client.clientName}</strong></span>
                           <span>•</span>
                           <span>{client.industry}</span>
+                          {client.phone && (
+                            <>
+                              <span>•</span>
+                              <a
+                                href={`https://wa.me/${formatWhatsAppPhone(client.phone)}?text=${encodeURIComponent(`Hello ${client.clientName}, this is Quorik AI Support regarding your ${client.businessName} AI Assistant portal.`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 bg-emerald-950/30 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[11px]"
+                                title="Message Client on WhatsApp"
+                              >
+                                <span>💬</span>
+                                <span>{client.phone}</span>
+                              </a>
+                            </>
+                          )}
                         </p>
                         <div className="flex items-center gap-1 bg-cyan-950/40 border border-cyan-500/30 px-2 py-0.5 rounded text-[11px] font-mono text-cyan-300">
                           <span className="text-gray-400 text-[10px]">Client ID:</span>

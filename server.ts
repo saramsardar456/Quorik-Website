@@ -259,7 +259,7 @@ function loadStore() {
       businessName: "Quorik Google Ads",
       industry: "Google Ads & Performance Marketing",
       email: "saramsardar456@gmail.com",
-      phone: "+92 348 4742270",
+      phone: "+92 370 0146156",
       websiteUrl: "https://quoriksystem.online",
       tier: "starter",
       monthlyVoiceMinutesLimit: 300,

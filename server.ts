@@ -1871,14 +1871,26 @@ When the caller asks about pricing or costs, provide these transparent package p
       if (customCompany?.name) {
         personaName = customCompany?.agentName || (gender === 'female' ? 'Zephyr' : 'Arthur');
         const customFounderText = customCompany?.founder
-          ? `Founder & Leadership: ${customCompany.name} is founded and led by ${customCompany.founder}, specializing in modern business solutions.`
-          : `Leadership: ${customCompany.name} is led by our experienced executive management team.`;
-        systemPersonaInstruction = `You are ${personaName}, the 24/7 AI Receptionist & Customer Voice Assistant for "${companyName}".
-Language: Professional, articulate, welcoming English. Start greetings with 'Hello and thank you for calling ${companyName}! My name is ${personaName}.'
-Key Services: ${companyServices}.
-${customFounderText}
-${consultationBookingRules}
-Keep responses natural, concise, and friendly for spoken phone calls.`;
+          ? `Founder & Leadership: ${customCompany.name} is founded and led by ${customCompany.founder}, specializing in premier client services.`
+          : `Leadership: ${customCompany.name} is led by our experienced executive and specialist team.`;
+        const locationText = customCompany?.location ? `Location: ${customCompany.location}` : '';
+        const hoursText = customCompany?.hours ? `Hours: ${customCompany.hours}` : '';
+
+        systemPersonaInstruction = `You are ${personaName}, the 24/7 AI Voice Concierge & Receptionist for "${companyName}".
+Tone: Professional, warm, articulate, and welcoming.
+Company Details:
+- Business: ${companyName}
+- Services & Pricing: ${companyServices}
+- ${locationText}
+- ${hoursText}
+- ${customFounderText}
+
+RULES:
+1. Speak concisely in natural spoken English (1-2 sentences max).
+2. When asked about pricing or services, quote the specific services and rates provided above.
+3. When asked about location or business hours, provide the location and hours clearly.
+4. When asked to schedule an appointment, ask for their preferred day/time and contact details politely.
+${consultationBookingRules}`;
       } else if (personaId === 'uk-refined') {
         personaName = gender === 'female' ? 'Clara' : 'Arthur';
         systemPersonaInstruction = `You are ${personaName}, a 24/7 AI Assistant for Quorik (Web Development & AI Automation Agency).
@@ -1917,7 +1929,7 @@ Respond ONLY in valid JSON matching this schema:
   "callerEmail": "Extracted email address or empty string if not provided",
   "callerPhone": "Extracted phone number or empty string if not provided",
   "requestedSlot": "Extracted date/time or empty string if not provided",
-  "topic": "Extracted specific service topic (e.g., AI Voice Agent Setup, Custom Web Development, AI Chatbot)",
+  "topic": "Extracted specific service topic",
   "bookingStatus": "in_progress | confirmed | inquiry_only",
   "missingFields": ["list of missing fields among name, time, email, phone"],
   "whatsappMessage": "Short WhatsApp alert message summary for team dispatch"
@@ -1948,25 +1960,50 @@ Respond ONLY in valid JSON matching this schema:
         }
 
         // Determine Topic
-        let topic = 'Discovery Consultation';
-        if (fullText.includes('voice') || fullText.includes('agent')) topic = 'AI Voice Agent Setup';
+        let topic = 'Appointment & Consultation';
+        if (customCompany?.services && Array.isArray(customCompany.services) && customCompany.services.length > 0) {
+          topic = customCompany.services[0];
+        } else if (fullText.includes('voice') || fullText.includes('agent')) topic = 'AI Voice Agent Setup';
         else if (fullText.includes('website') || fullText.includes('web')) topic = 'Custom Website Development';
         else if (fullText.includes('chatbot')) topic = 'AI Chatbot Integration';
 
         const greeting = callerName ? `Hello ${callerName}!` : `Hello!`;
 
-        // Founder query
-        if (currentLower.includes('founder') || currentLower.includes('ceo') || currentLower.includes('who founded') || currentLower.includes('who owns') || currentLower.includes('who built') || currentLower.includes('shehram')) {
+        // Location / Hours query
+        if (currentLower.includes('location') || currentLower.includes('located') || currentLower.includes('where are') || currentLower.includes('address') || currentLower.includes('hours') || currentLower.includes('open')) {
+          const loc = customCompany?.location || "Metropolitan Center";
+          const hrs = customCompany?.hours || "Monday to Saturday 8:00 AM to 7:00 PM";
           return {
-            aiSpeechText: `Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect and technology strategist who founded Quorik to build high-performance custom web applications and zero-latency 24/7 AI Voice Agents for modern businesses. Would you like me to schedule a discovery consultation with him and our team?`,
+            aiSpeechText: `${cName} is located at ${loc}. Our hours are ${hrs}, and our 24/7 AI voice line is always active. Would you like to schedule a visit?`,
             callerName,
             callerEmail,
             callerPhone,
             requestedSlot: requestedSlot || 'Pending Slot Selection',
-            topic: 'Founder & Executive Leadership Inquiry',
+            topic: 'Location & Hours Inquiry',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `👑 FOUNDER INQUIRY: Caller inquired about Founder & CEO Shehram Meellu.`
+            whatsappMessage: `📍 LOCATION & HOURS INQUIRY: Visitor asked for location and schedule at ${cName}.`
+          };
+        }
+
+        // Founder query
+        if (currentLower.includes('founder') || currentLower.includes('ceo') || currentLower.includes('who founded') || currentLower.includes('who owns') || currentLower.includes('who built') || currentLower.includes('doctor') || currentLower.includes('lawyer')) {
+          const founderResponse = customCompany?.founder
+            ? `${cName} was founded and is led by ${customCompany.founder}, dedicated to 5-star client satisfaction. Would you like me to book a consultation for you?`
+            : customCompany?.name
+              ? `${cName} is led by our experienced executive team and certified specialists. Would you like to schedule an appointment with our team?`
+              : `Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect and technology strategist who founded Quorik to build high-performance custom web applications and zero-latency 24/7 AI Voice Agents. Would you like me to schedule a discovery consultation?`;
+
+          return {
+            aiSpeechText: founderResponse,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'Leadership & Specialist Inquiry',
+            bookingStatus: 'inquiry_only',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `👑 LEADERSHIP INQUIRY: Caller inquired about leadership for ${cName}.`
           };
         }
 
@@ -1982,7 +2019,7 @@ Respond ONLY in valid JSON matching this schema:
 
           if (!callerName && !requestedSlot) {
             return {
-              aiSpeechText: `I would be delighted to book your discovery consultation for ${topic}! May I have your name and preferred day and time for the meeting?`,
+              aiSpeechText: `I would be delighted to book your appointment at ${cName}! May I have your name and preferred day and time?`,
               callerName: '',
               callerEmail: '',
               callerPhone: '',
@@ -1990,12 +2027,12 @@ Respond ONLY in valid JSON matching this schema:
               topic,
               bookingStatus: 'in_progress',
               missingFields: ['name', 'time', 'email', 'phone'],
-              whatsappMessage: `⏳ CONSULTATION IN PROGRESS: Awaiting caller name and time slot.`
+              whatsappMessage: `⏳ APPOINTMENT IN PROGRESS: Awaiting caller name and time slot for ${cName}.`
             };
           } else if (!callerEmail || !callerPhone) {
             const missingText = !callerEmail && !callerPhone ? "your email address and phone number" : (!callerEmail ? "your email address" : "your phone number");
             return {
-              aiSpeechText: `Great ${callerName || ''}! Could you please share ${missingText} so I can send the calendar invite and confirmation?`,
+              aiSpeechText: `Great ${callerName || ''}! Could you please share ${missingText} so I can send the confirmation and calendar invite?`,
               callerName: callerName || 'Valued Caller',
               callerEmail,
               callerPhone,
@@ -2003,11 +2040,11 @@ Respond ONLY in valid JSON matching this schema:
               topic,
               bookingStatus: 'in_progress',
               missingFields: missing,
-              whatsappMessage: `⏳ CONSULTATION IN PROGRESS: ${callerName || 'Caller'} selected ${requestedSlot || 'Tomorrow'}. Awaiting contact info.`
+              whatsappMessage: `⏳ APPOINTMENT IN PROGRESS: ${callerName || 'Caller'} selected ${requestedSlot || 'Tomorrow'}. Awaiting contact info.`
             };
           } else {
             return {
-              aiSpeechText: `Perfect ${callerName}! I have confirmed your ${topic} consultation for ${requestedSlot}. A calendar invite has been sent to ${callerEmail}, and a confirmation to your phone.`,
+              aiSpeechText: `Perfect ${callerName}! I have confirmed your appointment at ${cName} for ${requestedSlot}. A confirmation has been logged for your contact details.`,
               callerName,
               callerEmail,
               callerPhone,
@@ -2015,28 +2052,40 @@ Respond ONLY in valid JSON matching this schema:
               topic,
               bookingStatus: 'confirmed',
               missingFields: [],
-              whatsappMessage: `🚀 CONFIRMED BOOKING: ${callerName} booked ${topic} on ${requestedSlot}. Contact: ${callerEmail} | ${callerPhone}`
+              whatsappMessage: `🚀 CONFIRMED APPOINTMENT: ${callerName} booked ${topic} on ${requestedSlot} at ${cName}. Contact: ${callerEmail} | ${callerPhone}`
             };
           }
         }
 
         // Pricing query
-        if (currentLower.includes('price') || currentLower.includes('cost') || currentLower.includes('pricing') || currentLower.includes('rate') || currentLower.includes('package')) {
+        if (currentLower.includes('price') || currentLower.includes('cost') || currentLower.includes('pricing') || currentLower.includes('rate') || currentLower.includes('package') || currentLower.includes('fee')) {
+          let priceMsg = "";
+          if (customCompany?.services && Array.isArray(customCompany.services) && customCompany.services.length > 0) {
+            const sampleServices = customCompany.services.slice(0, 3).join(", ");
+            priceMsg = `At ${cName}, our transparent services include: ${sampleServices}. Would you like me to reserve a priority appointment for you?`;
+          } else {
+            priceMsg = `Quorik offers transparent packages starting at $999 setup and $199 per month for our Starter AI plan with a custom website and 300 voice minutes, or $1,999 setup and $399 per month for our popular Growth Suite. Would you like me to book a 15-minute consultation to discuss your project?`;
+          }
+
           return {
-            aiSpeechText: `Quorik offers transparent packages starting at $999 setup and $199 per month for our Starter AI plan with a custom website and 300 voice minutes, or $1,999 setup and $399 per month for our popular Growth Suite. Would you like me to book a 15-minute consultation to discuss your project?`,
+            aiSpeechText: priceMsg,
             callerName,
             callerEmail,
             callerPhone,
             requestedSlot: requestedSlot || 'Pending Slot Selection',
-            topic: 'Pricing & Packages Consultation',
+            topic: 'Pricing & Services Consultation',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🚀 INBOUND LEAD: Pricing inquiry regarding Starter ($999) & Growth ($1,999) packages.`
+            whatsappMessage: `🚀 INBOUND LEAD: Pricing inquiry regarding services at ${cName}.`
           };
         }
 
+        const generalMsg = customCompany?.name
+          ? `${greeting} Thank you for calling ${cName}! I'm ${pName}. I can answer any questions about our services, pricing, or book an appointment for you today. How may I assist you?`
+          : `${greeting} Thank you for reaching ${cName}! I'm ${pName}. How can I assist you with custom web development, AI chatbots, or voice automation today?`;
+
         return {
-          aiSpeechText: `${greeting} Thank you for reaching ${cName}! I'm ${pName}. How can I assist you with custom web development, AI chatbots, or voice automation today?`,
+          aiSpeechText: generalMsg,
           callerName,
           callerEmail,
           callerPhone,
@@ -2044,7 +2093,7 @@ Respond ONLY in valid JSON matching this schema:
           topic: 'General Inbound Inquiry',
           bookingStatus: 'inquiry_only',
           missingFields: ['name', 'time', 'email', 'phone'],
-          whatsappMessage: `🚀 INBOUND CALL: Connected via voice receptionist.`
+          whatsappMessage: `🚀 INBOUND CALL: Connected with ${pName} at ${cName}.`
         };
       };
 

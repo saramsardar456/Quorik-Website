@@ -115,12 +115,34 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     }
   };
 
+  const speechIntervalRef = useRef<any>(null);
+
+  const clearSpeechEngine = () => {
+    if (speechIntervalRef.current) {
+      clearInterval(speechIntervalRef.current);
+      speechIntervalRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+    if (audioFallbackRef.current) {
+      try {
+        audioFallbackRef.current.pause();
+        audioFallbackRef.current.currentTime = 0;
+      } catch (e) {}
+    }
+    setIsAiSpeaking(false);
+  };
+
   const playAudioFallback = (text: string) => {
     try {
       if (audioFallbackRef.current) {
         audioFallbackRef.current.pause();
       }
-      const encoded = encodeURIComponent(text.slice(0, 200));
+      const cleanSnippet = text.replace(/[*_#`]/g, '').slice(0, 180);
+      const encoded = encodeURIComponent(cleanSnippet);
       const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
       
       const audio = new Audio(ttsUrl);
@@ -136,9 +158,14 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   };
 
   const speakText = (text: string) => {
+    // 1. Stop mic listening if active
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
+      setIsRecordingMic(false);
     }
+
+    // 2. Clear any active speech or timer
+    clearSpeechEngine();
 
     if (!('speechSynthesis' in window)) {
       playAudioFallback(text);
@@ -148,82 +175,115 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     try {
       window.speechSynthesis.resume();
 
-      const executeSpeak = () => {
-        try {
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 0.92;
-          utterance.pitch = data.gender === 'female' ? 1.08 : 0.90;
+      const cleanText = text.replace(/[*_#`]/g, '').trim();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = 0.93;
+      utterance.pitch = data.gender === 'female' ? 1.05 : 0.92;
 
-          if (typeof window !== 'undefined') {
-            (window as any)._speechUtterances = (window as any)._speechUtterances || [];
-            (window as any)._speechUtterances.push(utterance);
+      // Select natural English voice if available
+      const voices = window.speechSynthesis.getVoices();
+      if (voices && voices.length > 0) {
+        const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+        if (englishVoices.length > 0) {
+          if (data.gender === 'female') {
+            const femaleVoice = englishVoices.find(v => 
+              v.name.toLowerCase().includes('female') || 
+              v.name.toLowerCase().includes('samantha') || 
+              v.name.toLowerCase().includes('zira') || 
+              v.name.toLowerCase().includes('victoria') ||
+              v.name.toLowerCase().includes('karen') ||
+              v.name.toLowerCase().includes('serena')
+            );
+            if (femaleVoice) utterance.voice = femaleVoice;
+            else utterance.voice = englishVoices[0];
+          } else {
+            const maleVoice = englishVoices.find(v => 
+              v.name.toLowerCase().includes('male') || 
+              v.name.toLowerCase().includes('david') || 
+              v.name.toLowerCase().includes('daniel') || 
+              v.name.toLowerCase().includes('alex') ||
+              v.name.toLowerCase().includes('george') ||
+              v.name.toLowerCase().includes('oliver')
+            );
+            if (maleVoice) utterance.voice = maleVoice;
+            else utterance.voice = englishVoices[0];
           }
+        }
+      }
 
-          const cleanup = () => {
-            setIsAiSpeaking(false);
-            if (typeof window !== 'undefined' && (window as any)._speechUtterances) {
-              (window as any)._speechUtterances = (window as any)._speechUtterances.filter((u: any) => u !== utterance);
-            }
-          };
+      // Prevent garbage collection in Chrome
+      if (typeof window !== 'undefined') {
+        (window as any)._currentAiUtterance = utterance;
+      }
 
-          utterance.onstart = () => setIsAiSpeaking(true);
-          utterance.onend = cleanup;
-          utterance.onerror = () => {
-            cleanup();
-            playAudioFallback(text);
-          };
+      utterance.onstart = () => {
+        setIsAiSpeaking(true);
+        // Chrome heartbeat to prevent 15s pause freeze
+        if (speechIntervalRef.current) clearInterval(speechIntervalRef.current);
+        speechIntervalRef.current = setInterval(() => {
+          if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+            window.speechSynthesis.resume();
+          }
+        }, 3000);
+      };
 
-          window.speechSynthesis.speak(utterance);
-        } catch (err) {
-          playAudioFallback(text);
+      utterance.onend = () => {
+        if (speechIntervalRef.current) {
+          clearInterval(speechIntervalRef.current);
+          speechIntervalRef.current = null;
+        }
+        setIsAiSpeaking(false);
+      };
+
+      utterance.onerror = (event) => {
+        if (speechIntervalRef.current) {
+          clearInterval(speechIntervalRef.current);
+          speechIntervalRef.current = null;
+        }
+        setIsAiSpeaking(false);
+        // Only trigger audio fallback if it wasn't a deliberate cancel
+        if (event.error !== 'canceled' && event.error !== 'interrupted') {
+          playAudioFallback(cleanText);
         }
       };
 
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
-        setTimeout(executeSpeak, 60);
-      } else {
-        executeSpeak();
-      }
+      // Slight timeout allows speech synthesis queue to flush cleanly
+      setTimeout(() => {
+        try {
+          window.speechSynthesis.speak(utterance);
+        } catch (speakErr) {
+          playAudioFallback(cleanText);
+        }
+      }, 50);
     } catch (err) {
       playAudioFallback(text);
     }
   };
 
   const startCall = (customInitialQuery?: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-
+    clearSpeechEngine();
     setIsCallActive(true);
     if (onCallStateChange) onCallStateChange(true);
-    setSimMessages([]);
 
     if (callConsoleRef.current) {
       callConsoleRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    setTimeout(() => {
-      const greeting = `Hello and thank you for contacting ${data.companyName}! My name is ${data.agentName}. I can answer questions about our services, pricing, and schedule your appointment today. How may I assist you?`;
+    if (customInitialQuery) {
+      // If triggered with a specific question (e.g. "What are your prices?"), answer directly
+      handleSendQuery(customInitialQuery);
+    } else {
+      // Direct call start: play greeting
+      const greeting = `Hello and thank you for calling ${data.companyName}! My name is ${data.agentName}. I can answer questions about our services, pricing, or schedule your appointment today. How may I assist you?`;
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
-      setSimMessages([{ sender: 'ai', text: greeting, time: '00:01' }]);
+      setSimMessages([{ sender: 'ai', text: greeting, time: timeStr }]);
       speakText(greeting);
-
-      if (customInitialQuery) {
-        setTimeout(() => {
-          handleSendQuery(customInitialQuery);
-        }, 1800);
-      }
-    }, 400);
+    }
   };
 
   const endCall = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    if (audioFallbackRef.current) {
-      audioFallbackRef.current.pause();
-    }
+    clearSpeechEngine();
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
     }
@@ -234,22 +294,26 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   };
 
   const handleSendQuery = async (queryText?: string) => {
-    const textToSend = queryText || userQueryInput;
-    if (!textToSend.trim() || isAiThinking) return;
+    const textToSend = (queryText || userQueryInput).trim();
+    if (!textToSend || isAiThinking) return;
 
+    // Ensure call is active
     if (!isCallActive) {
-      startCall(textToSend);
-      return;
+      setIsCallActive(true);
+      if (onCallStateChange) onCallStateChange(true);
     }
 
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (callConsoleRef.current) {
+      callConsoleRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    setIsAiSpeaking(false);
+
+    // Stop previous speech cleanly so new answer plays fresh
+    clearSpeechEngine();
 
     const now = new Date();
     const userTimeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    // Append user query to transcript
     setSimMessages(prev => [...prev, { sender: 'user', text: textToSend, time: userTimeStr }]);
     setUserQueryInput('');
     setIsAiThinking(true);
@@ -270,7 +334,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
           customCompany: {
             name: data.companyName,
             agentName: data.agentName,
-            services: data.services.map(s => `${s.title} (${s.price}): ${s.desc}`)
+            services: data.services.map(s => `${s.title} (${s.price}): ${s.desc}`),
+            location: data.location,
+            hours: data.hours,
+            phone: data.phone
           }
         })
       });
@@ -300,8 +367,9 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       }
     } catch (err) {
       setIsAiThinking(false);
-      const fallback = `Thank you for asking! For ${data.companyName}, we specialize in ${data.services[0]?.title || 'our premier services'}. I have logged your request and can secure your consultation immediately.`;
-      setSimMessages(prev => [...prev, { sender: 'ai', text: fallback, time: '00:30' }]);
+      const fallback = `Thank you for asking! For ${data.companyName}, we provide ${data.services[0]?.title || 'premier services'} starting at ${data.services[0]?.price || 'competitive rates'}. Would you like me to reserve an appointment for you?`;
+      const aiTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setSimMessages(prev => [...prev, { sender: 'ai', text: fallback, time: aiTimeStr }]);
       speakText(fallback);
     }
   };

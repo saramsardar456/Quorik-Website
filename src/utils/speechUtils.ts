@@ -70,20 +70,20 @@ export function sanitizeTextForSpeech(text: string): string {
 }
 
 // -------------------------------------------------------------
-// AudioContext & Web Audio API Player for Gemini Neural Output
+// Ultra-Resilient Audio Engine for Mobile & Desktop (iOS/Android/Safari/Chrome)
 // -------------------------------------------------------------
 
+let activeHtmlAudio: HTMLAudioElement | null = null;
 let globalAudioCtx: AudioContext | null = null;
-let activeAudioSource: AudioBufferSourceNode | null = null;
 let activeUtteranceHeartbeat: any = null;
 
-// Client-side in-memory Audio Cache
-const clientAudioCache = new Map<string, AudioBuffer>();
+// Client-side in-memory Base64 Audio Cache for 0ms repeat playback
+const clientAudioCache = new Map<string, string>();
 
-function getAudioContext(): AudioContext {
+export function getAudioContext(): AudioContext {
   if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    globalAudioCtx = new AudioContextClass({ sampleRate: 24000 });
+    globalAudioCtx = new AudioContextClass();
   }
   if (globalAudioCtx.state === 'suspended') {
     globalAudioCtx.resume().catch(() => {});
@@ -91,68 +91,47 @@ function getAudioContext(): AudioContext {
   return globalAudioCtx;
 }
 
-// Pre-warm Web Audio API and SpeechSynthesis on first user touch / click
-if (typeof window !== 'undefined') {
-  const prewarmAll = () => {
-    try {
+/**
+ * Pre-arm and unlock audio channels synchronously on user tap/click.
+ * Must be called in user gesture event handlers (e.g. Start Call, Mic button).
+ */
+export function unlockAudio(): void {
+  try {
+    if (typeof window !== 'undefined') {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.getVoices();
         window.speechSynthesis.resume();
       }
       const ctx = getAudioContext();
       if (ctx.state === 'suspended') {
-        ctx.resume();
+        ctx.resume().catch(() => {});
       }
-    } catch (e) {}
-  };
+      if (!activeHtmlAudio) {
+        activeHtmlAudio = new Audio();
+      }
+    }
+  } catch (e) {}
+}
 
-  window.addEventListener('touchstart', prewarmAll, { once: true, passive: true });
-  window.addEventListener('click', prewarmAll, { once: true, passive: true });
+// Pre-warm on first touch or click
+if (typeof window !== 'undefined') {
+  window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+  window.addEventListener('click', unlockAudio, { once: true, passive: true });
 }
 
 /**
- * Decode Base64 MP3, WAV, or 24kHz PCM audio into an AudioBuffer
- */
-export async function decodeAudioPayload(base64Data: string): Promise<AudioBuffer> {
-  const ctx = getAudioContext();
-  const binaryString = atob(base64Data);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  // 1. Try native Web Audio decoder (handles MP3, WAV, AAC)
-  try {
-    const arrayBufferCopy = bytes.buffer.slice(0);
-    const decoded = await ctx.decodeAudioData(arrayBufferCopy);
-    if (decoded) return decoded;
-  } catch (e) {
-    // Continue to PCM fallback if direct decode fails
-  }
-
-  // 2. Fallback: Raw 16-bit Little-Endian PCM @ 24,000 Hz
-  const int16 = new Int16Array(bytes.buffer);
-  const float32 = new Float32Array(int16.length);
-  for (let i = 0; i < int16.length; i++) {
-    float32[i] = int16[i] / 32768.0;
-  }
-
-  const audioBuffer = ctx.createBuffer(1, float32.length, 24000);
-  audioBuffer.getChannelData(0).set(float32);
-  return audioBuffer;
-}
-
-/**
- * Stop any currently playing speech (both Gemini Web Audio & SpeechSynthesis)
+ * Stop any currently playing speech immediately
  */
 export function stopAllSpeech(): void {
-  if (activeAudioSource) {
+  if (activeHtmlAudio) {
     try {
-      activeAudioSource.stop();
-      activeAudioSource.disconnect();
+      activeHtmlAudio.pause();
+      activeHtmlAudio.currentTime = 0;
+      activeHtmlAudio.onended = null;
+      activeHtmlAudio.onerror = null;
+      activeHtmlAudio.onplay = null;
     } catch (e) {}
-    activeAudioSource = null;
+    activeHtmlAudio = null;
   }
 
   if (activeUtteranceHeartbeat) {
@@ -189,8 +168,7 @@ export async function prefetchNeuralAudio(
     if (res.ok) {
       const data = await res.json();
       if (data.audioData) {
-        const buffer = await decodeAudioPayload(data.audioData);
-        clientAudioCache.set(cacheKey, buffer);
+        clientAudioCache.set(cacheKey, data.audioData);
       }
     }
   } catch (e) {}
@@ -198,7 +176,7 @@ export async function prefetchNeuralAudio(
 
 /**
  * Primary Voice Synthesizer:
- * Uses Gemini Studio Neural Voice (Charon/Fenrir/Zephyr/Aoede) with instant cache and Web Speech fallback.
+ * Uses Studio Neural Voice with HTML5 hardware MP3 playback, 0ms cache, and device fallback.
  */
 export async function speakSpeech(
   rawText: string,
@@ -218,40 +196,58 @@ export async function speakSpeech(
   }
 
   stopAllSpeech();
+  unlockAudio();
 
   const gender = options.gender || 'male';
   const personaId = options.personaId || (gender === 'male' ? 'us-executive' : 'us-warm');
   const cacheKey = `${gender}:${personaId}:${cleanText}`;
 
-  // 1. Check client-side memory cache for 0ms instant playback
-  if (clientAudioCache.has(cacheKey)) {
+  const playAudioData = (base64Audio: string) => {
     try {
-      const audioBuffer = clientAudioCache.get(cacheKey)!;
-      const ctx = getAudioContext();
-      if (ctx.state === 'suspended') await ctx.resume();
+      const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+      activeHtmlAudio = audio;
+      audio.preload = 'auto';
 
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-      activeAudioSource = source;
-
-      if (options.onStart) options.onStart();
-
-      source.onended = () => {
-        if (activeAudioSource === source) activeAudioSource = null;
+      let endedOrFailed = false;
+      const finish = () => {
+        if (endedOrFailed) return;
+        endedOrFailed = true;
+        if (activeHtmlAudio === audio) activeHtmlAudio = null;
         if (options.onEnd) options.onEnd();
       };
 
-      source.start(0);
-      return;
-    } catch (err) {
-      console.warn("Cached audio playback note:", err);
+      audio.onplay = () => {
+        if (options.onStart) options.onStart();
+      };
+      audio.onended = finish;
+      audio.onerror = () => {
+        if (activeHtmlAudio === audio) activeHtmlAudio = null;
+        // If HTML5 audio fails, fall back to browser Web Speech API
+        speakNativeUtterance(cleanText, options);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("Audio play notice:", err);
+          speakNativeUtterance(cleanText, options);
+        });
+      }
+    } catch (e) {
+      speakNativeUtterance(cleanText, options);
     }
+  };
+
+  // 1. Check client-side memory cache for 0ms instant playback
+  if (clientAudioCache.has(cacheKey)) {
+    const cachedData = clientAudioCache.get(cacheKey)!;
+    playAudioData(cachedData);
+    return;
   }
 
-  // 2. Fetch from Gemini Neural TTS API with a fast timeout
+  // 2. Fetch from Neural TTS API
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
 
   try {
     const res = await fetch('/api/tts', {
@@ -270,25 +266,8 @@ export async function speakSpeech(
     if (res.ok) {
       const data = await res.json();
       if (data.audioData) {
-        const audioBuffer = await decodeAudioPayload(data.audioData);
-        clientAudioCache.set(cacheKey, audioBuffer);
-
-        const ctx = getAudioContext();
-        if (ctx.state === 'suspended') await ctx.resume();
-
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(ctx.destination);
-        activeAudioSource = source;
-
-        if (options.onStart) options.onStart();
-
-        source.onended = () => {
-          if (activeAudioSource === source) activeAudioSource = null;
-          if (options.onEnd) options.onEnd();
-        };
-
-        source.start(0);
+        clientAudioCache.set(cacheKey, data.audioData);
+        playAudioData(data.audioData);
         return;
       }
     }
@@ -296,8 +275,7 @@ export async function speakSpeech(
   } catch (err: any) {
     clearTimeout(timeoutId);
     console.warn("Neural TTS fallback to device voice:", err?.message || err);
-    // Seamless fallback to device Web Speech API
-    speakEnglishUtterance(cleanText, options);
+    speakNativeUtterance(cleanText, options);
   }
 }
 
@@ -420,7 +398,7 @@ export function getBestEnglishVoice(
   };
 }
 
-export function speakEnglishUtterance(
+export function speakNativeUtterance(
   rawText: string,
   options: {
     gender?: 'female' | 'male';
@@ -503,4 +481,22 @@ export function speakEnglishUtterance(
     if (options.onError) options.onError(err);
     if (options.onEnd) options.onEnd();
   }
+}
+
+/**
+ * Universal export for any component calling speakEnglishUtterance:
+ * Automatically routes through the Neural Studio Voice engine for flawless mobile & desktop audio.
+ */
+export function speakEnglishUtterance(
+  rawText: string,
+  options: {
+    gender?: 'female' | 'male';
+    personaId?: string;
+    preferredLocale?: 'en-US' | 'en-GB';
+    onStart?: () => void;
+    onEnd?: () => void;
+    onError?: (err?: any) => void;
+  } = {}
+): void {
+  speakSpeech(rawText, options);
 }

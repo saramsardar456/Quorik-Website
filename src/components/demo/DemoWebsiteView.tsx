@@ -39,7 +39,7 @@ import {
   BadgeCheck
 } from 'lucide-react';
 import { DemoSiteData, THEME_CONFIGS } from '../../data/demoPresets';
-import { speakEnglishUtterance, stopAllSpeech } from '../../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, unlockAudio } from '../../utils/speechUtils';
 
 interface DemoWebsiteViewProps {
   data: DemoSiteData;
@@ -82,9 +82,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
   useEffect(() => {
     return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopAllSpeech();
       if (audioFallbackRef.current) {
         audioFallbackRef.current.pause();
       }
@@ -116,13 +114,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     }
   };
 
-  const speechIntervalRef = useRef<any>(null);
-
   const clearSpeechEngine = () => {
-    if (speechIntervalRef.current) {
-      clearInterval(speechIntervalRef.current);
-      speechIntervalRef.current = null;
-    }
     stopAllSpeech();
     setIsAiSpeaking(false);
   };
@@ -134,12 +126,15 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       setIsRecordingMic(false);
     }
 
-    // 2. Clear any active speech or timer
+    // 2. Clear any active speech
     clearSpeechEngine();
 
-    speakEnglishUtterance(text, {
-      gender: data.gender || 'male',
-      personaId: (data.gender || 'male') === 'female' ? 'us-executive' : 'us-executive',
+    const gender = data.gender || 'male';
+    const personaId = gender === 'female' ? 'us-executive' : 'us-executive';
+
+    speakSpeech(text, {
+      gender,
+      personaId,
       preferredLocale: 'en-US',
       onStart: () => setIsAiSpeaking(true),
       onEnd: () => setIsAiSpeaking(false),
@@ -148,6 +143,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   };
 
   const startCall = (customInitialQuery?: string) => {
+    unlockAudio();
     clearSpeechEngine();
     setIsCallActive(true);
     if (onCallStateChange) onCallStateChange(true);
@@ -181,6 +177,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   };
 
   const handleSendQuery = async (queryText?: string) => {
+    unlockAudio();
     const textToSend = (queryText || userQueryInput).trim();
     if (!textToSend || isAiThinking) return;
 

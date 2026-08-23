@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import { Contact } from '../components/sections/Contact';
 import { VoiceDemo } from '../components/sections/VoiceDemo';
 import { SEO } from '../components/SEO';
-import { speakSpeech, stopAllSpeech, prefetchNeuralAudio } from '../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, prefetchNeuralAudio, unlockAudio } from '../utils/speechUtils';
 
 interface Persona {
   id: string;

@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send, Loader2, Sparkles, Clock } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { speakSpeech, stopAllSpeech, sanitizeTextForSpeech, prefetchNeuralAudio } from '../../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, sanitizeTextForSpeech, prefetchNeuralAudio, unlockAudio } from '../../utils/speechUtils';
 
 interface VoiceDemoProps {
   initialGender?: 'female' | 'male';
@@ -169,6 +169,7 @@ export function VoiceDemo({
   };
 
   const startSimulatedCall = () => {
+    unlockAudio();
     setSimState('ringing');
     setSimMessages([]);
     setBookedCalendar(false);
@@ -325,6 +326,7 @@ export function VoiceDemo({
   };
 
   const toggleMicInput = () => {
+    unlockAudio();
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Microphone voice input is not supported in this browser. Please type your query in the box below.");

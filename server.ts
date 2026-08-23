@@ -1307,9 +1307,9 @@ ${message}
   }) {
     // Active supported model sequence prioritizing high-availability flash tiers
     const modelsToTry = [
-      options.primaryModel || "gemini-3.1-flash-lite",
-      "gemini-3.1-flash-lite",
-      "gemini-flash-latest",
+      options.primaryModel || "gemini-2.0-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
       "gemini-3.7-flash"
     ];
     const uniqueModels = Array.from(new Set(modelsToTry));
@@ -2112,7 +2112,7 @@ Respond ONLY in valid JSON matching this schema:
 
       try {
         const response = await generateResilientContent(ai, {
-          primaryModel: "gemini-3.1-flash-lite",
+          primaryModel: "gemini-2.0-flash",
           contents: prompt,
           config: {
             responseMimeType: "application/json",

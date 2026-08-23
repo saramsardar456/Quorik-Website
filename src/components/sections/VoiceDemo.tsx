@@ -3,10 +3,64 @@ import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send,
 import { useState, useEffect, useRef } from 'react';
 import { speakEnglishUtterance, sanitizeTextForSpeech } from '../../utils/speechUtils';
 
-export function VoiceDemo() {
-  const [activePersonaId] = useState<string>('us-executive');
-  const [selectedGender] = useState<'female' | 'male'>('female');
+interface VoiceDemoProps {
+  initialGender?: 'female' | 'male';
+  initialPersonaId?: string;
+  onGenderChange?: (gender: 'female' | 'male') => void;
+  onPersonaChange?: (personaId: string) => void;
+}
+
+export function VoiceDemo({
+  initialGender = 'male',
+  initialPersonaId = 'us-executive',
+  onGenderChange,
+  onPersonaChange
+}: VoiceDemoProps = {}) {
+  const [activePersonaId, setActivePersonaId] = useState<string>(initialPersonaId);
+  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>(initialGender);
   
+  // Sync state if props change from parent
+  useEffect(() => {
+    if (initialGender) setSelectedGender(initialGender);
+  }, [initialGender]);
+
+  useEffect(() => {
+    if (initialPersonaId) setActivePersonaId(initialPersonaId);
+  }, [initialPersonaId]);
+
+  const handleSelectVoice = (gender: 'female' | 'male', personaId: string) => {
+    setSelectedGender(gender);
+    setActivePersonaId(personaId);
+    if (onGenderChange) onGenderChange(gender);
+    if (onPersonaChange) onPersonaChange(personaId);
+
+    // If currently connected or idle, cancel previous speech and update cleanly
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsAiSpeaking(false);
+
+    if (simState === 'connected') {
+      const newVoiceName = personaId === 'uk-refined'
+        ? (gender === 'female' ? 'Clara' : 'Oliver')
+        : (gender === 'female' ? 'Zephyr' : 'Arthur');
+
+      const switchNotice = `Voice persona switched to ${newVoiceName} (${gender === 'female' ? 'Female' : 'Male'}). How may I assist you?`;
+      setSimMessages(prev => [
+        ...prev,
+        { sender: 'ai', text: switchNotice, time: `00:${String(prev.length * 6 + 6).padStart(2, '0')}` }
+      ]);
+      
+      speakEnglishUtterance(switchNotice, {
+        gender,
+        preferredLocale: personaId === 'uk-refined' ? 'en-GB' : 'en-US',
+        onStart: () => setIsAiSpeaking(true),
+        onEnd: () => setIsAiSpeaking(false),
+        onError: () => setIsAiSpeaking(false)
+      });
+    }
+  };
+
   // Dynamic Live Call Simulator States
   const [simState, setSimState] = useState<'idle' | 'ringing' | 'connected' | 'completed'>('idle');
   const [simMessages, setSimMessages] = useState<Array<{ sender: 'ai' | 'customer'; text: string; time: string }>>([]);
@@ -39,7 +93,9 @@ export function VoiceDemo() {
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
 
-  const activeVoiceName = selectedGender === 'female' ? 'Zephyr' : 'Arthur';
+  const activeVoiceName = activePersonaId === 'uk-refined'
+    ? (selectedGender === 'female' ? 'Clara' : 'Oliver')
+    : (selectedGender === 'female' ? 'Zephyr' : 'Arthur');
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -89,7 +145,7 @@ export function VoiceDemo() {
 
     speakEnglishUtterance(text, {
       gender: selectedGender,
-      preferredLocale: 'en-US',
+      preferredLocale: activePersonaId === 'uk-refined' ? 'en-GB' : 'en-US',
       onStart: () => setIsAiSpeaking(true),
       onEnd: () => setIsAiSpeaking(false),
       onError: () => setIsAiSpeaking(false)
@@ -105,9 +161,7 @@ export function VoiceDemo() {
     setTimeout(() => {
       setSimState('connected');
       
-      const greeting = selectedGender === 'female'
-        ? "Hello and thank you for reaching Quorik! My name is Zephyr. How can I assist you with custom website development, AI chatbots, or voice automation today?"
-        : "Hello and thank you for reaching Quorik! My name is Arthur. How can I assist you with custom website development, AI chatbots, or voice automation today?";
+      const greeting = `Hello and thank you for reaching Quorik! My name is ${activeVoiceName}. How can I assist you with custom website development, AI chatbots, or voice automation today?`;
 
       setSimMessages([{ sender: 'ai', text: greeting, time: '00:01' }]);
       speakText(greeting);
@@ -343,6 +397,65 @@ export function VoiceDemo() {
             <div className="absolute top-0 right-0 w-80 h-80 bg-brand-teal/10 blur-[120px] rounded-full pointer-events-none" />
 
             <div>
+              {/* Voice Persona Selector Controls */}
+              <div className="mb-6 bg-[#05060A]/90 border border-white/10 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-bold">Select Voice:</span>
+                  <span className="text-[11px] font-mono text-brand-teal font-bold bg-brand-teal/10 px-2 py-0.5 rounded border border-brand-teal/30">
+                    {activeVoiceName} ({selectedGender.toUpperCase()})
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('male', 'us-executive')}
+                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      selectedGender === 'male' && activePersonaId === 'us-executive'
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span>🇺🇸</span> Arthur <span className="text-[10px] opacity-75 font-normal">(Male)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('female', 'us-executive')}
+                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      selectedGender === 'female' && activePersonaId === 'us-executive'
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span>🇺🇸</span> Zephyr <span className="text-[10px] opacity-75 font-normal">(Female)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('male', 'uk-refined')}
+                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      selectedGender === 'male' && activePersonaId === 'uk-refined'
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span>🇬🇧</span> Oliver <span className="text-[10px] opacity-75 font-normal">(Male)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('female', 'uk-refined')}
+                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      selectedGender === 'female' && activePersonaId === 'uk-refined'
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span>🇬🇧</span> Clara <span className="text-[10px] opacity-75 font-normal">(Female)</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Voice Status Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 mb-6 gap-3">
                 <div className="flex items-center gap-3">

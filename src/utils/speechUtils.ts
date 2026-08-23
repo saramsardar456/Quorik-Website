@@ -57,20 +57,32 @@ export function sanitizeTextForSpeech(text: string): string {
   return cleaned;
 }
 
+const MALE_VOICE_KEYWORDS = [
+  'alex', 'daniel', 'oliver', 'arthur', 'david', 'mark', 'george', 'fred',
+  'aaron', 'gordon', 'rishi', 'tom', 'lee', 'nicky', 'guy', 'stefan', 'ryan',
+  'richard', 'bruce', 'ralph', 'albert', 'junior', 'male', 'man', 'baritone',
+  '#male', 'male_1', 'male_2', 'male_3', 'male-1', 'male-2', 'iom', 'iob',
+  'rjs', 'fis', 'm0', 'm1', 'm2', 'm3', 'm4', 'm5', 'male '
+];
+
+const FEMALE_VOICE_KEYWORDS = [
+  'female', 'woman', 'girl', 'samantha', 'karen', 'zira', 'victoria', 'hazel',
+  'susan', 'aria', 'jenny', 'sonia', 'catherine', 'eva', 'moira', 'veena',
+  'tessa', 'fiona', 'allison', 'ava', 'nora', 'serena', 'sara', 'sfg', 'tpf',
+  'fem', 'clara', 'zephyr', 'female '
+];
+
 /**
  * Select the best English voice available on the device.
- * Strictly avoids non-English voices (e.g. Chinese/Hindi/etc. default engines on mobile).
+ * Accurately detects male vs female profiles across iOS Safari, Android Chrome, and Desktop.
  */
 export function getBestEnglishVoice(gender: 'female' | 'male' = 'female', preferredLocale: 'en-US' | 'en-GB' = 'en-US'): VoiceSelection {
-  const isMobile = isMobileDevice();
-  
-  // Safe default pitch and rate
-  // On mobile devices, non-1.0 pitch triggers bad resampling on Android/iOS TTS engines
-  const defaultPitch = isMobile ? 1.0 : (gender === 'female' ? 1.02 : 0.98);
-  const defaultRate = isMobile ? 1.0 : 0.98;
+  // Arthur (Male) uses a deeper 0.84 pitch to guarantee masculine baritone cadence even on mobile
+  const defaultPitch = gender === 'male' ? 0.84 : 1.06;
+  const defaultRate = gender === 'male' ? 0.94 : 0.95;
 
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    return { voice: null, pitch: 1.0, rate: 1.0, lang: 'en-US' };
+    return { voice: null, pitch: defaultPitch, rate: defaultRate, lang: 'en-US' };
   }
 
   const allVoices = window.speechSynthesis.getVoices() || [];
@@ -82,71 +94,45 @@ export function getBestEnglishVoice(gender: 'female' | 'male' = 'female', prefer
   });
 
   if (englishVoices.length === 0) {
-    // If no English voice loaded yet or available in list, return fallback lang en-US
     return { voice: null, pitch: defaultPitch, rate: defaultRate, lang: 'en-US' };
   }
 
   let selectedVoice: SpeechSynthesisVoice | null = null;
 
   if (gender === 'female') {
-    // Preferred Female English Voices
+    // 1. Find preferred Female English Voices
     selectedVoice = englishVoices.find(v => {
-      const name = v.name.toLowerCase();
-      const isMale = name.includes('david') || name.includes('mark') || name.includes('george') || 
-                     name.includes('guy') || name.includes('stefan') || name.includes('ryan') || 
-                     name.includes('daniel') || name.includes('oliver') || name.includes('arthur') ||
-                     name.includes('richard') || name.includes('male');
+      const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+      const isMale = MALE_VOICE_KEYWORDS.some(k => name.includes(k));
       if (isMale) return false;
-
-      return name.includes('zira') || 
-             name.includes('samantha') || 
-             name.includes('victoria') || 
-             name.includes('hazel') || 
-             name.includes('susan') || 
-             name.includes('karen') || 
-             name.includes('aria') || 
-             name.includes('jenny') || 
-             name.includes('sonia') || 
-             name.includes('catherine') || 
-             name.includes('eva') || 
-             name.includes('female') || 
-             name.includes('google us english') || 
-             name.includes('google uk english female') || 
-             name.includes('natural female') || 
-             name.includes('moira') || 
-             name.includes('veena') || 
-             name.includes('tessa');
+      return FEMALE_VOICE_KEYWORDS.some(k => name.includes(k));
     }) || null;
 
+    // 2. If none explicitly identified as female, pick any English voice not marked as male
     if (!selectedVoice) {
-      // Find any English voice that is not explicitly named with male identifiers
       selectedVoice = englishVoices.find(v => {
-        const name = v.name.toLowerCase();
-        return !name.includes('david') && !name.includes('mark') && !name.includes('george') && 
-               !name.includes('guy') && !name.includes('male') && !name.includes('daniel');
+        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+        return !MALE_VOICE_KEYWORDS.some(k => name.includes(k));
       }) || null;
     }
   } else {
-    // Preferred Male English Voices
+    // Male Voice Selection (Arthur / Oliver)
+    // 1. Explicit Male match
     selectedVoice = englishVoices.find(v => {
-      const name = v.name.toLowerCase();
-      return name.includes('david') || 
-             name.includes('mark') || 
-             name.includes('george') || 
-             name.includes('guy') || 
-             name.includes('stefan') || 
-             name.includes('ryan') || 
-             name.includes('daniel') || 
-             name.includes('oliver') || 
-             name.includes('arthur') || 
-             name.includes('richard') || 
-             name.includes('google uk english male') || 
-             name.includes('google us english male') || 
-             name.includes('male');
+      const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+      return MALE_VOICE_KEYWORDS.some(k => name.includes(k));
     }) || null;
+
+    // 2. If no explicit male name found, reject all known female voices (e.g. Samantha on iOS)
+    if (!selectedVoice) {
+      selectedVoice = englishVoices.find(v => {
+        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+        return !FEMALE_VOICE_KEYWORDS.some(k => name.includes(k));
+      }) || null;
+    }
   }
 
-  // Fallback to preferred locale or first English voice
+  // Fallback to preferred locale or first available English voice
   if (!selectedVoice) {
     selectedVoice = englishVoices.find(v => (v.lang || '').toLowerCase().includes(preferredLocale.toLowerCase())) || englishVoices[0];
   }
@@ -158,6 +144,8 @@ export function getBestEnglishVoice(gender: 'female' | 'male' = 'female', prefer
     lang: selectedVoice ? selectedVoice.lang : 'en-US'
   };
 }
+
+let activeUtteranceHeartbeat: any = null;
 
 /**
  * Robust, cross-browser speech playback executor.
@@ -184,6 +172,10 @@ export function speakEnglishUtterance(
   }
 
   try {
+    if (activeUtteranceHeartbeat) {
+      clearInterval(activeUtteranceHeartbeat);
+      activeUtteranceHeartbeat = null;
+    }
     window.speechSynthesis.cancel();
     window.speechSynthesis.resume();
 
@@ -203,6 +195,10 @@ export function speakEnglishUtterance(
     (window as any)._quorikUtterances.push(utterance);
 
     const cleanup = () => {
+      if (activeUtteranceHeartbeat) {
+        clearInterval(activeUtteranceHeartbeat);
+        activeUtteranceHeartbeat = null;
+      }
       if ((window as any)._quorikUtterances) {
         (window as any)._quorikUtterances = (window as any)._quorikUtterances.filter((u: any) => u !== utterance);
       }
@@ -210,6 +206,12 @@ export function speakEnglishUtterance(
 
     utterance.onstart = () => {
       if (options.onStart) options.onStart();
+      // Keep-alive heartbeat for Chrome / iOS
+      activeUtteranceHeartbeat = setInterval(() => {
+        if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+          window.speechSynthesis.resume();
+        }
+      }, 3000);
     };
 
     utterance.onend = () => {
@@ -219,12 +221,23 @@ export function speakEnglishUtterance(
 
     utterance.onerror = (err) => {
       cleanup();
-      console.warn("Speech synthesis notice:", err);
+      if (err?.error !== 'canceled' && err?.error !== 'interrupted') {
+        console.warn("Speech synthesis notice:", err);
+      }
       if (options.onError) options.onError(err);
       if (options.onEnd) options.onEnd();
     };
 
-    window.speechSynthesis.speak(utterance);
+    // Small timeout ensures queue is ready across mobile browsers
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        cleanup();
+        if (options.onError) options.onError(err);
+      }
+    }, 40);
+
     return utterance;
   } catch (err) {
     console.error("Speech synthesis execution error:", err);

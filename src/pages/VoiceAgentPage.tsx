@@ -238,7 +238,12 @@ export function VoiceAgentPage() {
       </section>
 
       {/* DYNAMIC REAL-TIME VOICE DEMO (SAME AS HOMEPAGE) */}
-      <VoiceDemo />
+      <VoiceDemo
+        initialGender={selectedGender}
+        initialPersonaId={activePersonaId}
+        onGenderChange={setSelectedGender}
+        onPersonaChange={setActivePersonaId}
+      />
 
       {/* Interactive Personas & Gender Voice Switcher */}
       <section id="personas" className="py-24 bg-[#05060A] border-b border-white/5 relative">

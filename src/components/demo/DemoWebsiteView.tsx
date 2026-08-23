@@ -39,6 +39,7 @@ import {
   BadgeCheck
 } from 'lucide-react';
 import { DemoSiteData, THEME_CONFIGS } from '../../data/demoPresets';
+import { speakEnglishUtterance } from '../../utils/speechUtils';
 
 interface DemoWebsiteViewProps {
   data: DemoSiteData;
@@ -173,88 +174,22 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     }
 
     try {
-      window.speechSynthesis.resume();
-
-      const cleanText = text.replace(/[*_#`]/g, '').trim();
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.93;
-      utterance.pitch = data.gender === 'female' ? 1.05 : 0.92;
-
-      // Select natural English voice if available
-      const voices = window.speechSynthesis.getVoices();
-      if (voices && voices.length > 0) {
-        const englishVoices = voices.filter(v => v.lang.startsWith('en'));
-        if (englishVoices.length > 0) {
-          if (data.gender === 'female') {
-            const femaleVoice = englishVoices.find(v => 
-              v.name.toLowerCase().includes('female') || 
-              v.name.toLowerCase().includes('samantha') || 
-              v.name.toLowerCase().includes('zira') || 
-              v.name.toLowerCase().includes('victoria') ||
-              v.name.toLowerCase().includes('karen') ||
-              v.name.toLowerCase().includes('serena')
-            );
-            if (femaleVoice) utterance.voice = femaleVoice;
-            else utterance.voice = englishVoices[0];
-          } else {
-            const maleVoice = englishVoices.find(v => 
-              v.name.toLowerCase().includes('male') || 
-              v.name.toLowerCase().includes('david') || 
-              v.name.toLowerCase().includes('daniel') || 
-              v.name.toLowerCase().includes('alex') ||
-              v.name.toLowerCase().includes('george') ||
-              v.name.toLowerCase().includes('oliver')
-            );
-            if (maleVoice) utterance.voice = maleVoice;
-            else utterance.voice = englishVoices[0];
+      const utterance = speakEnglishUtterance(text, {
+        gender: data.gender || 'male',
+        preferredLocale: 'en-US',
+        onStart: () => setIsAiSpeaking(true),
+        onEnd: () => setIsAiSpeaking(false),
+        onError: (err) => {
+          setIsAiSpeaking(false);
+          if (err?.error !== 'canceled' && err?.error !== 'interrupted') {
+            playAudioFallback(text);
           }
         }
+      });
+
+      if (!utterance) {
+        playAudioFallback(text);
       }
-
-      // Prevent garbage collection in Chrome
-      if (typeof window !== 'undefined') {
-        (window as any)._currentAiUtterance = utterance;
-      }
-
-      utterance.onstart = () => {
-        setIsAiSpeaking(true);
-        // Chrome heartbeat to prevent 15s pause freeze
-        if (speechIntervalRef.current) clearInterval(speechIntervalRef.current);
-        speechIntervalRef.current = setInterval(() => {
-          if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
-            window.speechSynthesis.resume();
-          }
-        }, 3000);
-      };
-
-      utterance.onend = () => {
-        if (speechIntervalRef.current) {
-          clearInterval(speechIntervalRef.current);
-          speechIntervalRef.current = null;
-        }
-        setIsAiSpeaking(false);
-      };
-
-      utterance.onerror = (event) => {
-        if (speechIntervalRef.current) {
-          clearInterval(speechIntervalRef.current);
-          speechIntervalRef.current = null;
-        }
-        setIsAiSpeaking(false);
-        // Only trigger audio fallback if it wasn't a deliberate cancel
-        if (event.error !== 'canceled' && event.error !== 'interrupted') {
-          playAudioFallback(cleanText);
-        }
-      };
-
-      // Slight timeout allows speech synthesis queue to flush cleanly
-      setTimeout(() => {
-        try {
-          window.speechSynthesis.speak(utterance);
-        } catch (speakErr) {
-          playAudioFallback(cleanText);
-        }
-      }, 50);
     } catch (err) {
       playAudioFallback(text);
     }

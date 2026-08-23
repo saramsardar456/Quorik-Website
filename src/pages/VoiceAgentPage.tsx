@@ -98,6 +98,17 @@ export function VoiceAgentPage() {
     };
   }, [isAiSpeaking]);
 
+  // Pre-fetch sample persona audio in background for 0ms instant playback
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      personas.forEach(p => {
+        prefetchNeuralAudio(p.maleTranscript, 'male', p.id);
+        prefetchNeuralAudio(p.femaleTranscript, 'female', p.id);
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const unlockAudio = () => {
     if ('speechSynthesis' in window) {
       try {

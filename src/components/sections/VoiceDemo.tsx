@@ -128,6 +128,22 @@ export function VoiceDemo({
     };
   }, [isAiSpeaking]);
 
+  // Pre-warm audio and prefetch greetings
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const greetingArthur = "Hello and thank you for reaching Quorik! My name is Arthur. How can I assist you with custom website development, AI chatbots, or voice automation today?";
+      const greetingZephyr = "Hello and thank you for reaching Quorik! My name is Zephyr. How can I assist you with custom website development, AI chatbots, or voice automation today?";
+      const greetingOliver = "Good day and thank you for reaching Quorik. My name is Oliver. How can I assist you with your custom web development or AI automation project today?";
+      const greetingClara = "Good day and thank you for reaching Quorik. My name is Clara. How can I assist you with your custom web development or AI automation project today?";
+
+      prefetchNeuralAudio(greetingArthur, 'male', 'us-executive');
+      prefetchNeuralAudio(greetingZephyr, 'female', 'us-executive');
+      prefetchNeuralAudio(greetingOliver, 'male', 'uk-refined');
+      prefetchNeuralAudio(greetingClara, 'female', 'uk-refined');
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   const unlockAudio = () => {
     if ('speechSynthesis' in window) {
       try {

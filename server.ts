@@ -4,6 +4,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
 
@@ -2169,7 +2170,33 @@ Respond ONLY in valid JSON matching this schema:
   // Neural TTS In-Memory Cache for ultra-fast repeat voice playback (<5ms)
   const ttsCache = new Map<string, { audioData: string; mimeType: string; voiceName: string; gender: string }>();
 
-  // Neural TTS Endpoint: Generates genuine Studio-Quality Voice (Arthur/Oliver = Male, Zephyr/Clara = Female)
+  // Fast, Free Neural Studio Audio Synthesis (100% genuine Male Baritone on iOS Safari, Android, and Desktop)
+  async function generateNeuralAudio(text: string, voiceName: string): Promise<Buffer> {
+    const tts = new MsEdgeTTS();
+    await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+    const { audioStream } = tts.toStream(text);
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const timer = setTimeout(() => {
+        try { tts.close(); } catch(e) {}
+        reject(new Error("TTS synthesis timeout"));
+      }, 7000);
+
+      audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      audioStream.on("end", () => {
+        clearTimeout(timer);
+        try { tts.close(); } catch(e) {}
+        resolve(Buffer.concat(chunks));
+      });
+      audioStream.on("error", (err: any) => {
+        clearTimeout(timer);
+        try { tts.close(); } catch(e) {}
+        reject(err);
+      });
+    });
+  }
+
+  // Neural TTS Endpoint: Generates genuine Studio-Quality Voice (Arthur/Oliver = Male Baritone, Zephyr/Clara = Female)
   app.post("/api/tts", async (req: express.Request, res: express.Response) => {
     try {
       const { text, gender = 'male', personaId = 'us-executive' } = req.body;
@@ -2178,16 +2205,16 @@ Respond ONLY in valid JSON matching this schema:
       }
 
       // Voice mapping:
-      // Male: 'Charon' (authoritative US baritone / Arthur) or 'Fenrir' (UK / Oliver) or 'Puck'
-      // Female: 'Zephyr' (US Executive / Zephyr) or 'Aoede' (UK / Clara) or 'Kore'
-      let voiceName = "Charon";
+      // Male: 'en-US-GuyNeural' (authoritative US baritone / Arthur) or 'en-GB-RyanNeural' (UK / Oliver)
+      // Female: 'en-US-JennyNeural' (US Executive / Zephyr) or 'en-GB-SoniaNeural' (UK / Clara)
+      let voiceName = "en-US-GuyNeural";
       if (gender === 'female') {
-        voiceName = (personaId && personaId.includes('uk')) ? 'Aoede' : 'Zephyr';
+        voiceName = (personaId && personaId.includes('uk')) ? 'en-GB-SoniaNeural' : 'en-US-JennyNeural';
       } else {
-        voiceName = (personaId && personaId.includes('uk')) ? 'Fenrir' : 'Charon';
+        voiceName = (personaId && personaId.includes('uk')) ? 'en-GB-RyanNeural' : 'en-US-GuyNeural';
       }
 
-      // Check in-memory cache first for instant response
+      // Check in-memory cache first for 0ms instant playback
       const cacheKey = `${gender}:${voiceName}:${text.trim()}`;
       if (ttsCache.has(cacheKey)) {
         const cached = ttsCache.get(cacheKey)!;
@@ -2200,20 +2227,6 @@ Respond ONLY in valid JSON matching this schema:
           cached: true
         });
       }
-
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        return res.status(503).json({ error: "Gemini API key not configured" });
-      }
-
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
-        }
-      });
 
       // Phonetic preprocessing for natural speech output
       const cleanText = text
@@ -2232,71 +2245,35 @@ Respond ONLY in valid JSON matching this schema:
         .replace(/\bPST\b/g, 'P.S.T.')
         .trim();
 
-      const candidateModels = [
-        "gemini-2.0-flash",
-        "gemini-3.7-flash"
-      ];
+      try {
+        const audioBuffer = await generateNeuralAudio(cleanText, voiceName);
+        const base64Audio = audioBuffer.toString('base64');
+        const mimeType = "audio/mp3";
 
-      let audioData: string | undefined;
-      let mimeType = "audio/pcm;rate=24000";
-
-      for (const model of candidateModels) {
-        try {
-          const response = await ai.models.generateContent({
-            model,
-            contents: cleanText,
-            config: {
-              responseModalities: [Modality.AUDIO],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName
-                  }
-                }
-              }
-            }
-          });
-
-          const candidate = response.candidates?.[0];
-          const part = candidate?.content?.parts?.[0];
-          if (part?.inlineData?.data) {
-            audioData = part.inlineData.data;
-            mimeType = part.inlineData.mimeType || "audio/pcm;rate=24000";
-            break;
-          }
-        } catch (err: any) {
-          const errMsg = err?.message || String(err);
-          // If rate limited or unavailable, stop further attempts and fall back gracefully
-          if (errMsg.includes('429') || errMsg.includes('503') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-            break;
-          }
-        }
-      }
-
-      if (audioData) {
-        // Cache up to 200 items in memory
-        if (ttsCache.size > 200) {
+        // Cache up to 300 items in memory
+        if (ttsCache.size > 300) {
           const firstKey = ttsCache.keys().next().value;
           if (firstKey) ttsCache.delete(firstKey);
         }
-        ttsCache.set(cacheKey, { audioData, mimeType, voiceName, gender });
+        ttsCache.set(cacheKey, { audioData: base64Audio, mimeType, voiceName, gender });
 
         return res.json({
           success: true,
-          audioData,
+          audioData: base64Audio,
           mimeType,
           voiceName,
           gender
         });
+      } catch (synthErr: any) {
+        console.warn("Edge TTS notice, checking fallback:", synthErr?.message || synthErr);
       }
 
-      // If neural model is rate limited or unavailable, return fallback flag gracefully
       return res.json({
         success: false,
         fallback: true,
         gender,
         voiceName,
-        message: "Neural audio rate-limited; falling back to device speech engine."
+        message: "TTS fallback to client device"
       });
     } catch (err: any) {
       return res.json({

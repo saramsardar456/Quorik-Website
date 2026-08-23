@@ -240,7 +240,52 @@
     if (!clean) return;
 
     updateUIStatus('speaking');
+    const gender = (clientData?.voiceAgentName || '').toLowerCase().includes('sarah') || (clientData?.voiceAgentName || '').toLowerCase().includes('elena') ? 'female' : 'male';
+    const personaId = (clientData?.voiceLanguage || '').toLowerCase().includes('british') || (clientData?.voiceLanguage || '').toLowerCase().includes('uk') ? 'uk-refined' : 'us-executive';
 
+    // 1. First try server-side Neural Audio (/api/tts) for 100% genuine male/female studio voice on mobile
+    fetch(`${serverOrigin}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean, gender, personaId })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.audioData) {
+        const audioSrc = `data:${data.mimeType || 'audio/mp3'};base64,${data.audioData}`;
+        currentAudio = new Audio(audioSrc);
+        currentAudio.onplay = () => {
+          isSpeaking = true;
+          updateUIStatus('speaking');
+        };
+        currentAudio.onended = () => {
+          isSpeaking = false;
+          currentAudio = null;
+          updateUIStatus('idle');
+          if (autoListenAfter && isVoiceActive) {
+            setTimeout(() => {
+              if (isVoiceActive && !isSpeaking && !isThinking) {
+                startListening();
+              }
+            }, 400);
+          }
+        };
+        currentAudio.onerror = () => {
+          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+        };
+        currentAudio.play().catch(() => {
+          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+        });
+        return;
+      }
+      fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+    })
+    .catch(() => {
+      fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+    });
+  }
+
+  function fallbackSpeechSynthesis(clean, gender, autoListenAfter) {
     if ('speechSynthesis' in window) {
       try {
         window.speechSynthesis.resume();
@@ -249,7 +294,6 @@
         utterance.rate = isMobile ? 1.0 : 0.98;
         utterance.lang = 'en-US';
 
-        const gender = (clientData?.voiceAgentName || '').toLowerCase().includes('sarah') || (clientData?.voiceAgentName || '').toLowerCase().includes('elena') ? 'female' : 'male';
         const bestVoiceObj = getBestVoice(gender);
         if (bestVoiceObj.voice) {
           utterance.voice = bestVoiceObj.voice;
@@ -284,44 +328,11 @@
         window.speechSynthesis.speak(utterance);
         return;
       } catch (err) {
-        console.warn('[Quorik Voice Widget] SpeechSynthesis failed, falling back:', err);
+        console.warn('[Quorik Voice Widget] SpeechSynthesis failed:', err);
       }
     }
-
-    // Server-side / Audio element fallback
-    try {
-      const encoded = encodeURIComponent(clean.slice(0, 180));
-      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
-      currentAudio = new Audio(ttsUrl);
-      currentAudio.onplay = () => {
-        isSpeaking = true;
-        updateUIStatus('speaking');
-      };
-      currentAudio.onended = () => {
-        isSpeaking = false;
-        currentAudio = null;
-        updateUIStatus('idle');
-        if (autoListenAfter && isVoiceActive) {
-          setTimeout(() => {
-            if (isVoiceActive && !isSpeaking && !isThinking) {
-              startListening();
-            }
-          }, 400);
-        }
-      };
-      currentAudio.onerror = () => {
-        isSpeaking = false;
-        currentAudio = null;
-        updateUIStatus('idle');
-      };
-      currentAudio.play().catch(() => {
-        isSpeaking = false;
-        updateUIStatus('idle');
-      });
-    } catch (e) {
-      isSpeaking = false;
-      updateUIStatus('idle');
-    }
+    isSpeaking = false;
+    updateUIStatus('idle');
   }
 
   function stopSpeaking() {

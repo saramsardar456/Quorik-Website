@@ -111,7 +111,7 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Decode Base64 24kHz 16-bit PCM or WAV audio into an AudioBuffer
+ * Decode Base64 MP3, WAV, or 24kHz PCM audio into an AudioBuffer
  */
 export async function decodeAudioPayload(base64Data: string): Promise<AudioBuffer> {
   const ctx = getAudioContext();
@@ -122,12 +122,16 @@ export async function decodeAudioPayload(base64Data: string): Promise<AudioBuffe
     bytes[i] = binaryString.charCodeAt(i);
   }
 
-  // Check if it's already a RIFF / WAV container
-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
-    return await ctx.decodeAudioData(bytes.buffer.slice(0));
+  // 1. Try native Web Audio decoder (handles MP3, WAV, AAC)
+  try {
+    const arrayBufferCopy = bytes.buffer.slice(0);
+    const decoded = await ctx.decodeAudioData(arrayBufferCopy);
+    if (decoded) return decoded;
+  } catch (e) {
+    // Continue to PCM fallback if direct decode fails
   }
 
-  // Raw 16-bit Little-Endian PCM @ 24,000 Hz
+  // 2. Fallback: Raw 16-bit Little-Endian PCM @ 24,000 Hz
   const int16 = new Int16Array(bytes.buffer);
   const float32 = new Float32Array(int16.length);
   for (let i = 0; i < int16.length; i++) {

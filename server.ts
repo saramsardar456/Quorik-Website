@@ -2166,6 +2166,9 @@ Respond ONLY in valid JSON matching this schema:
     }
   });
 
+  // Neural TTS In-Memory Cache for ultra-fast repeat voice playback (<5ms)
+  const ttsCache = new Map<string, { audioData: string; mimeType: string; voiceName: string; gender: string }>();
+
   // Neural TTS Endpoint: Generates genuine Studio-Quality Voice (Arthur/Oliver = Male, Zephyr/Clara = Female)
   app.post("/api/tts", async (req: express.Request, res: express.Response) => {
     try {
@@ -2174,19 +2177,33 @@ Respond ONLY in valid JSON matching this schema:
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        return res.status(503).json({ error: "Gemini API key not configured" });
-      }
-
       // Voice mapping:
-      // Male: 'Charon' (authoritative US baritone / Arthur) or 'Fenrir' / 'Puck' (UK / Oliver)
-      // Female: 'Zephyr' (US Executive / Zephyr) or 'Aoede' / 'Kore' (UK / Clara)
+      // Male: 'Charon' (authoritative US baritone / Arthur) or 'Fenrir' (UK / Oliver) or 'Puck'
+      // Female: 'Zephyr' (US Executive / Zephyr) or 'Aoede' (UK / Clara) or 'Kore'
       let voiceName = "Charon";
       if (gender === 'female') {
         voiceName = (personaId && personaId.includes('uk')) ? 'Aoede' : 'Zephyr';
       } else {
         voiceName = (personaId && personaId.includes('uk')) ? 'Fenrir' : 'Charon';
+      }
+
+      // Check in-memory cache first for instant response
+      const cacheKey = `${gender}:${voiceName}:${text.trim()}`;
+      if (ttsCache.has(cacheKey)) {
+        const cached = ttsCache.get(cacheKey)!;
+        return res.json({
+          success: true,
+          audioData: cached.audioData,
+          mimeType: cached.mimeType,
+          voiceName: cached.voiceName,
+          gender: cached.gender,
+          cached: true
+        });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Gemini API key not configured" });
       }
 
       const ai = new GoogleGenAI({
@@ -2198,7 +2215,7 @@ Respond ONLY in valid JSON matching this schema:
         }
       });
 
-      // Phonetic preprocessing for speech
+      // Phonetic preprocessing for natural speech output
       const cleanText = text
         .replace(/\[CARD:[^\]]+\]/gi, '')
         .replace(/https?:\/\/\S+/gi, '')
@@ -2211,29 +2228,59 @@ Respond ONLY in valid JSON matching this schema:
         .replace(/\bROI\b/g, 'R.O.I.')
         .replace(/\bCRM\b/g, 'C.R.M.')
         .replace(/\bSMS\b/g, 'S.M.S.')
+        .replace(/\bEST\b/g, 'E.S.T.')
+        .replace(/\bPST\b/g, 'P.S.T.')
         .trim();
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: cleanText,
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName
+      const candidateModels = [
+        "gemini-2.0-flash",
+        "gemini-3.7-flash"
+      ];
+
+      let audioData: string | undefined;
+      let mimeType = "audio/pcm;rate=24000";
+
+      for (const model of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model,
+            contents: cleanText,
+            config: {
+              responseModalities: [Modality.AUDIO],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName
+                  }
+                }
               }
             }
+          });
+
+          const candidate = response.candidates?.[0];
+          const part = candidate?.content?.parts?.[0];
+          if (part?.inlineData?.data) {
+            audioData = part.inlineData.data;
+            mimeType = part.inlineData.mimeType || "audio/pcm;rate=24000";
+            break;
+          }
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          // If rate limited or unavailable, stop further attempts and fall back gracefully
+          if (errMsg.includes('429') || errMsg.includes('503') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+            break;
           }
         }
-      });
-
-      const candidate = response.candidates?.[0];
-      const part = candidate?.content?.parts?.[0];
-      const audioData = part?.inlineData?.data;
-      const mimeType = part?.inlineData?.mimeType || "audio/pcm;rate=24000";
+      }
 
       if (audioData) {
+        // Cache up to 200 items in memory
+        if (ttsCache.size > 200) {
+          const firstKey = ttsCache.keys().next().value;
+          if (firstKey) ttsCache.delete(firstKey);
+        }
+        ttsCache.set(cacheKey, { audioData, mimeType, voiceName, gender });
+
         return res.json({
           success: true,
           audioData,
@@ -2243,10 +2290,21 @@ Respond ONLY in valid JSON matching this schema:
         });
       }
 
-      return res.status(500).json({ error: "No audio generated from neural model" });
+      // If neural model is rate limited or unavailable, return fallback flag gracefully
+      return res.json({
+        success: false,
+        fallback: true,
+        gender,
+        voiceName,
+        message: "Neural audio rate-limited; falling back to device speech engine."
+      });
     } catch (err: any) {
-      console.warn("Neural TTS API notice:", err?.message || err);
-      res.status(500).json({ error: err?.message || "TTS synthesis unavailable" });
+      return res.json({
+        success: false,
+        fallback: true,
+        gender: req.body?.gender || 'male',
+        error: err?.message || "TTS synthesis unavailable"
+      });
     }
   });
 

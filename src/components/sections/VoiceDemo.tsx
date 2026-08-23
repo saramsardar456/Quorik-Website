@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send, Loader2, Sparkles, Clock } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { speakEnglishUtterance, stopAllSpeech, sanitizeTextForSpeech } from '../../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, sanitizeTextForSpeech, prefetchNeuralAudio } from '../../utils/speechUtils';
 
 interface VoiceDemoProps {
   initialGender?: 'female' | 'male';
@@ -49,7 +49,7 @@ export function VoiceDemo({
         { sender: 'ai', text: switchNotice, time: `00:${String(prev.length * 6 + 6).padStart(2, '0')}` }
       ]);
       
-      speakEnglishUtterance(switchNotice, {
+      speakSpeech(switchNotice, {
         gender,
         personaId,
         preferredLocale: personaId === 'uk-refined' ? 'en-GB' : 'en-US',
@@ -142,7 +142,7 @@ export function VoiceDemo({
     }
     setIsRecordingMic(false);
 
-    speakEnglishUtterance(text, {
+    speakSpeech(text, {
       gender: selectedGender,
       personaId: activePersonaId,
       preferredLocale: activePersonaId === 'uk-refined' ? 'en-GB' : 'en-US',

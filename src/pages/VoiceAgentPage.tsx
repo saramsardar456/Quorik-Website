@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import { Contact } from '../components/sections/Contact';
 import { VoiceDemo } from '../components/sections/VoiceDemo';
 import { SEO } from '../components/SEO';
-import { speakEnglishUtterance, stopAllSpeech } from '../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, prefetchNeuralAudio } from '../utils/speechUtils';
 
 interface Persona {
   id: string;
@@ -106,13 +106,13 @@ export function VoiceAgentPage() {
     }
   };
 
-  // Speak AI Speech Response out loud with strict English mobile optimization
+  // Speak AI Speech Response with Gemini Studio Neural Voice and instant cache
   const speakText = (text: string) => {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e){}
     }
 
-    speakEnglishUtterance(text, {
+    speakSpeech(text, {
       gender: selectedGender,
       personaId: currentPersona.id,
       preferredLocale: (currentPersona.engLocale as any) || 'en-US',

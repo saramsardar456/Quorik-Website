@@ -23,6 +23,7 @@ import {
   Radio
 } from 'lucide-react';
 import { Contact } from '../components/sections/Contact';
+import { speakEnglishUtterance } from '../utils/speechUtils';
 
 // Industry Voice Answers Map for interactive demo
 const INDUSTRY_VOICE_RESPONSES: Record<string, { opening: string; qa: { question: string; answer: string }[] }> = {
@@ -196,39 +197,20 @@ export function IndustryPage() {
       return;
     }
 
-    window.speechSynthesis.cancel(); // Reset any active speech
-    window.speechSynthesis.resume();
-
-    // Phonetic cleaning for clear pronunciation
-    const cleanText = text.replace(/Quorik/gi, "Korik");
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.0;
-    utterance.pitch = speaker === 'agent' ? 1.05 : 0.95;
-    utterance.volume = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    if (voices && voices.length > 0) {
-      const enVoice = voices.find(v => 
-        v.lang.startsWith('en') && 
-        (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Zira') || v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Aria') || v.name.includes('Jenny'))
-      ) || voices.find(v => v.lang.startsWith('en'));
-
-      if (enVoice) utterance.voice = enVoice;
-    }
-
-    utterance.onend = () => {
-      setIsPlaying(false);
-      setActiveSpeaker(null);
-      if (onEnd) onEnd();
-    };
-
-    utterance.onerror = () => {
-      setIsPlaying(false);
-      setActiveSpeaker(null);
-      if (onEnd) onEnd();
-    };
-
-    window.speechSynthesis.speak(utterance);
+    speakEnglishUtterance(text, {
+      gender: speaker === 'agent' ? 'female' : 'male',
+      onStart: () => setIsPlaying(true),
+      onEnd: () => {
+        setIsPlaying(false);
+        setActiveSpeaker(null);
+        if (onEnd) onEnd();
+      },
+      onError: () => {
+        setIsPlaying(false);
+        setActiveSpeaker(null);
+        if (onEnd) onEnd();
+      }
+    });
   };
 
   const stopAudioCall = () => {

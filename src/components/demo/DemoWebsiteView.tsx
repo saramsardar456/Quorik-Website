@@ -142,17 +142,22 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       if (audioFallbackRef.current) {
         audioFallbackRef.current.pause();
       }
-      const cleanSnippet = text.replace(/[*_#`]/g, '').slice(0, 180);
-      const encoded = encodeURIComponent(cleanSnippet);
-      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
-      
-      const audio = new Audio(ttsUrl);
-      audioFallbackRef.current = audio;
-      audio.playbackRate = 0.95;
-      audio.onplay = () => setIsAiSpeaking(true);
-      audio.onended = () => setIsAiSpeaking(false);
-      audio.onerror = () => setIsAiSpeaking(false);
-      audio.play().catch(() => setIsAiSpeaking(false));
+      // If female, we can use the fallback audio stream if Web Speech is completely missing
+      if (data.gender === 'female') {
+        const cleanSnippet = text.replace(/[*_#`]/g, '').slice(0, 180);
+        const encoded = encodeURIComponent(cleanSnippet);
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
+        
+        const audio = new Audio(ttsUrl);
+        audioFallbackRef.current = audio;
+        audio.playbackRate = 0.95;
+        audio.onplay = () => setIsAiSpeaking(true);
+        audio.onended = () => setIsAiSpeaking(false);
+        audio.onerror = () => setIsAiSpeaking(false);
+        audio.play().catch(() => setIsAiSpeaking(false));
+      } else {
+        setIsAiSpeaking(false);
+      }
     } catch (e) {
       setIsAiSpeaking(false);
     }

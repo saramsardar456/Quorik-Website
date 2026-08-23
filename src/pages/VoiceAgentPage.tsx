@@ -32,7 +32,7 @@ interface Persona {
 
 export function VoiceAgentPage() {
   const [activePersonaId, setActivePersonaId] = useState<string>('us-executive');
-  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('female');
+  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('male');
   const [isPlayingSample, setIsPlayingSample] = useState(false);
 
   const personas: Persona[] = [

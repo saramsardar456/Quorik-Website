@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { SEO } from '../components/SEO';
+import { speakEnglishUtterance } from '../utils/speechUtils';
 
 interface BlogPost {
   id: string;
@@ -88,37 +89,23 @@ export function BlogPostPage() {
     const cleanContent = article ? article.content.replace(/[*#`>|\\-]/g, ' ').substring(0, 600) : '';
     const textToRead = `Audio summary for article titled ${article?.title}. Executive summary: ${article?.excerpt}. Key insights: ${cleanContent}`;
 
-    const utterance = new SpeechSynthesisUtterance(textToRead);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-
-    // Load available voices and select natural English voice if possible
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(
-      v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Alex'))
-    );
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
-
-    utterance.onstart = () => {
-      setIsPlayingAudio(true);
-      setSpeechStatus('speaking');
-      setAudioProgress(0);
-    };
-
-    utterance.onend = () => {
-      setIsPlayingAudio(false);
-      setSpeechStatus('finished');
-      setAudioProgress(100);
-    };
-
-    utterance.onerror = () => {
-      setIsPlayingAudio(false);
-      setSpeechStatus('idle');
-    };
-
-    window.speechSynthesis.speak(utterance);
+    speakEnglishUtterance(textToRead, {
+      gender: 'male',
+      onStart: () => {
+        setIsPlayingAudio(true);
+        setSpeechStatus('speaking');
+        setAudioProgress(0);
+      },
+      onEnd: () => {
+        setIsPlayingAudio(false);
+        setSpeechStatus('finished');
+        setAudioProgress(100);
+      },
+      onError: () => {
+        setIsPlayingAudio(false);
+        setSpeechStatus('idle');
+      }
+    });
   };
 
   const handleStopAudio = () => {

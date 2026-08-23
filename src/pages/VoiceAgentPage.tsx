@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import { Contact } from '../components/sections/Contact';
 import { VoiceDemo } from '../components/sections/VoiceDemo';
 import { SEO } from '../components/SEO';
-import { speakEnglishUtterance } from '../utils/speechUtils';
+import { speakEnglishUtterance, stopAllSpeech } from '../utils/speechUtils';
 
 interface Persona {
   id: string;
@@ -114,6 +114,7 @@ export function VoiceAgentPage() {
 
     speakEnglishUtterance(text, {
       gender: selectedGender,
+      personaId: currentPersona.id,
       preferredLocale: (currentPersona.engLocale as any) || 'en-US',
       onStart: () => {
         setIsAiSpeaking(true);
@@ -133,7 +134,7 @@ export function VoiceAgentPage() {
   const handlePlaySample = () => {
     unlockAudio();
     if (isPlayingSample) {
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      stopAllSpeech();
       setIsPlayingSample(false);
       setIsAiSpeaking(false);
       return;
@@ -261,7 +262,7 @@ export function VoiceAgentPage() {
             <div className="inline-flex items-center gap-2 bg-[#0A0E1A] border border-white/15 p-1.5 mt-8">
               <button
                 onClick={() => {
-                  if (isPlayingSample) window.speechSynthesis.cancel();
+                  stopAllSpeech();
                   setIsPlayingSample(false);
                   setSelectedGender('female');
                 }}
@@ -275,7 +276,7 @@ export function VoiceAgentPage() {
               </button>
               <button
                 onClick={() => {
-                  if (isPlayingSample) window.speechSynthesis.cancel();
+                  stopAllSpeech();
                   setIsPlayingSample(false);
                   setSelectedGender('male');
                 }}
@@ -300,7 +301,7 @@ export function VoiceAgentPage() {
                   <button
                     key={persona.id}
                     onClick={() => {
-                      if (isPlayingSample) window.speechSynthesis.cancel();
+                      stopAllSpeech();
                       setIsPlayingSample(false);
                       setActivePersonaId(persona.id);
                     }}

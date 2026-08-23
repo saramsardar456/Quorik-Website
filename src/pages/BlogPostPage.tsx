@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { SEO } from '../components/SEO';
-import { speakEnglishUtterance } from '../utils/speechUtils';
+import { speakEnglishUtterance, stopAllSpeech } from '../utils/speechUtils';
 
 interface BlogPost {
   id: string;
@@ -109,9 +109,7 @@ export function BlogPostPage() {
   };
 
   const handleStopAudio = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    stopAllSpeech();
     setIsPlayingAudio(false);
     setSpeechStatus('idle');
     setAudioProgress(0);
@@ -120,9 +118,7 @@ export function BlogPostPage() {
   // Cleanup speech synthesis on unmount or post change
   useEffect(() => {
     return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopAllSpeech();
     };
   }, [id]);
 

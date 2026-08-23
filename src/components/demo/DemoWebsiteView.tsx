@@ -39,7 +39,7 @@ import {
   BadgeCheck
 } from 'lucide-react';
 import { DemoSiteData, THEME_CONFIGS } from '../../data/demoPresets';
-import { speakEnglishUtterance } from '../../utils/speechUtils';
+import { speakEnglishUtterance, stopAllSpeech } from '../../utils/speechUtils';
 
 interface DemoWebsiteViewProps {
   data: DemoSiteData;
@@ -123,44 +123,8 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       clearInterval(speechIntervalRef.current);
       speechIntervalRef.current = null;
     }
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch (e) {}
-    }
-    if (audioFallbackRef.current) {
-      try {
-        audioFallbackRef.current.pause();
-        audioFallbackRef.current.currentTime = 0;
-      } catch (e) {}
-    }
+    stopAllSpeech();
     setIsAiSpeaking(false);
-  };
-
-  const playAudioFallback = (text: string) => {
-    try {
-      if (audioFallbackRef.current) {
-        audioFallbackRef.current.pause();
-      }
-      // If female, we can use the fallback audio stream if Web Speech is completely missing
-      if (data.gender === 'female') {
-        const cleanSnippet = text.replace(/[*_#`]/g, '').slice(0, 180);
-        const encoded = encodeURIComponent(cleanSnippet);
-        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=en&client=tw-ob`;
-        
-        const audio = new Audio(ttsUrl);
-        audioFallbackRef.current = audio;
-        audio.playbackRate = 0.95;
-        audio.onplay = () => setIsAiSpeaking(true);
-        audio.onended = () => setIsAiSpeaking(false);
-        audio.onerror = () => setIsAiSpeaking(false);
-        audio.play().catch(() => setIsAiSpeaking(false));
-      } else {
-        setIsAiSpeaking(false);
-      }
-    } catch (e) {
-      setIsAiSpeaking(false);
-    }
   };
 
   const speakText = (text: string) => {
@@ -173,31 +137,14 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     // 2. Clear any active speech or timer
     clearSpeechEngine();
 
-    if (!('speechSynthesis' in window)) {
-      playAudioFallback(text);
-      return;
-    }
-
-    try {
-      const utterance = speakEnglishUtterance(text, {
-        gender: data.gender || 'male',
-        preferredLocale: 'en-US',
-        onStart: () => setIsAiSpeaking(true),
-        onEnd: () => setIsAiSpeaking(false),
-        onError: (err) => {
-          setIsAiSpeaking(false);
-          if (err?.error !== 'canceled' && err?.error !== 'interrupted') {
-            playAudioFallback(text);
-          }
-        }
-      });
-
-      if (!utterance) {
-        playAudioFallback(text);
-      }
-    } catch (err) {
-      playAudioFallback(text);
-    }
+    speakEnglishUtterance(text, {
+      gender: data.gender || 'male',
+      personaId: (data.gender || 'male') === 'female' ? 'us-executive' : 'us-executive',
+      preferredLocale: 'en-US',
+      onStart: () => setIsAiSpeaking(true),
+      onEnd: () => setIsAiSpeaking(false),
+      onError: () => setIsAiSpeaking(false)
+    });
   };
 
   const startCall = (customInitialQuery?: string) => {

@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send, Loader2, Sparkles, Clock } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { speakEnglishUtterance, sanitizeTextForSpeech } from '../../utils/speechUtils';
+import { speakEnglishUtterance, stopAllSpeech, sanitizeTextForSpeech } from '../../utils/speechUtils';
 
 interface VoiceDemoProps {
   initialGender?: 'female' | 'male';
@@ -34,10 +34,8 @@ export function VoiceDemo({
     if (onGenderChange) onGenderChange(gender);
     if (onPersonaChange) onPersonaChange(personaId);
 
-    // If currently connected or idle, cancel previous speech and update cleanly
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    // Stop previous speech cleanly
+    stopAllSpeech();
     setIsAiSpeaking(false);
 
     if (simState === 'connected') {
@@ -53,6 +51,7 @@ export function VoiceDemo({
       
       speakEnglishUtterance(switchNotice, {
         gender,
+        personaId,
         preferredLocale: personaId === 'uk-refined' ? 'en-GB' : 'en-US',
         onStart: () => setIsAiSpeaking(true),
         onEnd: () => setIsAiSpeaking(false),
@@ -145,6 +144,7 @@ export function VoiceDemo({
 
     speakEnglishUtterance(text, {
       gender: selectedGender,
+      personaId: activePersonaId,
       preferredLocale: activePersonaId === 'uk-refined' ? 'en-GB' : 'en-US',
       onStart: () => setIsAiSpeaking(true),
       onEnd: () => setIsAiSpeaking(false),

@@ -23,7 +23,7 @@ import {
   Radio
 } from 'lucide-react';
 import { Contact } from '../components/sections/Contact';
-import { speakEnglishUtterance } from '../utils/speechUtils';
+import { speakEnglishUtterance, stopAllSpeech } from '../utils/speechUtils';
 
 // Industry Voice Answers Map for interactive demo
 const INDUSTRY_VOICE_RESPONSES: Record<string, { opening: string; qa: { question: string; answer: string }[] }> = {
@@ -214,9 +214,7 @@ export function IndustryPage() {
   };
 
   const stopAudioCall = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    stopAllSpeech();
     setIsPlaying(false);
     setActiveSpeaker(null);
   };

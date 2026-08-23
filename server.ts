@@ -2166,6 +2166,90 @@ Respond ONLY in valid JSON matching this schema:
     }
   });
 
+  // Neural TTS Endpoint: Generates genuine Studio-Quality Voice (Arthur/Oliver = Male, Zephyr/Clara = Female)
+  app.post("/api/tts", async (req: express.Request, res: express.Response) => {
+    try {
+      const { text, gender = 'male', personaId = 'us-executive' } = req.body;
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: "Text is required" });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Gemini API key not configured" });
+      }
+
+      // Voice mapping:
+      // Male: 'Charon' (authoritative US baritone / Arthur) or 'Fenrir' / 'Puck' (UK / Oliver)
+      // Female: 'Zephyr' (US Executive / Zephyr) or 'Aoede' / 'Kore' (UK / Clara)
+      let voiceName = "Charon";
+      if (gender === 'female') {
+        voiceName = (personaId && personaId.includes('uk')) ? 'Aoede' : 'Zephyr';
+      } else {
+        voiceName = (personaId && personaId.includes('uk')) ? 'Fenrir' : 'Charon';
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
+        }
+      });
+
+      // Phonetic preprocessing for speech
+      const cleanText = text
+        .replace(/\[CARD:[^\]]+\]/gi, '')
+        .replace(/https?:\/\/\S+/gi, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/#+\s+/g, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
+        .replace(/\bQuorik\b/gi, 'Korik')
+        .replace(/\bAI\b/g, 'A.I.')
+        .replace(/\bROI\b/g, 'R.O.I.')
+        .replace(/\bCRM\b/g, 'C.R.M.')
+        .replace(/\bSMS\b/g, 'S.M.S.')
+        .trim();
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents: cleanText,
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName
+              }
+            }
+          }
+        }
+      });
+
+      const candidate = response.candidates?.[0];
+      const part = candidate?.content?.parts?.[0];
+      const audioData = part?.inlineData?.data;
+      const mimeType = part?.inlineData?.mimeType || "audio/pcm;rate=24000";
+
+      if (audioData) {
+        return res.json({
+          success: true,
+          audioData,
+          mimeType,
+          voiceName,
+          gender
+        });
+      }
+
+      return res.status(500).json({ error: "No audio generated from neural model" });
+    } catch (err: any) {
+      console.warn("Neural TTS API notice:", err?.message || err);
+      res.status(500).json({ error: err?.message || "TTS synthesis unavailable" });
+    }
+  });
+
   // SEO Routes for Google indexing
   app.get("/widget.js", (req: express.Request, res: express.Response) => {
     const widgetPath = path.join(process.cwd(), 'public', 'widget.js');

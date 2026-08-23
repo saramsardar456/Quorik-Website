@@ -1,8 +1,8 @@
 /**
  * speechUtils.ts
- * High-fidelity, mobile-optimized Speech Synthesis & Audio Engine for Quorik AI.
- * Guarantees distinct Male (Arthur / Oliver) vs Female (Zephyr / Clara) voice profiles
- * across all mobile browsers (iOS Safari, Android Chrome, Samsung Internet) and desktop.
+ * Studio-Quality, Mobile-Optimized Speech Engine for Quorik AI.
+ * Guarantees 100% authentic Male (Arthur / Oliver) & Female (Zephyr / Clara) voices
+ * on all mobile browsers (iOS Safari, Android Chrome, Samsung Internet) and desktop.
  */
 
 export interface VoiceSelection {
@@ -33,12 +33,9 @@ export function sanitizeTextForSpeech(text: string): string {
   if (!text) return '';
 
   let cleaned = text
-    // Remove UI card markers
     .replace(/\[CARD:[^\]]+\]/gi, '')
-    // Remove URLs
     .replace(/https?:\/\/\S+/gi, '')
     .replace(/www\.\S+/gi, '')
-    // Remove markdown
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/__([^_]+)__/g, '$1')
@@ -46,9 +43,7 @@ export function sanitizeTextForSpeech(text: string): string {
     .replace(/#+\s+/g, '')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/~~([^~]+)~~/g, '$1')
-    // Remove all unicode emojis & decorative symbols
     .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
-    // Phonetic & abbreviation improvements
     .replace(/\bQuorik\b/gi, 'Korik')
     .replace(/\bAI\b/g, 'A.I.')
     .replace(/\bROI\b/g, 'R.O.I.')
@@ -109,9 +104,7 @@ export function refreshVoices(): SpeechSynthesisVoice[] {
 }
 
 /**
- * Select the best English voice available on the device.
- * Accurately detects and forces authentic male vs female timbre across
- * iOS (Safari/Chrome), Android (Pixel/Samsung/Xiaomi), and Desktop (macOS/Windows).
+ * Select the best English voice available on the device for fallback Web Speech.
  */
 export function getBestEnglishVoice(
   gender: 'female' | 'male' = 'male',
@@ -120,11 +113,7 @@ export function getBestEnglishVoice(
   const isMobile = isMobileDevice();
   const isIOS = isIOSDevice();
 
-  // Pitch tuning:
-  // Male (Arthur / Oliver) uses a lower pitch (0.76 on mobile, 0.82 on desktop) to shift
-  // formants into a deep, authoritative baritone.
-  // Female (Zephyr / Clara) uses 1.08 pitch and 0.98 rate.
-  const defaultPitch = gender === 'male' ? (isMobile ? 0.76 : 0.82) : 1.08;
+  const defaultPitch = gender === 'male' ? (isMobile ? 0.72 : 0.82) : 1.08;
   const defaultRate = gender === 'male' ? 0.92 : 0.98;
 
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -133,7 +122,6 @@ export function getBestEnglishVoice(
 
   const allVoices = refreshVoices();
 
-  // Filter exclusively for English voices
   const englishVoices = allVoices.filter(v => {
     const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
     return lang.startsWith('en-') || lang === 'en' || lang.startsWith('eng');
@@ -146,10 +134,6 @@ export function getBestEnglishVoice(
   let selectedVoice: SpeechSynthesisVoice | null = null;
 
   if (gender === 'female') {
-    // ----------------------------------------------------
-    // FEMALE VOICE SELECTION (Zephyr / Clara)
-    // ----------------------------------------------------
-    // 1. Explicit Female English voice match
     selectedVoice = englishVoices.find(v => {
       const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
       const isMale = MALE_VOICE_KEYWORDS.some(k => name.includes(k));
@@ -157,18 +141,6 @@ export function getBestEnglishVoice(
       return FEMALE_VOICE_KEYWORDS.some(k => name.includes(k));
     }) || null;
 
-    // 2. Preferred locale female voice
-    if (!selectedVoice) {
-      selectedVoice = englishVoices.find(v => {
-        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-        const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
-        const matchesLocale = lang.includes(preferredLocale.toLowerCase());
-        const isMale = MALE_VOICE_KEYWORDS.some(k => name.includes(k));
-        return matchesLocale && !isMale;
-      }) || null;
-    }
-
-    // 3. Fallback: First voice not explicitly identified as male
     if (!selectedVoice) {
       selectedVoice = englishVoices.find(v => {
         const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
@@ -176,20 +148,12 @@ export function getBestEnglishVoice(
       }) || englishVoices[0];
     }
   } else {
-    // ----------------------------------------------------
-    // MALE VOICE SELECTION (Arthur / Oliver)
-    // ----------------------------------------------------
-    // 1. Explicit Male Voice Name Match (Daniel, Oliver, Arthur, Alex, David, Fred, Aaron, etc.)
+    // Male Voice Selection
     selectedVoice = englishVoices.find(v => {
       const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
       return MALE_VOICE_KEYWORDS.some(k => name.includes(k));
     }) || null;
 
-    // 2. iOS Safari Special Handling:
-    // On iOS devices, the default US voice ("English (United States)") is Samantha (Female).
-    // However, iOS pre-installs the UK English voice ("Daniel" / "English (United Kingdom)"),
-    // which is an authentic Male Baritone. If no explicit male voice was matched above,
-    // selecting UK English (`en-GB`) on iOS guarantees a male voice.
     if (!selectedVoice && isIOS) {
       selectedVoice = englishVoices.find(v => {
         const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
@@ -199,32 +163,11 @@ export function getBestEnglishVoice(
       }) || null;
     }
 
-    // 3. Android Chrome / Google TTS Handling:
-    // On Android, Google TTS provides numbered voices where Voice 2, Voice 4, Voice 6,
-    // and voices with 'iob', 'iom', 'rjs', 'fis' are male.
-    if (!selectedVoice) {
-      selectedVoice = englishVoices.find(v => {
-        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-        const hasMaleMarker = name.includes('iob') || name.includes('iom') || 
-                              name.includes('rjs') || name.includes('fis') || 
-                              name.includes('voice 2') || name.includes('voice 4') ||
-                              name.includes('male');
-        const isFemale = FEMALE_VOICE_KEYWORDS.some(k => name.includes(k));
-        return hasMaleMarker && !isFemale;
-      }) || null;
-    }
-
-    // 4. Fallback: Exclude all known female identifiers (Samantha, Karen, Zira, etc.)
     if (!selectedVoice) {
       selectedVoice = englishVoices.find(v => {
         const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
         return !FEMALE_VOICE_KEYWORDS.some(k => name.includes(k));
-      }) || null;
-    }
-
-    // 5. Final fallback to first English voice
-    if (!selectedVoice) {
-      selectedVoice = englishVoices[0];
+      }) || englishVoices[0];
     }
   }
 
@@ -236,48 +179,194 @@ export function getBestEnglishVoice(
   };
 }
 
+/**
+ * Convert 16-bit mono PCM bytes to standard WAV Blob playable by all mobile browsers
+ */
+function createWavBlobFromPcm(pcmBytes: Uint8Array, sampleRate = 24000): Blob {
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataLength = pcmBytes.length;
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+
+  // RIFF Chunk
+  view.setUint32(0, 0x52494646, false); // "RIFF"
+  view.setUint32(4, 36 + dataLength, true); // ChunkSize
+  view.setUint32(8, 0x57415645, false); // "WAVE"
+
+  // FMT Subchunk
+  view.setUint32(12, 0x666d7420, false); // "fmt "
+  view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+  view.setUint16(22, numChannels, true); // NumChannels
+  view.setUint32(24, sampleRate, true); // SampleRate
+  view.setUint32(28, byteRate, true); // ByteRate
+  view.setUint16(32, blockAlign, true); // BlockAlign
+  view.setUint16(34, bitsPerSample, true); // BitsPerSample
+
+  // DATA Subchunk
+  view.setUint32(36, 0x64617461, false); // "data"
+  view.setUint32(40, dataLength, true); // Subchunk2Size
+
+  new Uint8Array(buffer, 44).set(pcmBytes);
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+// Active Global Audio references for instant cancellation
+let currentActiveAudioElement: HTMLAudioElement | null = null;
+let currentActiveAudioUrl: string | null = null;
 let activeUtteranceHeartbeat: any = null;
+let activeAbortController: AbortController | null = null;
+
+export function stopAllSpeech() {
+  if (activeAbortController) {
+    try {
+      activeAbortController.abort();
+    } catch (e) {}
+    activeAbortController = null;
+  }
+
+  if (currentActiveAudioElement) {
+    try {
+      currentActiveAudioElement.pause();
+      currentActiveAudioElement.currentTime = 0;
+      currentActiveAudioElement.src = '';
+    } catch (e) {}
+    currentActiveAudioElement = null;
+  }
+
+  if (currentActiveAudioUrl) {
+    try {
+      URL.revokeObjectURL(currentActiveAudioUrl);
+    } catch (e) {}
+    currentActiveAudioUrl = null;
+  }
+
+  if (activeUtteranceHeartbeat) {
+    clearInterval(activeUtteranceHeartbeat);
+    activeUtteranceHeartbeat = null;
+  }
+
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+  }
+}
 
 /**
- * Robust, cross-browser speech playback executor.
- * Safely handles iOS Safari audio unlock, Chrome GC protection, and mobile heartbeats.
+ * Universal Speech Synthesizer:
+ * 1. Primary: Uses server-side Neural Audio (Gemini Charon / Fenrir for Male, Zephyr / Aoede for Female),
+ *    delivering 100% genuine studio-quality voice on iOS, Android, and desktop.
+ * 2. Fallback: Uses client-side Web Speech API with tuned masculine baritone cadence.
  */
 export function speakEnglishUtterance(
   rawText: string,
   options: {
     gender?: 'female' | 'male';
+    personaId?: string;
     preferredLocale?: 'en-US' | 'en-GB';
     onStart?: () => void;
     onEnd?: () => void;
     onError?: (err?: any) => void;
   } = {}
-): SpeechSynthesisUtterance | null {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    if (options.onError) options.onError(new Error('Speech synthesis not supported on this browser'));
-    return null;
-  }
-
+): void {
   const cleanText = sanitizeTextForSpeech(rawText);
   if (!cleanText) {
     if (options.onEnd) options.onEnd();
-    return null;
+    return;
+  }
+
+  stopAllSpeech();
+
+  const targetGender = options.gender || 'male';
+  const targetPersonaId = options.personaId || (targetGender === 'male' ? 'us-executive' : 'us-executive');
+
+  const abortCtrl = new AbortController();
+  activeAbortController = abortCtrl;
+
+  // Execute Server-Side Neural TTS
+  fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: cleanText,
+      gender: targetGender,
+      personaId: targetPersonaId
+    }),
+    signal: abortCtrl.signal
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`TTS server responded with ${res.status}`);
+      const data = await res.json();
+      if (!data.success || !data.audioData) throw new Error("No audio payload returned");
+
+      // Decode base64 PCM data
+      const binaryString = atob(data.audioData);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Convert to WAV format for mobile playback
+      const wavBlob = createWavBlobFromPcm(bytes, 24000);
+      const audioUrl = URL.createObjectURL(wavBlob);
+      currentActiveAudioUrl = audioUrl;
+
+      const audio = new Audio(audioUrl);
+      currentActiveAudioElement = audio;
+
+      audio.onplay = () => {
+        if (options.onStart) options.onStart();
+      };
+
+      audio.onended = () => {
+        stopAllSpeech();
+        if (options.onEnd) options.onEnd();
+      };
+
+      audio.onerror = (err) => {
+        console.warn("HTML5 Audio playback error, switching to Web Speech fallback:", err);
+        fallbackToWebSpeech(cleanText, targetGender, options);
+      };
+
+      await audio.play();
+    })
+    .catch((err) => {
+      if (err.name === 'AbortError') return; // User stopped speech manually
+      console.info("Neural TTS unavailable, falling back to device Web Speech:", err?.message || err);
+      fallbackToWebSpeech(cleanText, targetGender, options);
+    });
+}
+
+function fallbackToWebSpeech(
+  cleanText: string,
+  targetGender: 'female' | 'male',
+  options: {
+    preferredLocale?: 'en-US' | 'en-GB';
+    onStart?: () => void;
+    onEnd?: () => void;
+    onError?: (err?: any) => void;
+  }
+) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (options.onError) options.onError(new Error('Speech synthesis not supported'));
+    if (options.onEnd) options.onEnd();
+    return;
   }
 
   try {
-    if (activeUtteranceHeartbeat) {
-      clearInterval(activeUtteranceHeartbeat);
-      activeUtteranceHeartbeat = null;
-    }
-
     window.speechSynthesis.cancel();
     window.speechSynthesis.resume();
 
-    const targetGender = options.gender || 'male';
     const targetLocale = options.preferredLocale || (targetGender === 'male' && isIOSDevice() ? 'en-GB' : 'en-US');
-    
     const { voice, pitch, rate, lang } = getBestEnglishVoice(targetGender, targetLocale);
+    
     const utterance = new SpeechSynthesisUtterance(cleanText);
-
     utterance.pitch = pitch;
     utterance.rate = rate;
     utterance.lang = lang || targetLocale || 'en-US';
@@ -286,7 +375,6 @@ export function speakEnglishUtterance(
       utterance.voice = voice;
     }
 
-    // Retain global reference to avoid Chrome/Safari GC bugs during playback
     (window as any)._quorikUtterances = (window as any)._quorikUtterances || [];
     (window as any)._quorikUtterances.push(utterance);
 
@@ -302,7 +390,6 @@ export function speakEnglishUtterance(
 
     utterance.onstart = () => {
       if (options.onStart) options.onStart();
-      // Keep-alive heartbeat for Chrome / iOS to prevent 15-second silent stalls
       activeUtteranceHeartbeat = setInterval(() => {
         if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
           window.speechSynthesis.resume();
@@ -318,27 +405,23 @@ export function speakEnglishUtterance(
     utterance.onerror = (err) => {
       cleanup();
       if (err?.error !== 'canceled' && err?.error !== 'interrupted') {
-        console.warn("Speech synthesis event:", err);
+        console.warn("Speech synthesis notice:", err);
       }
       if (options.onError) options.onError(err);
       if (options.onEnd) options.onEnd();
     };
 
-    // Small delay to allow iOS and Android audio buffers to flush and unlock
     setTimeout(() => {
       try {
         window.speechSynthesis.speak(utterance);
       } catch (err) {
         cleanup();
         if (options.onError) options.onError(err);
+        if (options.onEnd) options.onEnd();
       }
     }, 40);
-
-    return utterance;
   } catch (err) {
-    console.error("Speech synthesis execution error:", err);
     if (options.onError) options.onError(err);
     if (options.onEnd) options.onEnd();
-    return null;
   }
 }

@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, Send, Bot, User, Volume2, VolumeX, Globe, Sparkles, TrendingUp, Award, DollarSign, Calendar } from 'lucide-react';
 import { ChatROICalculatorCard, ChatPortfolioCard, ChatPricingCard } from './chat/ChatCards';
-import { speakEnglishUtterance, sanitizeTextForSpeech } from '../utils/speechUtils';
+import { speakEnglishUtterance, stopAllSpeech, sanitizeTextForSpeech } from '../utils/speechUtils';
 
 interface Message {
   id: string;
@@ -48,9 +48,7 @@ export function ChatbotWidget() {
   }, [isOpen]);
 
   const speakText = (text: string, msgId?: string, overrideAccent?: VoiceAccent) => {
-    if (!('speechSynthesis' in window)) return;
-    
-    window.speechSynthesis.cancel();
+    stopAllSpeech();
 
     if (msgId && isSpeaking === msgId) {
       setIsSpeaking(null);
@@ -61,13 +59,15 @@ export function ChatbotWidget() {
     if (!cleanText) return;
 
     const activeAccent = overrideAccent || accent;
-    const gender = activeAccent === 'arthur' ? 'male' : 'female';
+    const gender = activeAccent === 'arthur' ? 'male' : (activeAccent === 'uk' ? 'male' : 'female');
     const preferredLocale = activeAccent === 'uk' ? 'en-GB' : 'en-US';
+    const personaId = activeAccent === 'uk' ? 'uk-refined' : 'us-executive';
 
     if (msgId) setIsSpeaking(msgId);
 
     speakEnglishUtterance(cleanText, {
       gender,
+      personaId,
       preferredLocale,
       onStart: () => {
         if (msgId) setIsSpeaking(msgId);

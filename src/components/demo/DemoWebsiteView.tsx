@@ -79,10 +79,14 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   const recognitionRef = useRef<any>(null);
   const audioFallbackRef = useRef<HTMLAudioElement | null>(null);
   const callConsoleRef = useRef<HTMLDivElement | null>(null);
+  const demoAbortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
       stopAllSpeech();
+      if (demoAbortControllerRef.current) {
+        try { demoAbortControllerRef.current.abort(); } catch (e) {}
+      }
       if (audioFallbackRef.current) {
         audioFallbackRef.current.pause();
       }
@@ -145,6 +149,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   const startCall = (customInitialQuery?: string) => {
     unlockAudio();
     clearSpeechEngine();
+    if (demoAbortControllerRef.current) {
+      try { demoAbortControllerRef.current.abort(); } catch (e) {}
+      demoAbortControllerRef.current = null;
+    }
     setIsCallActive(true);
     if (onCallStateChange) onCallStateChange(true);
 
@@ -167,12 +175,17 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
   const endCall = () => {
     clearSpeechEngine();
+    if (demoAbortControllerRef.current) {
+      try { demoAbortControllerRef.current.abort(); } catch (e) {}
+      demoAbortControllerRef.current = null;
+    }
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
     }
     setIsCallActive(false);
     if (onCallStateChange) onCallStateChange(false);
     setIsAiSpeaking(false);
+    setIsAiThinking(false);
     setIsRecordingMic(false);
   };
 
@@ -180,6 +193,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     unlockAudio();
     const textToSend = (queryText || userQueryInput).trim();
     if (!textToSend || isAiThinking) return;
+
+    if (demoAbortControllerRef.current) {
+      try { demoAbortControllerRef.current.abort(); } catch (e) {}
+    }
 
     // Ensure call is active
     if (!isCallActive) {
@@ -202,6 +219,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     setUserQueryInput('');
     setIsAiThinking(true);
 
+    const controller = new AbortController();
+    demoAbortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     try {
       const historyForApi = simMessages.map(m => ({
         role: m.sender === 'ai' ? 'model' : 'user',
@@ -211,6 +232,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       const res = await fetch('/api/voice-agent/simulate-call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           gender: data.gender,
           userQuery: textToSend,
@@ -225,6 +247,11 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
           }
         })
       });
+
+      clearTimeout(timeoutId);
+      if (demoAbortControllerRef.current === controller) {
+        demoAbortControllerRef.current = null;
+      }
 
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
@@ -249,7 +276,15 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       } else {
         throw new Error('Invalid response');
       }
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (demoAbortControllerRef.current === controller) {
+        demoAbortControllerRef.current = null;
+      }
+      if (err?.name === 'AbortError') {
+        setIsAiThinking(false);
+        return;
+      }
       setIsAiThinking(false);
       const fallback = `Thank you for asking! For ${data.companyName}, we provide ${data.services[0]?.title || 'premier services'} starting at ${data.services[0]?.price || 'competitive rates'}. Would you like me to reserve an appointment for you?`;
       const aiTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

@@ -76,6 +76,8 @@ export function sanitizeTextForSpeech(text: string): string {
 let activeHtmlAudio: HTMLAudioElement | null = null;
 let globalAudioCtx: AudioContext | null = null;
 let activeUtteranceHeartbeat: any = null;
+let currentSpeechToken = 0;
+let activeTtsAbortController: AbortController | null = null;
 
 // Client-side in-memory Base64 Audio Cache for 0ms repeat playback
 const clientAudioCache = new Map<string, string>();
@@ -120,13 +122,26 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Stop any currently playing speech immediately
+ * Stop any currently playing speech immediately and cancel all in-flight synthesis
  */
 export function stopAllSpeech(): void {
+  // 1. Invalidate any in-flight async TTS or speakSpeech requests
+  currentSpeechToken++;
+
+  // 2. Abort any active TTS network fetch immediately
+  if (activeTtsAbortController) {
+    try {
+      activeTtsAbortController.abort();
+    } catch (e) {}
+    activeTtsAbortController = null;
+  }
+
+  // 3. Immediately pause and reset HTML5 Audio
   if (activeHtmlAudio) {
     try {
       activeHtmlAudio.pause();
       activeHtmlAudio.currentTime = 0;
+      activeHtmlAudio.src = '';
       activeHtmlAudio.onended = null;
       activeHtmlAudio.onerror = null;
       activeHtmlAudio.onplay = null;
@@ -134,11 +149,13 @@ export function stopAllSpeech(): void {
     activeHtmlAudio = null;
   }
 
+  // 4. Clear heartbeat timer
   if (activeUtteranceHeartbeat) {
     clearInterval(activeUtteranceHeartbeat);
     activeUtteranceHeartbeat = null;
   }
 
+  // 5. Cancel browser SpeechSynthesis if active
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
@@ -197,12 +214,15 @@ export async function speakSpeech(
 
   stopAllSpeech();
   unlockAudio();
+  const thisToken = currentSpeechToken;
 
   const gender = options.gender || 'male';
   const personaId = options.personaId || (gender === 'male' ? 'us-executive' : 'us-warm');
   const cacheKey = `${gender}:${personaId}:${cleanText}`;
 
   const playAudioData = (base64Audio: string) => {
+    if (thisToken !== currentSpeechToken) return;
+
     try {
       const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
       activeHtmlAudio = audio;
@@ -213,28 +233,38 @@ export async function speakSpeech(
         if (endedOrFailed) return;
         endedOrFailed = true;
         if (activeHtmlAudio === audio) activeHtmlAudio = null;
-        if (options.onEnd) options.onEnd();
+        if (options.onEnd && thisToken === currentSpeechToken) options.onEnd();
       };
 
       audio.onplay = () => {
+        if (thisToken !== currentSpeechToken) {
+          audio.pause();
+          audio.currentTime = 0;
+          return;
+        }
         if (options.onStart) options.onStart();
       };
       audio.onended = finish;
       audio.onerror = () => {
         if (activeHtmlAudio === audio) activeHtmlAudio = null;
-        // If HTML5 audio fails, fall back to browser Web Speech API
-        speakNativeUtterance(cleanText, options);
+        if (thisToken === currentSpeechToken) {
+          speakNativeUtterance(cleanText, options);
+        }
       };
 
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
           console.warn("Audio play notice:", err);
-          speakNativeUtterance(cleanText, options);
+          if (thisToken === currentSpeechToken) {
+            speakNativeUtterance(cleanText, options);
+          }
         });
       }
     } catch (e) {
-      speakNativeUtterance(cleanText, options);
+      if (thisToken === currentSpeechToken) {
+        speakNativeUtterance(cleanText, options);
+      }
     }
   };
 
@@ -247,6 +277,7 @@ export async function speakSpeech(
 
   // 2. Fetch from Neural TTS API
   const controller = new AbortController();
+  activeTtsAbortController = controller;
   const timeoutId = setTimeout(() => controller.abort(), 6000);
 
   try {
@@ -262,9 +293,15 @@ export async function speakSpeech(
     });
 
     clearTimeout(timeoutId);
+    if (activeTtsAbortController === controller) {
+      activeTtsAbortController = null;
+    }
+
+    if (thisToken !== currentSpeechToken) return;
 
     if (res.ok) {
       const data = await res.json();
+      if (thisToken !== currentSpeechToken) return;
       if (data.audioData) {
         clientAudioCache.set(cacheKey, data.audioData);
         playAudioData(data.audioData);
@@ -274,6 +311,10 @@ export async function speakSpeech(
     throw new Error('TTS response not valid');
   } catch (err: any) {
     clearTimeout(timeoutId);
+    if (activeTtsAbortController === controller) {
+      activeTtsAbortController = null;
+    }
+    if (thisToken !== currentSpeechToken) return;
     console.warn("Neural TTS fallback to device voice:", err?.message || err);
     speakNativeUtterance(cleanText, options);
   }

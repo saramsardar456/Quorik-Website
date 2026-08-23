@@ -91,6 +91,8 @@ export function VoiceDemo({
 
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
+  const callGreetingTimerRef = useRef<any>(null);
+  const simCallAbortControllerRef = useRef<AbortController | null>(null);
 
   const activeVoiceName = activePersonaId === 'uk-refined'
     ? (selectedGender === 'female' ? 'Clara' : 'Oliver')
@@ -104,8 +106,10 @@ export function VoiceDemo({
       };
     }
     return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+      stopAllSpeech();
+      if (callGreetingTimerRef.current) clearTimeout(callGreetingTimerRef.current);
+      if (simCallAbortControllerRef.current) {
+        try { simCallAbortControllerRef.current.abort(); } catch (e) {}
       }
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (recognitionRef.current) {
@@ -169,13 +173,20 @@ export function VoiceDemo({
   };
 
   const startSimulatedCall = () => {
+    stopAllSpeech();
+    if (callGreetingTimerRef.current) clearTimeout(callGreetingTimerRef.current);
+    if (simCallAbortControllerRef.current) {
+      try { simCallAbortControllerRef.current.abort(); } catch (e) {}
+      simCallAbortControllerRef.current = null;
+    }
+
     unlockAudio();
     setSimState('ringing');
     setSimMessages([]);
     setBookedCalendar(false);
     setWhatsappSent(false);
 
-    setTimeout(() => {
+    callGreetingTimerRef.current = setTimeout(() => {
       setSimState('connected');
       
       const greeting = `Hello and thank you for reaching Quorik! My name is ${activeVoiceName}. How can I assist you with custom website development, AI chatbots, or voice automation today?`;
@@ -186,9 +197,14 @@ export function VoiceDemo({
   };
 
   const handleSendCallerTurn = async (customMessage?: string) => {
+    stopAllSpeech();
     unlockAudio();
     const textToSend = customMessage || userCallerInput;
     if (!textToSend.trim() || isAiThinking) return;
+
+    if (simCallAbortControllerRef.current) {
+      try { simCallAbortControllerRef.current.abort(); } catch (e) {}
+    }
 
     setUserCallerInput('');
     const timeStr = `00:${String(simMessages.length * 6 + 6).padStart(2, '0')}`;
@@ -201,6 +217,7 @@ export function VoiceDemo({
     setIsAiThinking(true);
 
     const controller = new AbortController();
+    simCallAbortControllerRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     try {
@@ -217,6 +234,9 @@ export function VoiceDemo({
       });
 
       clearTimeout(timeoutId);
+      if (simCallAbortControllerRef.current === controller) {
+        simCallAbortControllerRef.current = null;
+      }
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
@@ -253,9 +273,14 @@ export function VoiceDemo({
       }
     } catch (err: any) {
       clearTimeout(timeoutId);
-      if (err?.name !== 'AbortError') {
-        console.warn("AI turn error fallback:", err?.message || err);
+      if (simCallAbortControllerRef.current === controller) {
+        simCallAbortControllerRef.current = null;
       }
+      if (err?.name === 'AbortError') {
+        setIsAiThinking(false);
+        return;
+      }
+      console.warn("AI turn error fallback:", err?.message || err);
       setIsAiThinking(false);
       const aiTimeStr = `00:${String(updatedMessages.length * 6 + 6).padStart(2, '0')}`;
       const allText = updatedMessages.map(m => m.text).join(" ").toLowerCase();
@@ -383,13 +408,30 @@ export function VoiceDemo({
   };
 
   const endSimulatedCall = () => {
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    // 1. Immediately stop any and all playing speech and pending audio fetches
+    stopAllSpeech();
+    
+    // 2. Clear greeting timer if call was just starting
+    if (callGreetingTimerRef.current) {
+      clearTimeout(callGreetingTimerRef.current);
+      callGreetingTimerRef.current = null;
+    }
+
+    // 3. Abort in-flight AI backend request
+    if (simCallAbortControllerRef.current) {
+      try { simCallAbortControllerRef.current.abort(); } catch (e) {}
+      simCallAbortControllerRef.current = null;
+    }
+
+    // 4. Cancel browser speech & voice recognition
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e){}
     }
+
     setIsRecordingMic(false);
     setIsAiSpeaking(false);
+    setIsAiThinking(false);
     setSimState('idle');
     setSimMessages([]);
   };

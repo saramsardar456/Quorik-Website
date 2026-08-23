@@ -156,21 +156,21 @@
   let currentAudio = null;
   let activeUtterances = [];
   let voiceStartTime = 0;
+  let widgetSpeechToken = 0;
+  let widgetTtsAbortController = null;
 
-  // Unlock Audio on user gesture
+  // In-memory audio cache for 0ms instant repeat playback in widget
+  const widgetAudioCache = new Map();
+
+  // Unlock Audio on user gesture for iOS Safari & Android
   function unlockAudio() {
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.resume();
-        const silent = new SpeechSynthesisUtterance('');
-        silent.volume = 0;
-        window.speechSynthesis.speak(silent);
-      } catch (e) {}
-    }
     try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+      }
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        audioCtx.resume().catch(() => {});
       }
     } catch (e) {}
   }
@@ -218,11 +218,39 @@
     }
   }
 
+  function getClientVoiceProfile() {
+    let gender = 'male';
+    if (clientData?.voiceGender) {
+      gender = String(clientData.voiceGender).toLowerCase().includes('female') ? 'female' : 'male';
+    } else if (clientData?.gender) {
+      gender = String(clientData.gender).toLowerCase().includes('female') ? 'female' : 'male';
+    } else {
+      const agentName = (clientData?.voiceAgentName || '').toLowerCase();
+      if (agentName.includes('sarah') || agentName.includes('elena') || agentName.includes('zephyr') || agentName.includes('clara') || agentName.includes('emma') || agentName.includes('olivia') || agentName.includes('sophia') || agentName.includes('female')) {
+        gender = 'female';
+      } else {
+        gender = 'male';
+      }
+    }
+
+    let personaId = 'us-executive';
+    const langStr = `${clientData?.voiceLanguage || ''} ${clientData?.voiceAccent || ''} ${clientData?.personaId || ''} ${clientData?.voiceAgentName || ''}`.toLowerCase();
+    if (langStr.includes('british') || langStr.includes('uk') || langStr.includes('oliver') || langStr.includes('clara') || langStr.includes('ryan') || langStr.includes('sonia')) {
+      personaId = 'uk-refined';
+    } else {
+      personaId = 'us-executive';
+    }
+
+    return { gender, personaId };
+  }
+
   function speakText(text, autoListenAfter = false) {
     if (!text || isVoiceOnlyExhausted) return;
     
-    // Stop any ongoing speech
+    // Stop any ongoing speech and establish new sequence token
     stopSpeaking();
+    unlockAudio();
+    const token = widgetSpeechToken;
 
     const clean = text
       .replace(/\[CARD:[A-Z_]+\]/gi, '')
@@ -240,47 +268,107 @@
     if (!clean) return;
 
     updateUIStatus('speaking');
-    const gender = (clientData?.voiceAgentName || '').toLowerCase().includes('sarah') || (clientData?.voiceAgentName || '').toLowerCase().includes('elena') ? 'female' : 'male';
-    const personaId = (clientData?.voiceLanguage || '').toLowerCase().includes('british') || (clientData?.voiceLanguage || '').toLowerCase().includes('uk') ? 'uk-refined' : 'us-executive';
+    const { gender, personaId } = getClientVoiceProfile();
+    const cacheKey = `${gender}:${personaId}:${clean}`;
 
-    // 1. First try server-side Neural Audio (/api/tts) for 100% genuine male/female studio voice on mobile
-    fetch(`${serverOrigin}/api/tts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: clean, gender, personaId })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.audioData) {
-        const audioSrc = `data:${data.mimeType || 'audio/mp3'};base64,${data.audioData}`;
-        currentAudio = new Audio(audioSrc);
-        currentAudio.onplay = () => {
-          isSpeaking = true;
-          updateUIStatus('speaking');
-        };
-        currentAudio.onended = () => {
+    const playBase64Mp3 = (base64Audio, mimeType = 'audio/mp3') => {
+      if (token !== widgetSpeechToken) return;
+
+      try {
+        const audioSrc = `data:${mimeType};base64,${base64Audio}`;
+        const audio = new Audio(audioSrc);
+        currentAudio = audio;
+        audio.preload = 'auto';
+
+        let finished = false;
+        const handleEnd = () => {
+          if (finished) return;
+          finished = true;
+          if (currentAudio === audio) currentAudio = null;
           isSpeaking = false;
-          currentAudio = null;
-          updateUIStatus('idle');
-          if (autoListenAfter && isVoiceActive) {
+          if (token === widgetSpeechToken) {
+            updateUIStatus('idle');
+          }
+          if (autoListenAfter && isVoiceActive && token === widgetSpeechToken) {
             setTimeout(() => {
-              if (isVoiceActive && !isSpeaking && !isThinking) {
+              if (isVoiceActive && !isSpeaking && !isThinking && token === widgetSpeechToken) {
                 startListening();
               }
             }, 400);
           }
         };
-        currentAudio.onerror = () => {
-          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+
+        audio.onplay = () => {
+          if (token !== widgetSpeechToken) {
+            audio.pause();
+            audio.currentTime = 0;
+            return;
+          }
+          isSpeaking = true;
+          updateUIStatus('speaking');
         };
-        currentAudio.play().catch(() => {
+        audio.onended = handleEnd;
+        audio.onerror = () => {
+          if (currentAudio === audio) currentAudio = null;
+          if (token === widgetSpeechToken) {
+            fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+          }
+        };
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            if (token === widgetSpeechToken) {
+              fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+            }
+          });
+        }
+      } catch (err) {
+        if (token === widgetSpeechToken) {
           fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+        }
+      }
+    };
+
+    // 1. Instant cache check (<5ms playback)
+    if (widgetAudioCache.has(cacheKey)) {
+      const cached = widgetAudioCache.get(cacheKey);
+      playBase64Mp3(cached.audioData, cached.mimeType);
+      return;
+    }
+
+    // 2. Fetch server-side Neural Audio (/api/tts) for 100% genuine studio voice on all devices
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    widgetTtsAbortController = controller;
+
+    fetch(`${serverOrigin}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller ? controller.signal : undefined,
+      body: JSON.stringify({ text: clean, gender, personaId })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (widgetTtsAbortController === controller) {
+        widgetTtsAbortController = null;
+      }
+      if (token !== widgetSpeechToken) return;
+
+      if (data && data.audioData) {
+        widgetAudioCache.set(cacheKey, {
+          audioData: data.audioData,
+          mimeType: data.mimeType || 'audio/mp3'
         });
+        playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3');
         return;
       }
       fallbackSpeechSynthesis(clean, gender, autoListenAfter);
     })
     .catch(() => {
+      if (widgetTtsAbortController === controller) {
+        widgetTtsAbortController = null;
+      }
+      if (token !== widgetSpeechToken) return;
       fallbackSpeechSynthesis(clean, gender, autoListenAfter);
     });
   }
@@ -336,6 +424,13 @@
   }
 
   function stopSpeaking() {
+    widgetSpeechToken++;
+    if (widgetTtsAbortController) {
+      try {
+        widgetTtsAbortController.abort();
+      } catch (e) {}
+      widgetTtsAbortController = null;
+    }
     isSpeaking = false;
     activeUtterances = [];
     if ('speechSynthesis' in window) {
@@ -347,6 +442,7 @@
       try {
         currentAudio.pause();
         currentAudio.currentTime = 0;
+        currentAudio.src = '';
       } catch (e) {}
       currentAudio = null;
     }

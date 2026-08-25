@@ -18,10 +18,121 @@ import {
   MessageSquare,
   Settings2,
   CheckCircle2,
-  Palette
+  Palette,
+  Volume2,
+  VolumeX,
+  Play,
+  Square,
+  UserCheck
 } from 'lucide-react';
 import { DemoSiteData, PRESETS, THEME_CONFIGS, generateSmartDemoData, Preset } from '../data/demoPresets';
 import { DemoWebsiteView } from '../components/demo/DemoWebsiteView';
+import { speakSpeech, stopAllSpeech, unlockAudio } from '../utils/speechUtils';
+
+export interface VoiceConfigOption {
+  id: string;
+  name: string;
+  gender: 'male' | 'female';
+  region: string;
+  accent: string;
+  flag: string;
+  tone: string;
+  defaultAgentName: string;
+  sample: string;
+}
+
+export const ALL_DEMO_VOICES: VoiceConfigOption[] = [
+  // MALE VOICES
+  {
+    id: 'male',
+    name: 'Male - US Executive (Arthur)',
+    gender: 'male',
+    region: 'United States',
+    accent: 'US Corporate Executive Baritone',
+    flag: '🇺🇸',
+    tone: 'Deep, Authoritative & Professional',
+    defaultAgentName: 'Arthur',
+    sample: "Hello! I am Arthur, your 24/7 AI receptionist. I can answer questions regarding our services, pricing, or secure your priority appointment today."
+  },
+  {
+    id: 'male-uk',
+    name: 'Male - UK Refined (Oliver)',
+    gender: 'male',
+    region: 'United Kingdom',
+    accent: 'UK Received Pronunciation',
+    flag: '🇬🇧',
+    tone: 'Courteous, Elegant & Calm',
+    defaultAgentName: 'Oliver',
+    sample: "Good day! My name is Oliver. It would be my absolute pleasure to assist you with consultation booking and service details."
+  },
+  {
+    id: 'male-sales',
+    name: 'Male - US High-Conversion Sales (Brian)',
+    gender: 'male',
+    region: 'United States',
+    accent: 'US Dynamic Closer',
+    flag: '🇺🇸',
+    tone: 'Confident, Energetic & Direct Closer',
+    defaultAgentName: 'Brian',
+    sample: "Hey there! Brian here. Let's get your appointment locked in with our top specialists with zero waiting time."
+  },
+  {
+    id: 'male-au',
+    name: 'Male - Australian Warm (William)',
+    gender: 'male',
+    region: 'Australia',
+    accent: 'Australian Professional',
+    flag: '🇦🇺',
+    tone: 'Approachable, Clear & Friendly',
+    defaultAgentName: 'William',
+    sample: "G'day! William here. I'm ready to help you with instant quotes and fast appointment scheduling."
+  },
+  // FEMALE VOICES
+  {
+    id: 'female',
+    name: 'Female - US Executive (Zephyr)',
+    gender: 'female',
+    region: 'United States',
+    accent: 'US Executive Concierge',
+    flag: '🇺🇸',
+    tone: 'Warm, Crisp & High-Efficiency',
+    defaultAgentName: 'Zephyr',
+    sample: "Hello and welcome! My name is Zephyr. I can guide you through our solutions, provide pricing, or schedule a consultation with our team."
+  },
+  {
+    id: 'female-uk',
+    name: 'Female - UK Refined (Clara)',
+    gender: 'female',
+    region: 'United Kingdom',
+    accent: 'UK Received Pronunciation',
+    flag: '🇬🇧',
+    tone: 'Polished, Gentle & Sophisticated',
+    defaultAgentName: 'Clara',
+    sample: "Good day! My name is Clara. I can assist you with your inquiry and reserve a meeting with our director for tomorrow."
+  },
+  {
+    id: 'female-vibrant',
+    name: 'Female - US Vibrant & Dynamic (Aria)',
+    gender: 'female',
+    region: 'United States',
+    accent: 'US Modern Vibrant',
+    flag: '🇺🇸',
+    tone: 'Enthusiastic, Bright & Engaging',
+    defaultAgentName: 'Aria',
+    sample: "Hi there! I am Aria. I'm excited to help answer your questions and book your appointment right away!"
+  },
+  {
+    id: 'female-au',
+    name: 'Female - Australian Professional (Natasha)',
+    gender: 'female',
+    region: 'Australia',
+    accent: 'Australian Modern',
+    flag: '🇦🇺',
+    tone: 'Sunny, Modern & Welcoming',
+    defaultAgentName: 'Natasha',
+    sample: "Hello! Natasha here. I'd be delighted to assist you with our services and reserve your appointment slot."
+  }
+];
 
 export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -55,6 +166,80 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
   const [aiPromptInput, setAiPromptInput] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isPlayingVoiceSample, setIsPlayingVoiceSample] = useState(false);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      stopAllSpeech();
+    };
+  }, []);
+
+  const handleTestVoiceAudio = (voiceId: string) => {
+    unlockAudio();
+    if (isPlayingVoiceSample && playingVoiceId === voiceId) {
+      stopAllSpeech();
+      setIsPlayingVoiceSample(false);
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    stopAllSpeech();
+    const voiceMeta = ALL_DEMO_VOICES.find(v => v.id === voiceId) || ALL_DEMO_VOICES[0];
+    const sampleText = voiceMeta.sample;
+
+    setIsPlayingVoiceSample(true);
+    setPlayingVoiceId(voiceId);
+
+    const gLower = voiceId.toLowerCase();
+    const isFemale = gLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
+
+    let personaId = isFemale ? 'us-warm' : 'us-executive';
+    let preferredLocale: 'en-US' | 'en-GB' | 'en-AU' = 'en-US';
+
+    if (gLower.includes('uk')) {
+      personaId = 'uk-refined';
+      preferredLocale = 'en-GB';
+    } else if (gLower.includes('au')) {
+      personaId = 'au-friendly';
+      preferredLocale = 'en-AU';
+    } else if (gLower.includes('vibrant') || gLower.includes('aria')) {
+      personaId = 'us-vibrant';
+    } else if (gLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) {
+      personaId = 'us-sales';
+    }
+
+    speakSpeech(sampleText, {
+      gender: voiceId,
+      personaId,
+      preferredLocale,
+      onStart: () => {
+        setIsPlayingVoiceSample(true);
+        setPlayingVoiceId(voiceId);
+      },
+      onEnd: () => {
+        setIsPlayingVoiceSample(false);
+        setPlayingVoiceId(null);
+      },
+      onError: () => {
+        setIsPlayingVoiceSample(false);
+        setPlayingVoiceId(null);
+      }
+    });
+  };
+
+  const handleVoiceSelect = (newVoiceId: string) => {
+    const selectedVoiceMeta = ALL_DEMO_VOICES.find(v => v.id === newVoiceId);
+    
+    // Check if the current agentName is one of the default names from ALL_DEMO_VOICES
+    const isCurrentDefault = !siteData.agentName || ALL_DEMO_VOICES.some(v => v.defaultAgentName.toLowerCase() === siteData.agentName.toLowerCase());
+
+    setSiteData(prev => ({
+      ...prev,
+      gender: newVoiceId,
+      agentName: isCurrentDefault && selectedVoiceMeta ? selectedVoiceMeta.defaultAgentName : prev.agentName
+    }));
+  };
 
   // Load from URL params if present
   useEffect(() => {
@@ -407,29 +592,95 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
             {/* TAB 2: VOICE AGENT PERSONA */}
             {activeControlTab === 'agent' && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-mono text-gray-300 block mb-1">Agent Name</label>
                     <input
                       type="text"
                       value={siteData.agentName}
                       onChange={(e) => setSiteData({ ...siteData, agentName: e.target.value })}
+                      placeholder="e.g. Arthur, Zephyr, Clara"
                       className="w-full bg-[#05060A] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-mono text-gray-300 block mb-1">Voice Gender</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-mono text-gray-300 block">Voice Gender & Persona</label>
+                      <span className="text-[10px] text-cyan-400 font-mono">8 Neural Voices</span>
+                    </div>
                     <select
                       value={siteData.gender}
-                      onChange={(e) => setSiteData({ ...siteData, gender: e.target.value as any })}
+                      onChange={(e) => handleVoiceSelect(e.target.value)}
                       className="w-full bg-[#05060A] border border-white/15 rounded-xl px-2.5 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none"
                     >
-                      <option value="male">Male Voice (Arthur)</option>
-                      <option value="female">Female Voice (Zephyr / Clara)</option>
+                      <optgroup label="👨 Male Voices">
+                        {ALL_DEMO_VOICES.filter(v => v.gender === 'male').map(v => (
+                          <option key={v.id} value={v.id}>
+                            {v.flag} {v.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="👩 Female Voices">
+                        {ALL_DEMO_VOICES.filter(v => v.gender === 'female').map(v => (
+                          <option key={v.id} value={v.id}>
+                            {v.flag} {v.name}
+                          </option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
                 </div>
+
+                {/* Selected Voice Info & Test Audio Player */}
+                {(() => {
+                  const currentVoice = ALL_DEMO_VOICES.find(v => v.id === siteData.gender) || ALL_DEMO_VOICES[0];
+                  const isCurrentPlaying = isPlayingVoiceSample && playingVoiceId === currentVoice.id;
+                  return (
+                    <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{currentVoice.flag}</span>
+                          <div>
+                            <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                              <span>{currentVoice.name}</span>
+                              <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                {currentVoice.gender === 'male' ? 'Male' : 'Female'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-gray-400">{currentVoice.accent} • {currentVoice.tone}</div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleTestVoiceAudio(currentVoice.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            isCurrentPlaying
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30'
+                          }`}
+                        >
+                          {isCurrentPlaying ? (
+                            <>
+                              <Square className="w-3 h-3 fill-current" />
+                              <span>Stop</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3.5 h-3.5" />
+                              <span>Test Voice</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <p className="text-[11px] text-gray-300 italic bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/5">
+                        "{currentVoice.sample}"
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 <div>
                   <label className="text-xs font-mono text-gray-300 block mb-1">Live Phone Hotline</label>

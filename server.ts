@@ -1653,17 +1653,25 @@ IMPORTANT CARD TRIGGER RULES:
         { role: "user", parts: [{ text: message }] }
       ];
 
+      const isVoiceRequest = Boolean(isVoice || isVoiceMode);
       let replyText = "";
       try {
-        const response = await generateResilientContent(ai, {
-          primaryModel: "gemini-3.1-flash-lite",
+        // Fast timeout wrapper for voice responsiveness (<2.2s ceiling)
+        const generatePromise = generateResilientContent(ai, {
+          primaryModel: "gemini-2.5-flash",
           contents: formattedContents,
           config: {
             systemInstruction,
-            maxOutputTokens: 1000,
-            temperature: 0.7,
+            maxOutputTokens: isVoiceRequest ? 160 : 300,
+            temperature: 0.4,
           },
         });
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("AI response timeout")), 2200)
+        );
+
+        const response: any = await Promise.race([generatePromise, timeoutPromise]);
         replyText = response?.text || "";
       } catch (modelErr: any) {
         console.warn("[Chat API Notice] AI model request fallback triggered:", modelErr?.message || modelErr);
@@ -2111,17 +2119,23 @@ Respond ONLY in valid JSON matching this schema:
       };
 
       try {
-        const response = await generateResilientContent(ai, {
-          primaryModel: "gemini-2.0-flash",
+        const generatePromise = generateResilientContent(ai, {
+          primaryModel: "gemini-2.5-flash",
           contents: prompt,
           config: {
             responseMimeType: "application/json",
-            maxOutputTokens: 1000,
-            temperature: 0.7,
+            maxOutputTokens: 220,
+            temperature: 0.3,
           }
         });
 
-        let rawText = (response.text || "").trim();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Voice response timeout")), 2000)
+        );
+
+        const response: any = await Promise.race([generatePromise, timeoutPromise]);
+
+        let rawText = (response?.text || "").trim();
         if (rawText.startsWith("```json")) {
           rawText = rawText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
         } else if (rawText.startsWith("```")) {
@@ -2138,7 +2152,7 @@ Respond ONLY in valid JSON matching this schema:
         if (data.bookingStatus) extractedLead.bookingStatus = data.bookingStatus;
         if (data.whatsappMessage) extractedLead.whatsappMessage = data.whatsappMessage;
       } catch (genErr: any) {
-        console.warn("AI generation note (using intelligent fallback):", genErr?.message || genErr);
+        console.warn("AI generation note (using instant intelligent response):", genErr?.message || genErr);
         aiSpeechText = fallbackData.aiSpeechText;
       }
 
@@ -2204,14 +2218,32 @@ Respond ONLY in valid JSON matching this schema:
         return res.status(400).json({ error: "Text is required" });
       }
 
-      // Voice mapping:
-      // Male: 'en-US-GuyNeural' (authoritative US baritone / Arthur) or 'en-GB-RyanNeural' (UK / Oliver)
-      // Female: 'en-US-JennyNeural' (US Executive / Zephyr) or 'en-GB-SoniaNeural' (UK / Clara)
+      // Voice mapping supporting all regional genders & personas:
+      const gLower = (gender || '').toLowerCase();
+      const pLower = (personaId || '').toLowerCase();
+      const isFemale = gLower.includes('female') || pLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
+
       let voiceName = "en-US-GuyNeural";
-      if (gender === 'female') {
-        voiceName = (personaId && personaId.includes('uk')) ? 'en-GB-SoniaNeural' : 'en-US-JennyNeural';
+      if (isFemale) {
+        if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('clara')) {
+          voiceName = 'en-GB-SoniaNeural';
+        } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('natasha')) {
+          voiceName = 'en-AU-NatashaNeural';
+        } else if (gLower.includes('vibrant') || pLower.includes('vibrant') || gLower.includes('aria')) {
+          voiceName = 'en-US-AriaNeural';
+        } else {
+          voiceName = 'en-US-JennyNeural';
+        }
       } else {
-        voiceName = (personaId && personaId.includes('uk')) ? 'en-GB-RyanNeural' : 'en-US-GuyNeural';
+        if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('oliver')) {
+          voiceName = 'en-GB-RyanNeural';
+        } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('william')) {
+          voiceName = 'en-AU-WilliamNeural';
+        } else if (gLower.includes('sales') || pLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) {
+          voiceName = 'en-US-BrianNeural';
+        } else {
+          voiceName = 'en-US-GuyNeural';
+        }
       }
 
       // Check in-memory cache first for 0ms instant playback

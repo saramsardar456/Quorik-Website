@@ -27,7 +27,7 @@ export function ClientDemoPage() {
   const tagline = searchParams.get('tagline') || 'Painless General, Cosmetic & Implant Dentistry with 5-Star Comfort';
   const heroSubtext = searchParams.get('subtext') || `Experience modern, anxiety-free care with ${companyName}. Speak with our 24/7 AI Concierge to get instant price quotes or book your appointment.`;
   const agentName = searchParams.get('agent') || 'Arthur';
-  const gender = (searchParams.get('gender') as 'female' | 'male') || 'male';
+  const gender = searchParams.get('gender') || 'male';
   const phone = searchParams.get('phone') || '+1 (800) 450-DENT';
   const location = searchParams.get('location') || 'Metropolitan Center';
   const hours = searchParams.get('hours') || 'Mon-Sat: 8:00 AM - 7:00 PM | 24/7 AI Hotline';

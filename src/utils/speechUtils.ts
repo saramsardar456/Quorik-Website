@@ -198,9 +198,9 @@ export async function prefetchNeuralAudio(
 export async function speakSpeech(
   rawText: string,
   options: {
-    gender?: 'female' | 'male';
+    gender?: 'female' | 'male' | 'male-uk' | 'female-uk' | 'male-sales' | 'female-vibrant' | 'male-au' | 'female-au' | string;
     personaId?: string;
-    preferredLocale?: 'en-US' | 'en-GB';
+    preferredLocale?: 'en-US' | 'en-GB' | 'en-AU' | string;
     onStart?: () => void;
     onEnd?: () => void;
     onError?: (err?: any) => void;
@@ -216,9 +216,20 @@ export async function speakSpeech(
   unlockAudio();
   const thisToken = currentSpeechToken;
 
-  const gender = options.gender || 'male';
-  const personaId = options.personaId || (gender === 'male' ? 'us-executive' : 'us-warm');
-  const cacheKey = `${gender}:${personaId}:${cleanText}`;
+  const rawGender = options.gender || 'male';
+  const gLower = rawGender.toLowerCase();
+  const isFemale = gLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
+
+  let personaId = options.personaId;
+  if (!personaId) {
+    if (gLower.includes('uk')) personaId = 'uk-refined';
+    else if (gLower.includes('au')) personaId = 'au-friendly';
+    else if (gLower.includes('vibrant') || gLower.includes('aria')) personaId = 'us-vibrant';
+    else if (gLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) personaId = 'us-sales';
+    else personaId = isFemale ? 'us-warm' : 'us-executive';
+  }
+
+  const cacheKey = `${rawGender}:${personaId}:${cleanText}`;
 
   const playAudioData = (base64Audio: string) => {
     if (thisToken !== currentSpeechToken) return;
@@ -275,10 +286,10 @@ export async function speakSpeech(
     return;
   }
 
-  // 2. Fetch from Neural TTS API
+  // 2. Fetch from Neural TTS API (Fast 1200ms ceiling before instant local fallback)
   const controller = new AbortController();
   activeTtsAbortController = controller;
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  const timeoutId = setTimeout(() => controller.abort(), 1200);
 
   try {
     const res = await fetch('/api/tts', {
@@ -287,7 +298,7 @@ export async function speakSpeech(
       signal: controller.signal,
       body: JSON.stringify({
         text: cleanText,
-        gender,
+        gender: rawGender,
         personaId
       })
     });
@@ -353,30 +364,33 @@ export function refreshVoices(): SpeechSynthesisVoice[] {
 }
 
 export function getBestEnglishVoice(
-  gender: 'female' | 'male' = 'male',
-  preferredLocale: 'en-US' | 'en-GB' = 'en-US'
+  gender: 'female' | 'male' | string = 'male',
+  preferredLocale: 'en-US' | 'en-GB' | string = 'en-US'
 ): VoiceSelection {
   const isMobile = isMobileDevice();
   const isIOS = isIOSDevice();
   const isAndroid = isAndroidDevice();
   const allVoices = refreshVoices();
 
+  const gLower = (gender || '').toLowerCase();
+  const isFemale = gLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
+
   const englishVoices = allVoices.filter(v => {
     const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
     return lang.startsWith('en-') || lang === 'en' || lang.startsWith('eng');
   });
 
-  let defaultPitch = gender === 'male' ? (isMobile ? 0.78 : 0.88) : 1.05;
-  let defaultRate = gender === 'male' ? 0.96 : 0.98;
+  let defaultPitch = !isFemale ? (isMobile ? 0.78 : 0.88) : 1.05;
+  let defaultRate = !isFemale ? 0.96 : 0.98;
 
   if (englishVoices.length === 0) {
-    const fallbackLang = gender === 'male' ? (isIOS ? 'en-GB' : (preferredLocale || 'en-US')) : 'en-US';
+    const fallbackLang = !isFemale ? (isIOS ? 'en-GB' : (preferredLocale || 'en-US')) : 'en-US';
     return { voice: null, pitch: defaultPitch, rate: defaultRate, lang: fallbackLang };
   }
 
   let selectedVoice: SpeechSynthesisVoice | null = null;
 
-  if (gender === 'female') {
+  if (isFemale) {
     selectedVoice = englishVoices.find(v => {
       const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
       const isMale = MALE_NAMES.some(k => name.includes(k));
@@ -442,9 +456,9 @@ export function getBestEnglishVoice(
 export function speakNativeUtterance(
   rawText: string,
   options: {
-    gender?: 'female' | 'male';
+    gender?: 'female' | 'male' | 'male-uk' | 'female-uk' | 'male-sales' | 'female-vibrant' | 'male-au' | 'female-au' | string;
     personaId?: string;
-    preferredLocale?: 'en-US' | 'en-GB';
+    preferredLocale?: 'en-US' | 'en-GB' | 'en-AU' | string;
     onStart?: () => void;
     onEnd?: () => void;
     onError?: (err?: any) => void;

@@ -158,6 +158,7 @@
   let voiceStartTime = 0;
   let widgetSpeechToken = 0;
   let widgetTtsAbortController = null;
+  let widgetSilenceTimer = null;
 
   // In-memory audio cache for 0ms instant repeat playback in widget
   const widgetAudioCache = new Map();
@@ -917,9 +918,9 @@
     const input = modal.querySelector('#q-text-input');
     if (input) input.value = '';
 
-    // Check status live before calling
-    await fetchClientStatus();
     if (isPausedOrLimited) return;
+    // Refresh status asynchronously in background without blocking current message
+    fetchClientStatus().catch(() => {});
 
     appendMessage('user', text);
     appendMessage('ai', 'Thinking...');
@@ -933,9 +934,13 @@
     }
 
     try {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = setTimeout(() => controller?.abort(), 4000);
+
       const res = await fetch(`${serverOrigin}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller ? controller.signal : undefined,
         body: JSON.stringify({
           message: text,
           history: chatHistory,
@@ -946,6 +951,7 @@
         })
       });
 
+      clearTimeout(timeoutId);
       removeLastThinking();
       isThinking = false;
 
@@ -1036,11 +1042,13 @@
 
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRec();
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
     recognition.lang = clientData?.voiceLanguage?.includes('Spanish') ? 'es-ES' : 
                      clientData?.voiceLanguage?.includes('German') ? 'de-DE' : 
                      clientData?.voiceLanguage?.includes('French') ? 'fr-FR' : 'en-US';
+
+    let accumulatedText = '';
 
     recognition.onstart = () => {
       isListening = true;
@@ -1049,10 +1057,26 @@
     };
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      isListening = false;
-      updateUIStatus('idle');
-      handleSendChat(transcript, true);
+      let currentText = '';
+      for (let i = 0; i < event.results.length; ++i) {
+        currentText += event.results[i][0].transcript + ' ';
+      }
+      accumulatedText = currentText.trim();
+      
+      const statusText = modal?.querySelector('#q-voice-status-text');
+      if (statusText && accumulatedText) {
+        statusText.innerText = `"${accumulatedText}"`;
+      }
+
+      if (widgetSilenceTimer) clearTimeout(widgetSilenceTimer);
+      widgetSilenceTimer = setTimeout(() => {
+        if (accumulatedText) {
+          try { recognition.stop(); } catch (e) {}
+          isListening = false;
+          updateUIStatus('idle');
+          handleSendChat(accumulatedText, true);
+        }
+      }, 750);
     };
 
     recognition.onerror = (e) => {

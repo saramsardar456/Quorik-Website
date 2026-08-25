@@ -28,10 +28,108 @@ import {
   Code,
   Copy,
   Check,
-  Sparkles
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Play,
+  Square
 } from 'lucide-react';
 import { ClientAccount, VoiceConversation } from '../../types/client';
 import { formatWhatsAppPhone } from '../../utils/phone';
+import { speakSpeech, stopAllSpeech, unlockAudio } from '../../utils/speechUtils';
+
+export const ALL_VOICE_PERSONAS = [
+  // Male Personas
+  {
+    id: 'us-executive',
+    gender: 'male' as const,
+    name: 'Arthur',
+    title: 'Arthur (Executive Concierge)',
+    flag: '🇺🇸',
+    accent: 'US Executive',
+    region: 'North America',
+    tone: 'Authoritative, Corporate & Crisp',
+    sample: "Hello and welcome! My name is Arthur. How can I assist you with custom website development, AI chatbots, or booking your discovery call today?"
+  },
+  {
+    id: 'uk-refined',
+    gender: 'male' as const,
+    name: 'Oliver',
+    title: 'Oliver (British Concierge)',
+    flag: '🇬🇧',
+    accent: 'UK Refined',
+    region: 'United Kingdom & Europe',
+    tone: 'Courteous, Calm & Elegant',
+    sample: "Good day! My name is Oliver. I would be delighted to assist you with your custom web and AI automation project today."
+  },
+  {
+    id: 'us-sales',
+    gender: 'male' as const,
+    name: 'Brian',
+    title: 'Brian (Sales Specialist)',
+    flag: '🇺🇸',
+    accent: 'US Dynamic Sales',
+    region: 'North America',
+    tone: 'High-Energy, Direct & Persuasive',
+    sample: "Hey there! Brian here. Let's see how our AI voice solutions and custom websites can drive massive ROI for your business."
+  },
+  {
+    id: 'au-friendly',
+    gender: 'male' as const,
+    name: 'William',
+    title: 'William (Global Concierge)',
+    flag: '🇦🇺',
+    accent: 'Australian Warm',
+    region: 'Asia-Pacific & Global',
+    tone: 'Friendly, Approachable & Clear',
+    sample: "G'day and welcome! William here to help you get the exact AI automation and web build you need."
+  },
+  // Female Personas
+  {
+    id: 'us-executive',
+    gender: 'female' as const,
+    name: 'Zephyr',
+    title: 'Zephyr (Executive Concierge)',
+    flag: '🇺🇸',
+    accent: 'US Executive',
+    region: 'North America',
+    tone: 'Crisp, High-Efficiency & Professional',
+    sample: "Hello and welcome! My name is Zephyr. How can I assist you with custom web development or scheduling your consultation today?"
+  },
+  {
+    id: 'uk-refined',
+    gender: 'female' as const,
+    name: 'Clara',
+    title: 'Clara (British Concierge)',
+    flag: '🇬🇧',
+    accent: 'UK Refined',
+    region: 'United Kingdom & Europe',
+    tone: 'Refined, Polite & Articulate',
+    sample: "Good day and thank you for reaching out. My name is Clara. May I assist you with securing a consultation today?"
+  },
+  {
+    id: 'us-vibrant',
+    gender: 'female' as const,
+    name: 'Aria',
+    title: 'Aria (Dynamic Specialist)',
+    flag: '🇺🇸',
+    accent: 'US Vibrant',
+    region: 'North America',
+    tone: 'Warm, Expressive & Engaging',
+    sample: "Hi there! I'm Aria. Welcome to our AI voice platform. What can we build or automate for your business today?"
+  },
+  {
+    id: 'au-modern',
+    gender: 'female' as const,
+    name: 'Natasha',
+    title: 'Natasha (Modern Concierge)',
+    flag: '🇦🇺',
+    accent: 'Australian Modern',
+    region: 'Asia-Pacific & Global',
+    tone: 'Clear, Modern & Welcoming',
+    sample: "Hello and welcome! Natasha here. I'm ready to answer any questions about our digital services and solutions."
+  }
+];
 
 interface ClientAccountsManagerProps {
   clients: ClientAccount[];
@@ -63,6 +161,31 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
     setTimeout(() => setCopiedKey(null), 2500);
   };
 
+  // Voice Preview & Filter States
+  const [previewingVoiceKey, setPreviewingVoiceKey] = useState<string | null>(null);
+  const [newClientGenderFilter, setNewClientGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+  const [editClientGenderFilter, setEditClientGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+
+  const testVoiceSample = (persona: typeof ALL_VOICE_PERSONAS[0]) => {
+    unlockAudio();
+    const key = `${persona.gender}-${persona.id}-${persona.name}`;
+    if (previewingVoiceKey === key) {
+      stopAllSpeech();
+      setPreviewingVoiceKey(null);
+      return;
+    }
+
+    stopAllSpeech();
+    setPreviewingVoiceKey(key);
+    speakSpeech(persona.sample, {
+      gender: persona.gender,
+      personaId: persona.id,
+      preferredLocale: persona.id.includes('uk') ? 'en-GB' : persona.id.includes('au') ? 'en-AU' : 'en-US',
+      onEnd: () => setPreviewingVoiceKey(null),
+      onError: () => setPreviewingVoiceKey(null)
+    });
+  };
+
   // New Client Form State
   const [newClient, setNewClient] = useState({
     id: '',
@@ -73,6 +196,8 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
     phone: '',
     websiteUrl: '',
     tier: 'starter' as 'starter' | 'growth' | 'enterprise',
+    voiceGender: 'male' as 'male' | 'female',
+    voicePersonaId: 'us-executive',
     voiceAgentName: 'Arthur (Executive Concierge)',
     voiceLanguage: 'English & Urdu'
   });
@@ -160,6 +285,8 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
           phone: '',
           websiteUrl: '',
           tier: 'starter',
+          voiceGender: 'male',
+          voicePersonaId: 'us-executive',
           voiceAgentName: 'Arthur (Executive Concierge)',
           voiceLanguage: 'English & Urdu'
         });
@@ -919,6 +1046,119 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                 </div>
               </div>
 
+              {/* Voice Gender & Persona Selection Grid */}
+              <div className="bg-[#05060A] border border-white/10 p-4 rounded-xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-brand-teal" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Select Voice Gender & Persona</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-[#0A0E1A] p-1 rounded-lg border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setNewClientGenderFilter('all')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                        newClientGenderFilter === 'all' ? 'bg-brand-teal text-[#05060A]' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      All (8)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewClientGenderFilter('male')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${
+                        newClientGenderFilter === 'male' ? 'bg-brand-teal text-[#05060A]' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      👨 Male (4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewClientGenderFilter('female')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${
+                        newClientGenderFilter === 'female' ? 'bg-brand-teal text-[#05060A]' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      👩 Female (4)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                  {ALL_VOICE_PERSONAS.filter(p => newClientGenderFilter === 'all' || p.gender === newClientGenderFilter).map((persona) => {
+                    const isSelected = newClient.voiceGender === persona.gender && newClient.voicePersonaId === persona.id && (
+                      (persona.name === 'Arthur' && newClient.voiceAgentName.includes('Arthur')) ||
+                      (persona.name === 'Oliver' && newClient.voiceAgentName.includes('Oliver')) ||
+                      (persona.name === 'Brian' && newClient.voiceAgentName.includes('Brian')) ||
+                      (persona.name === 'William' && newClient.voiceAgentName.includes('William')) ||
+                      (persona.name === 'Zephyr' && newClient.voiceAgentName.includes('Zephyr')) ||
+                      (persona.name === 'Clara' && newClient.voiceAgentName.includes('Clara')) ||
+                      (persona.name === 'Aria' && newClient.voiceAgentName.includes('Aria')) ||
+                      (persona.name === 'Natasha' && newClient.voiceAgentName.includes('Natasha')) ||
+                      (newClient.voicePersonaId === persona.id && newClient.voiceGender === persona.gender)
+                    );
+                    const isPlaying = previewingVoiceKey === `${persona.gender}-${persona.id}-${persona.name}`;
+
+                    return (
+                      <div
+                        key={`${persona.gender}-${persona.id}-${persona.name}`}
+                        onClick={() => {
+                          setNewClient({
+                            ...newClient,
+                            voiceGender: persona.gender,
+                            voicePersonaId: persona.id,
+                            voiceAgentName: `${persona.name} (${persona.accent})`
+                          });
+                        }}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-2 ${
+                          isSelected
+                            ? 'bg-brand-teal/15 border-brand-teal shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{persona.flag}</span>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-white text-xs">{persona.name}</span>
+                                <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                                  persona.gender === 'female' ? 'bg-pink-500/20 text-pink-300' : 'bg-cyan-500/20 text-cyan-300'
+                                }`}>
+                                  {persona.gender === 'female' ? '👩 Female' : '👨 Male'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-gray-400 block">{persona.accent}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              testVoiceSample(persona);
+                            }}
+                            className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all ${
+                              isPlaying
+                                ? 'bg-red-500 text-white animate-pulse'
+                                : 'bg-brand-teal/20 text-brand-teal hover:bg-brand-teal hover:text-[#05060A]'
+                            }`}
+                            title="Listen to neural voice sample"
+                          >
+                            {isPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                            <span>{isPlaying ? 'Stop' : 'Test'}</span>
+                          </button>
+                        </div>
+
+                        <p className="text-[10px] text-gray-400 italic line-clamp-1">
+                          "{persona.tone}"
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-gray-400 block mb-1.5">Voice Agent Persona Name</label>
@@ -978,7 +1218,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
       {/* --- MODAL 2: EDIT CLIENT MODAL --- */}
       {editingClient && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0A0E1A] border border-white/10 rounded-2xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative">
+          <div className="bg-[#0A0E1A] border border-white/10 rounded-2xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-4 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-brand-teal/20 flex items-center justify-center text-brand-teal">
@@ -1082,13 +1322,119 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                   </select>
                 </div>
                 <div>
-                  <label className="text-gray-400 block mb-1.5">Voice Agent Name</label>
+                  <label className="text-gray-400 block mb-1.5">Voice Agent Persona Name</label>
                   <input
                     type="text"
                     value={editingClient.voiceAgentName}
                     onChange={(e) => setEditingClient({ ...editingClient, voiceAgentName: e.target.value })}
                     className="w-full bg-[#05060A] border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-brand-teal"
                   />
+                </div>
+              </div>
+
+              {/* Voice Gender & Persona Selection Grid for Editing */}
+              <div className="bg-[#05060A] border border-white/10 p-4 rounded-xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-brand-teal" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Voice Persona & Gender</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-[#0A0E1A] p-1 rounded-lg border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setEditClientGenderFilter('all')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                        editClientGenderFilter === 'all' ? 'bg-brand-teal text-[#05060A]' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      All (8)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditClientGenderFilter('male')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${
+                        editClientGenderFilter === 'male' ? 'bg-brand-teal text-[#05060A]' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      👨 Male (4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditClientGenderFilter('female')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors flex items-center gap-1 ${
+                        editClientGenderFilter === 'female' ? 'bg-brand-teal text-[#05060A]' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      👩 Female (4)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                  {ALL_VOICE_PERSONAS.filter(p => editClientGenderFilter === 'all' || p.gender === editClientGenderFilter).map((persona) => {
+                    const isSelected = editingClient.voiceGender === persona.gender && (
+                      editingClient.voicePersonaId === persona.id ||
+                      editingClient.voiceAgentName?.toLowerCase().includes(persona.name.toLowerCase())
+                    );
+                    const isPlaying = previewingVoiceKey === `${persona.gender}-${persona.id}-${persona.name}`;
+
+                    return (
+                      <div
+                        key={`${persona.gender}-${persona.id}-${persona.name}`}
+                        onClick={() => {
+                          setEditingClient({
+                            ...editingClient,
+                            voiceGender: persona.gender,
+                            voicePersonaId: persona.id,
+                            voiceAgentName: `${persona.name} (${persona.accent})`
+                          });
+                        }}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-2 ${
+                          isSelected
+                            ? 'bg-brand-teal/15 border-brand-teal shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{persona.flag}</span>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-white text-xs">{persona.name}</span>
+                                <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                                  persona.gender === 'female' ? 'bg-pink-500/20 text-pink-300' : 'bg-cyan-500/20 text-cyan-300'
+                                }`}>
+                                  {persona.gender === 'female' ? '👩 Female' : '👨 Male'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-gray-400 block">{persona.accent}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              testVoiceSample(persona);
+                            }}
+                            className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all ${
+                              isPlaying
+                                ? 'bg-red-500 text-white animate-pulse'
+                                : 'bg-brand-teal/20 text-brand-teal hover:bg-brand-teal hover:text-[#05060A]'
+                            }`}
+                            title="Listen to neural voice sample"
+                          >
+                            {isPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                            <span>{isPlaying ? 'Stop' : 'Test'}</span>
+                          </button>
+                        </div>
+
+                        <p className="text-[10px] text-gray-400 italic line-clamp-1">
+                          "{persona.tone}"
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

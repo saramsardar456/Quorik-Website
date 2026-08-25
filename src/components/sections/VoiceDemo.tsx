@@ -39,9 +39,13 @@ export function VoiceDemo({
     setIsAiSpeaking(false);
 
     if (simState === 'connected') {
-      const newVoiceName = personaId === 'uk-refined'
-        ? (gender === 'female' ? 'Clara' : 'Oliver')
-        : (gender === 'female' ? 'Zephyr' : 'Arthur');
+      const getVoiceDisplayName = (pId: string, g: 'female' | 'male') => {
+        if (pId === 'uk-refined') return g === 'female' ? 'Clara' : 'Oliver';
+        if (pId === 'us-sales' || pId === 'us-vibrant') return g === 'female' ? 'Aria' : 'Brian';
+        if (pId === 'au-friendly' || pId === 'au-modern') return g === 'female' ? 'Natasha' : 'William';
+        return g === 'female' ? 'Zephyr' : 'Arthur';
+      };
+      const newVoiceName = getVoiceDisplayName(personaId, gender);
 
       const switchNotice = `Voice persona switched to ${newVoiceName} (${gender === 'female' ? 'Female' : 'Male'}). How may I assist you?`;
       setSimMessages(prev => [
@@ -52,7 +56,7 @@ export function VoiceDemo({
       speakSpeech(switchNotice, {
         gender,
         personaId,
-        preferredLocale: personaId === 'uk-refined' ? 'en-GB' : 'en-US',
+        preferredLocale: personaId.includes('uk') ? 'en-GB' : personaId.includes('au') ? 'en-AU' : 'en-US',
         onStart: () => setIsAiSpeaking(true),
         onEnd: () => setIsAiSpeaking(false),
         onError: () => setIsAiSpeaking(false)
@@ -94,9 +98,13 @@ export function VoiceDemo({
   const callGreetingTimerRef = useRef<any>(null);
   const simCallAbortControllerRef = useRef<AbortController | null>(null);
 
-  const activeVoiceName = activePersonaId === 'uk-refined'
-    ? (selectedGender === 'female' ? 'Clara' : 'Oliver')
-    : (selectedGender === 'female' ? 'Zephyr' : 'Arthur');
+  const getActiveName = () => {
+    if (activePersonaId === 'uk-refined') return selectedGender === 'female' ? 'Clara' : 'Oliver';
+    if (activePersonaId === 'us-sales' || activePersonaId === 'us-vibrant') return selectedGender === 'female' ? 'Aria' : 'Brian';
+    if (activePersonaId === 'au-friendly' || activePersonaId === 'au-modern') return selectedGender === 'female' ? 'Natasha' : 'William';
+    return selectedGender === 'female' ? 'Zephyr' : 'Arthur';
+  };
+  const activeVoiceName = getActiveName();
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -218,7 +226,7 @@ export function VoiceDemo({
 
     const controller = new AbortController();
     simCallAbortControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const timeoutId = setTimeout(() => controller.abort(), 3800);
 
     try {
       const response = await fetch('/api/voice-agent/simulate-call', {
@@ -395,7 +403,7 @@ export function VoiceDemo({
             setIsRecordingMic(false);
             handleSendCallerTurn(accumulatedText.trim());
           }
-        }, 3500);
+        }, 380);
       };
 
       recognition.onerror = () => setIsRecordingMic(false);
@@ -458,60 +466,128 @@ export function VoiceDemo({
 
             <div>
               {/* Voice Persona Selector Controls */}
-              <div className="mb-6 bg-[#05060A]/90 border border-white/10 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-bold">Select Voice:</span>
-                  <span className="text-[11px] font-mono text-brand-teal font-bold bg-brand-teal/10 px-2 py-0.5 rounded border border-brand-teal/30">
-                    {activeVoiceName} ({selectedGender.toUpperCase()})
-                  </span>
+              <div className="mb-6 bg-[#05060A]/90 border border-white/10 p-3 sm:p-4 rounded-lg flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-bold">Active Voice:</span>
+                    <span className="text-[11px] font-mono text-brand-teal font-bold bg-brand-teal/10 px-2 py-0.5 rounded border border-brand-teal/30">
+                      {activeVoiceName} ({selectedGender.toUpperCase()})
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-400 uppercase">8 Studio Genders & Accents Available</span>
                 </div>
-                <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('male', 'us-executive')}
-                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'male' && activePersonaId === 'us-executive'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
-                    <span>🇺🇸</span> Arthur <span className="text-[10px] opacity-75 font-normal">(Male)</span>
+                    <span className="text-sm">🇺🇸 👨</span>
+                    <span className="mt-0.5">Arthur</span>
+                    <span className="text-[10px] opacity-75 font-normal">US Executive (M)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('female', 'us-executive')}
-                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'female' && activePersonaId === 'us-executive'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
-                    <span>🇺🇸</span> Zephyr <span className="text-[10px] opacity-75 font-normal">(Female)</span>
+                    <span className="text-sm">🇺🇸 👩</span>
+                    <span className="mt-0.5">Zephyr</span>
+                    <span className="text-[10px] opacity-75 font-normal">US Executive (F)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('male', 'uk-refined')}
-                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'male' && activePersonaId === 'uk-refined'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
-                    <span>🇬🇧</span> Oliver <span className="text-[10px] opacity-75 font-normal">(Male)</span>
+                    <span className="text-sm">🇬🇧 👨</span>
+                    <span className="mt-0.5">Oliver</span>
+                    <span className="text-[10px] opacity-75 font-normal">UK Refined (M)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('female', 'uk-refined')}
-                    className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'female' && activePersonaId === 'uk-refined'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
-                    <span>🇬🇧</span> Clara <span className="text-[10px] opacity-75 font-normal">(Female)</span>
+                    <span className="text-sm">🇬🇧 👩</span>
+                    <span className="mt-0.5">Clara</span>
+                    <span className="text-[10px] opacity-75 font-normal">UK Refined (F)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('male', 'us-sales')}
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                      selectedGender === 'male' && activePersonaId === 'us-sales'
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span className="text-sm">🇺🇸 👨</span>
+                    <span className="mt-0.5">Brian</span>
+                    <span className="text-[10px] opacity-75 font-normal">US Sales (M)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('female', 'us-vibrant')}
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                      selectedGender === 'female' && (activePersonaId === 'us-vibrant' || activePersonaId === 'us-sales')
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span className="text-sm">🇺🇸 👩</span>
+                    <span className="mt-0.5">Aria</span>
+                    <span className="text-[10px] opacity-75 font-normal">US Vibrant (F)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('male', 'au-friendly')}
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                      selectedGender === 'male' && activePersonaId === 'au-friendly'
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span className="text-sm">🇦🇺 👨</span>
+                    <span className="mt-0.5">William</span>
+                    <span className="text-[10px] opacity-75 font-normal">AU Warm (M)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVoice('female', 'au-friendly')}
+                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                      selectedGender === 'female' && (activePersonaId === 'au-friendly' || activePersonaId === 'au-modern')
+                        ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    <span className="text-sm">🇦🇺 👩</span>
+                    <span className="mt-0.5">Natasha</span>
+                    <span className="text-[10px] opacity-75 font-normal">AU Modern (F)</span>
                   </button>
                 </div>
               </div>

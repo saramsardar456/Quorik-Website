@@ -23,7 +23,7 @@ export interface DemoSiteData {
   tagline: string;
   heroSubtext: string;
   agentName: string;
-  gender: 'female' | 'male';
+  gender: 'female' | 'male' | 'male-uk' | 'female-uk' | 'male-sales' | 'female-vibrant' | 'male-au' | 'female-au' | string;
   phone: string;
   location: string;
   hours: string;

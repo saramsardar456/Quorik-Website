@@ -27,6 +27,8 @@ export interface ClientAccount {
   status: 'active' | 'limit_reached' | 'paused' | 'voice_paused' | 'chat_paused';
   voiceAgentName: string;
   voiceLanguage: string;
+  voiceGender?: 'male' | 'female';
+  voicePersonaId?: string;
   totalConversations: number;
   leadsCaptured: number;
   lastActive: string;

@@ -77,6 +77,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   const [floatingWidgetOpen, setFloatingWidgetOpen] = useState(false);
 
   const recognitionRef = useRef<any>(null);
+  const silenceTimerRef = useRef<any>(null);
   const audioFallbackRef = useRef<HTMLAudioElement | null>(null);
   const callConsoleRef = useRef<HTMLDivElement | null>(null);
   const demoAbortControllerRef = useRef<AbortController | null>(null);
@@ -84,6 +85,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   useEffect(() => {
     return () => {
       stopAllSpeech();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (demoAbortControllerRef.current) {
         try { demoAbortControllerRef.current.abort(); } catch (e) {}
       }
@@ -134,12 +136,28 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     clearSpeechEngine();
 
     const gender = data.gender || 'male';
-    const personaId = gender === 'female' ? 'us-executive' : 'us-executive';
+    const gLower = gender.toLowerCase();
+    const isFemale = gLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
+
+    let personaId = isFemale ? 'us-warm' : 'us-executive';
+    let preferredLocale: 'en-US' | 'en-GB' | 'en-AU' = 'en-US';
+
+    if (gLower.includes('uk')) {
+      personaId = 'uk-refined';
+      preferredLocale = 'en-GB';
+    } else if (gLower.includes('au')) {
+      personaId = 'au-friendly';
+      preferredLocale = 'en-AU';
+    } else if (gLower.includes('vibrant') || gLower.includes('aria')) {
+      personaId = 'us-vibrant';
+    } else if (gLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) {
+      personaId = 'us-sales';
+    }
 
     speakSpeech(text, {
       gender,
       personaId,
-      preferredLocale: 'en-US',
+      preferredLocale,
       onStart: () => setIsAiSpeaking(true),
       onEnd: () => setIsAiSpeaking(false),
       onError: () => setIsAiSpeaking(false)
@@ -221,7 +239,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
     const controller = new AbortController();
     demoAbortControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const timeoutId = setTimeout(() => controller.abort(), 3800);
 
     try {
       const historyForApi = simMessages.map(m => ({
@@ -315,21 +333,30 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       recognition.continuous = true;
       recognition.interimResults = true;
 
-      let finalTranscript = '';
+      let accumulatedTranscript = '';
 
       recognition.onstart = () => {
         setIsRecordingMic(true);
       };
 
       recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+        let currentText = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          currentText += event.results[i][0].transcript + ' ';
+        }
+        accumulatedTranscript = currentText.trim();
+        if (accumulatedTranscript) {
+          setUserQueryInput(accumulatedTranscript);
+        }
+
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          if (accumulatedTranscript) {
+            try { recognition.stop(); } catch(e){}
+            setIsRecordingMic(false);
+            handleSendQuery(accumulatedTranscript);
           }
-        }
-        if (finalTranscript) {
-          setUserQueryInput(finalTranscript);
-        }
+        }, 750);
       };
 
       recognition.onerror = () => {
@@ -338,8 +365,8 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
       recognition.onend = () => {
         setIsRecordingMic(false);
-        if (finalTranscript.trim()) {
-          handleSendQuery(finalTranscript);
+        if (accumulatedTranscript && !simMessages.some(m => m.sender === 'user' && m.text === accumulatedTranscript)) {
+          handleSendQuery(accumulatedTranscript);
         }
       };
 

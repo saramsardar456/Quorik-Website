@@ -59,6 +59,30 @@ export function VoiceAgentPage() {
       engLocale: 'en-GB',
       femaleTranscript: "Good day and thank you for reaching Quorik. My name is Clara. I can assist you with your custom web development or AI automation project and secure a consultation with our project director for tomorrow. May I have your full name, please?",
       maleTranscript: "Good day and thank you for reaching Quorik. My name is Oliver. I can assist you with your custom web development or AI automation project and secure a consultation with our project director for tomorrow. May I have your full name, please?"
+    },
+    {
+      id: 'us-sales',
+      femaleName: 'Aria',
+      maleName: 'Brian',
+      region: 'North America & High-Conversion Sales',
+      accent: 'US Dynamic & Sales Closer',
+      flag: '🇺🇸',
+      tone: 'High-Energy, Direct & Persuasive',
+      engLocale: 'en-US',
+      femaleTranscript: "Hi there! I'm Aria with Quorik AI. Whether you need an autonomous voice receptionist or a custom website build, we ensure zero missed leads and maximum ROI. What's the main goal for your business right now?",
+      maleTranscript: "Hey there! Brian here from Quorik AI. Whether you need a 24/7 autonomous voice receptionist or a high-converting website build, we guarantee zero missed leads and instant booking. What is your team looking to launch?"
+    },
+    {
+      id: 'au-friendly',
+      femaleName: 'Natasha',
+      maleName: 'William',
+      region: 'Australia, Asia-Pacific & Modern Conversational',
+      accent: 'Australian Warm & Approachable',
+      flag: '🇦🇺',
+      tone: 'Warm, Clear & Modern',
+      engLocale: 'en-AU',
+      femaleTranscript: "Hello and welcome to Quorik! My name is Natasha. I can guide you through our autonomous voice agents, custom web apps, and live integrations. Would you like to check our available times for a quick discovery call?",
+      maleTranscript: "G'day and thanks for calling Quorik! William here. I'm ready to walk you through our custom web engineering and 24/7 AI voice receptionist setups. Would you like to lock in a time for tomorrow?"
     }
   ];
 

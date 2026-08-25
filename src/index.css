@@ -1,12 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-navy: #07090F;
+  --color-brand-navy: #05070D;
   --color-brand-blue: #2563EB;
   --color-brand-teal: #06B6D4;
-  --color-brand-dark: #05060A;
-  --font-sans: 'Plus Jakarta Sans', sans-serif;
-  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --color-brand-cyan: #22D3EE;
+  --color-brand-dark: #040508;
+  --color-surface-card: #0A0E18;
+  --color-surface-hover: #101626;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer base {
@@ -14,9 +17,15 @@
     box-sizing: border-box;
   }
 
+  html {
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     background-color: var(--color-brand-navy);
-    color: #ffffff;
+    color: #F8FAFC;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -27,7 +36,7 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     font-weight: 700;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.02em;
   }
 }
 
@@ -40,33 +49,28 @@
   scrollbar-width: none;
 }
 
-/* Slick custom scrollbars for chat */
+/* High-contrast sleek scrollbars */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 20, 35, 0.5);
+  background: rgba(10, 14, 24, 0.6);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(6, 182, 212, 0.4);
-}
-
-/* Lightweight noise background using standard CSS noise pattern */
-.noise-bg {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
-  background-size: 24px 24px;
+  background: rgba(6, 182, 212, 0.5);
 }
 
 /* GPU transform hardware acceleration helper */
 .gpu-accelerated {
   transform: translate3d(0, 0, 0);
-  will-change: transform;
+  will-change: transform, opacity;
   backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 /* High-performance CSS Marquee */
@@ -82,7 +86,7 @@
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 30s linear infinite;
+  animation: marquee 32s linear infinite;
   will-change: transform;
   transform: translate3d(0, 0, 0);
 }
@@ -90,3 +94,30 @@
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Elegant glass & surface classes with 0 layout jitter */
+.glass-panel {
+  background: rgba(10, 14, 26, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-panel-hover:hover {
+  border-color: rgba(6, 182, 212, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(6, 182, 212, 0.12);
+}
+
+/* Smooth pulse for live status badges */
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.04); }
+}
+.animate-soft-pulse {
+  animation: soft-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+

@@ -203,6 +203,26 @@ interface AuditReport {
 }
 const auditsLog: AuditReport[] = [];
 
+// In-memory store for Partner Program Inflow Applications
+export interface PartnerApplication {
+  id: string;
+  companyName: string;
+  websiteUrl: string;
+  partnerTrack: string;
+  clientBaseSize: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  notes?: string;
+  status: 'new' | 'in_review' | 'approved' | 'onboarded' | 'declined';
+  estimatedPipeline?: string;
+  internalNotes?: string;
+  commissionTier?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+const partnerApplications: PartnerApplication[] = [];
+
 function saveStore() {
   try {
     const data = {
@@ -212,7 +232,8 @@ function saveStore() {
       auditsLog,
       posts,
       testimonials,
-      clientAccounts
+      clientAccounts,
+      partnerApplications
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
@@ -230,6 +251,7 @@ function loadStore() {
       if (Array.isArray(data.notificationsLog)) { notificationsLog.length = 0; notificationsLog.push(...data.notificationsLog); }
       if (Array.isArray(data.auditsLog)) { auditsLog.length = 0; auditsLog.push(...data.auditsLog); }
       if (Array.isArray(data.posts) && data.posts.length > 0) { posts.length = 0; posts.push(...data.posts); }
+      if (Array.isArray(data.partnerApplications)) { partnerApplications.length = 0; partnerApplications.push(...data.partnerApplications); }
       if (Array.isArray(data.clientAccounts) && data.clientAccounts.length > 0) { 
         clientAccounts.length = 0; 
         // Keep only real clients, strip out any legacy mock dummy data (client-1, client-2, etc.)
@@ -343,6 +365,43 @@ function loadStore() {
         message: "🔍 [Quorik AI Audit Complete] Hi Alex Johnson! Your AI Website & Automation Audit for https://apexfitness-demo.com is ready (Automation Score: 84/100). Check your report to review growth opportunities!",
         status: "DELIVERED (Global SMS Carrier)",
         createdAt: new Date(Date.now() - 3600000).toISOString()
+      }
+    );
+  }
+
+  if (partnerApplications.length === 0) {
+    partnerApplications.push(
+      {
+        id: "partner-app-xeven-1",
+        companyName: "Xeven Solutions",
+        websiteUrl: "https://www.xevensolutions.com",
+        partnerTrack: "agency-software-house",
+        clientBaseSize: "50-200",
+        contactName: "Strategic Alliances Lead",
+        contactEmail: "partnerships@xevensolutions.com",
+        contactPhone: "+1 (302) 555-0199",
+        notes: "We are an established AI and custom software development agency. Looking to integrate Quorik's sub-second 24/7 AI Voice receptionists into our healthcare and enterprise client portfolios for high-ticket co-selling.",
+        status: "in_review",
+        estimatedPipeline: "$75,000 – $150,000 / yr",
+        commissionTier: "25% Agency Co-Sell",
+        internalNotes: "High synergy partner candidate. Reviewing joint discovery pitch and custom healthcare voice templates.",
+        createdAt: new Date(Date.now() - 7200000).toISOString()
+      },
+      {
+        id: "partner-app-apex-2",
+        companyName: "Nexus Automation Labs",
+        websiteUrl: "https://nexusautomation-demo.io",
+        partnerTrack: "certified-solution-integrator",
+        clientBaseSize: "10-50",
+        contactName: "Marcus Sterling",
+        contactEmail: "marcus@nexusautomation-demo.io",
+        contactPhone: "+1 (415) 555-8321",
+        notes: "We build HubSpot and HighLevel CRM setups for commercial contractors and dental clinics. Want to embed Quorik Voice Agents for instant appointment booking.",
+        status: "approved",
+        estimatedPipeline: "$36,000 / yr",
+        commissionTier: "20% Rev-Share + 100% Setup Fees",
+        internalNotes: "Approved for Integrator Sandbox. Telephony Webhook keys dispatched.",
+        createdAt: new Date(Date.now() - 86400000).toISOString()
       }
     );
   }
@@ -881,6 +940,144 @@ ${message}
     } catch (error: any) {
       console.error("Contact API error:", error);
       res.status(500).json({ error: error.message || "Failed to process contact form" });
+    }
+  });
+
+  // --- Quorik Partner Program Application Endpoints ---
+  app.get("/api/partnerships/applications", (req, res) => {
+    res.json(partnerApplications);
+  });
+
+  // Public endpoint for applicants from /partnerships page
+  app.post("/api/partnerships/apply", async (req, res) => {
+    try {
+      const {
+        companyName,
+        websiteUrl,
+        partnerTrack,
+        clientBaseSize,
+        contactName,
+        contactEmail,
+        contactPhone,
+        notes
+      } = req.body;
+
+      if (!companyName || !contactEmail || !contactName) {
+        return res.status(400).json({ error: "Company name, contact name, and corporate email are required." });
+      }
+
+      // Determine default commission tier based on track
+      let commissionTier = "20% Rev-Share";
+      if (partnerTrack === 'agency-software-house') commissionTier = "25% Agency Co-Sell";
+      else if (partnerTrack === 'certified-solution-integrator') commissionTier = "20% Rev-Share + 100% Setup Fees";
+      else if (partnerTrack === 'strategic-referral') commissionTier = "15%–20% Referral";
+      else if (partnerTrack === 'white-label-reseller') commissionTier = "Wholesale Margin (40%+)";
+
+      const newApp: PartnerApplication = {
+        id: "partner-app-" + Math.random().toString(36).substring(2, 9),
+        companyName,
+        websiteUrl: websiteUrl || "",
+        partnerTrack: partnerTrack || "agency-software-house",
+        clientBaseSize: clientBaseSize || "10-50",
+        contactName,
+        contactEmail,
+        contactPhone: contactPhone || "N/A",
+        notes: notes || "",
+        status: "new",
+        commissionTier,
+        estimatedPipeline: clientBaseSize === '200+' ? '$100k+ / yr' : clientBaseSize === '50-200' ? '$50k–$100k / yr' : '$25k–$50k / yr',
+        internalNotes: "Inbound application from website partner portal.",
+        createdAt: new Date().toISOString()
+      };
+
+      partnerApplications.unshift(newApp);
+      saveStore();
+
+      // Trigger instant WhatsApp notification if phone provided
+      if (contactPhone && contactPhone !== "N/A") {
+        sendWhatsAppSMSNotification({
+          recipientName: contactName,
+          phone: contactPhone,
+          channel: 'instant_confirmation',
+          messageText: `🤝 [Quorik Partner Alliance] Hi ${contactName}! We received ${companyName}'s partnership application for the ${commissionTier} track. Our Strategic Alliances Lead will contact you shortly!`
+        });
+      }
+
+      res.json({ success: true, application: newApp });
+    } catch (err: any) {
+      console.error("Partner application error:", err);
+      res.status(500).json({ error: err.message || "Failed to submit partner application" });
+    }
+  });
+
+  // Admin Manual Create Application
+  app.post("/api/partnerships/applications", authenticateToken, (req, res) => {
+    try {
+      const {
+        companyName,
+        websiteUrl,
+        partnerTrack,
+        clientBaseSize,
+        contactName,
+        contactEmail,
+        contactPhone,
+        notes,
+        status,
+        internalNotes,
+        commissionTier
+      } = req.body;
+
+      const newApp: PartnerApplication = {
+        id: "partner-app-" + Math.random().toString(36).substring(2, 9),
+        companyName: companyName || "Partner Lead",
+        websiteUrl: websiteUrl || "",
+        partnerTrack: partnerTrack || "agency-software-house",
+        clientBaseSize: clientBaseSize || "10-50",
+        contactName: contactName || "Partner Contact",
+        contactEmail: contactEmail || "",
+        contactPhone: contactPhone || "N/A",
+        notes: notes || "",
+        status: status || "in_review",
+        commissionTier: commissionTier || "20% Rev-Share",
+        internalNotes: internalNotes || "Directly added by Admin.",
+        createdAt: new Date().toISOString()
+      };
+
+      partnerApplications.unshift(newApp);
+      saveStore();
+      res.json({ success: true, application: newApp });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to create application" });
+    }
+  });
+
+  // Admin Update Application (status, notes, etc.)
+  app.put("/api/partnerships/applications/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const index = partnerApplications.findIndex(p => p.id === id);
+    if (index !== -1) {
+      partnerApplications[index] = {
+        ...partnerApplications[index],
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      saveStore();
+      res.json(partnerApplications[index]);
+    } else {
+      res.status(404).json({ error: "Partner application not found" });
+    }
+  });
+
+  // Admin Delete Application
+  app.delete("/api/partnerships/applications/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const index = partnerApplications.findIndex(p => p.id === id);
+    if (index !== -1) {
+      partnerApplications.splice(index, 1);
+      saveStore();
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: "Partner application not found" });
     }
   });
 

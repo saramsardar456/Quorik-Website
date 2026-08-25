@@ -31,10 +31,10 @@ export function Header() {
     { name: 'Voice Agent', href: '/voice-agent' },
     { name: 'Industries', href: '/industry' },
     { name: 'Pricing', href: '/pricing' },
+    { name: 'Partners', href: '/partnerships' },
     { name: 'Services', href: '/services' },
     { name: 'Work', href: '/work' },
     { name: 'Compare', href: '/compare' },
-    { name: 'Process', href: '/process' },
     { name: 'Blog', href: '/blog' },
   ];
 

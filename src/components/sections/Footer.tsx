@@ -153,6 +153,15 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link 
+                  to="/partnerships" 
+                  className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-1 group"
+                >
+                  <span>Partner Program</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30">20-30%</span>
+                </Link>
+              </li>
+              <li>
                 <Link to="/industry" className="text-gray-400 hover:text-white transition-colors">
                   Industry AI Blueprints
                 </Link>
@@ -181,6 +190,11 @@ export function Footer() {
               Company
             </h4>
             <ul className="space-y-3 text-sm">
+              <li>
+                <Link to="/partnerships" className="text-gray-400 hover:text-brand-teal font-medium transition-colors">
+                  Agency Alliances
+                </Link>
+              </li>
               <li>
                 <Link to="/about" className="text-gray-400 hover:text-white transition-colors">
                   About Quorik

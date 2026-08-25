@@ -20,6 +20,7 @@ import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage';
 import { RefundPolicyPage } from '../pages/RefundPolicyPage';
 import { TermsOfServicePage } from '../pages/TermsOfServicePage';
 import { WelcomePage } from '../pages/WelcomePage';
+import { PartnershipPage } from '../pages/PartnershipPage';
 
 const PageWrapper = ({ children }: { children: ReactNode }) => (
   <motion.div
@@ -45,6 +46,9 @@ export function AnimatedRoutes() {
         <Route path="/about" element={<PageWrapper><AboutPage /></PageWrapper>} />
         <Route path="/process" element={<PageWrapper><ProcessPage /></PageWrapper>} />
         <Route path="/work" element={<PageWrapper><WorkPage /></PageWrapper>} />
+        <Route path="/partnerships" element={<PageWrapper><PartnershipPage /></PageWrapper>} />
+        <Route path="/partners" element={<PageWrapper><PartnershipPage /></PageWrapper>} />
+        <Route path="/partner" element={<PageWrapper><PartnershipPage /></PageWrapper>} />
         <Route path="/blog" element={<PageWrapper><Blog /></PageWrapper>} />
         <Route path="/blog/:id" element={<PageWrapper><BlogPostPage /></PageWrapper>} />
         <Route path="/voice-agent" element={<PageWrapper><VoiceAgentPage /></PageWrapper>} />

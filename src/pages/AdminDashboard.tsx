@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Phone, Clock, User, ArrowLeft, RefreshCw, Mail, MessageSquare, Edit2, Trash2, Save, X, Download, FileText, Plus, Star, Send, CheckCircle2, Sparkles, Globe, Search, AlertTriangle, TrendingUp, CreditCard, Users, Mic } from 'lucide-react';
+import { Calendar, Phone, Clock, User, ArrowLeft, RefreshCw, Mail, MessageSquare, Edit2, Trash2, Save, X, Download, FileText, Plus, Star, Send, CheckCircle2, Sparkles, Globe, Search, AlertTriangle, TrendingUp, CreditCard, Users, Mic, Handshake, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatWhatsAppPhone } from '../utils/phone';
 import { DemoBuilderPage } from './DemoBuilderPage';
 import { ClientAccountsManager } from '../components/admin/ClientAccountsManager';
+import { PartnerApplicationsManager } from '../components/admin/PartnerApplicationsManager';
 import { ClientAccount } from '../types/client';
+import { PartnerApplication } from '../types/partner';
 
 interface Appointment {
   id: string;
@@ -84,9 +86,10 @@ export function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('adminToken'));
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
-  const [activeTab, setActiveTab] = useState<'clients' | 'appointments' | 'contacts' | 'notifications' | 'audits' | 'blog' | 'testimonials' | 'demo-builder'>('clients');
+  const [activeTab, setActiveTab] = useState<'clients' | 'partnerships' | 'appointments' | 'contacts' | 'notifications' | 'audits' | 'blog' | 'testimonials' | 'demo-builder'>('clients');
 
   const [clients, setClients] = useState<ClientAccount[]>([]);
+  const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [contacts, setContacts] = useState<ContactMessage[]>([]);
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -380,14 +383,15 @@ export function AdminDashboard() {
     setIsSyncing(true);
     setError(null);
     try {
-      const [appRes, contRes, postRes, testRes, notifRes, auditRes, clientRes] = await Promise.all([
+      const [appRes, contRes, postRes, testRes, notifRes, auditRes, clientRes, partnerRes] = await Promise.all([
         fetch('/api/appointments', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } }),
         fetch('/api/contacts', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } }),
         fetch('/api/posts'),
         fetch('/api/testimonials'),
         fetch('/api/notifications', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } }),
         fetch('/api/audits', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } }),
-        fetch('/api/clients', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } })
+        fetch('/api/clients', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } }),
+        fetch('/api/partnerships/applications', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } })
       ]);
       
       const isJson = (res: Response) => res.ok && res.headers.get('content-type')?.includes('application/json');
@@ -399,6 +403,7 @@ export function AdminDashboard() {
       const notifData = isJson(notifRes) ? await notifRes.json() : [];
       const auditData = isJson(auditRes) ? await auditRes.json() : [];
       const clientData = isJson(clientRes) ? await clientRes.json() : [];
+      const partnerData = isJson(partnerRes) ? await partnerRes.json() : [];
       
       setAppointments(Array.isArray(appData) ? [...appData].reverse() : []);
       setContacts(Array.isArray(contData) ? [...contData].reverse() : []);
@@ -407,6 +412,7 @@ export function AdminDashboard() {
       setNotifications(Array.isArray(notifData) ? [...notifData].reverse() : []);
       setAudits(Array.isArray(auditData) ? [...auditData].reverse() : []);
       setClients(Array.isArray(clientData) ? clientData : []);
+      setPartnerApplications(Array.isArray(partnerData) ? [...partnerData].reverse() : []);
       setLastSyncTime(new Date());
     } catch (err: any) {
       if (!silent) {
@@ -524,6 +530,15 @@ export function AdminDashboard() {
             Client Accounts & Voice Usage ({clients.length})
           </button>
           <button
+            onClick={() => setActiveTab('partnerships')}
+            className={`px-6 py-3 font-mono text-sm tracking-widest uppercase transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'partnerships' ? 'bg-brand-teal text-[#07090F] font-bold shadow-lg shadow-brand-teal/20' : 'bg-white/5 text-white hover:bg-white/10 border border-brand-teal/30'
+            }`}
+          >
+            <Handshake className="w-4 h-4 text-brand-teal" />
+            Partner Program Alliances ({partnerApplications.length})
+          </button>
+          <button
             onClick={() => setActiveTab('appointments')}
             className={`px-6 py-3 font-mono text-sm tracking-widest uppercase transition-colors flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'appointments' ? 'bg-brand-teal text-[#07090F] font-bold' : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
@@ -589,13 +604,15 @@ export function AdminDashboard() {
         </div>
 
         <div className="bg-[#05060A]/80 backdrop-blur-md border border-white/10 overflow-hidden shadow-2xl p-6">
-          {loading && appointments.length === 0 && contacts.length === 0 && posts.length === 0 && testimonials.length === 0 && clients.length === 0 ? (
+          {loading && appointments.length === 0 && contacts.length === 0 && posts.length === 0 && testimonials.length === 0 && clients.length === 0 && partnerApplications.length === 0 ? (
             <div className="p-12 text-center text-gray-500 font-sans">
               <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-brand-teal" />
               Loading data...
             </div>
           ) : activeTab === 'clients' ? (
             <ClientAccountsManager clients={clients} onRefresh={fetchData} />
+          ) : activeTab === 'partnerships' ? (
+            <PartnerApplicationsManager partnerApplications={partnerApplications} onRefresh={fetchData} />
           ) : activeTab === 'appointments' ? (
             appointments.length === 0 ? (
               <div className="p-12 text-center">

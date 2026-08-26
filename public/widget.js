@@ -339,39 +339,56 @@
     }
 
     // 2. Fetch server-side Neural Audio (/api/tts) for 100% genuine studio voice on all devices
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    widgetTtsAbortController = controller;
+    const requestTts = (isRetry = false) => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      widgetTtsAbortController = controller;
+      const timeoutId = setTimeout(() => {
+        if (controller) controller.abort();
+      }, 8000);
 
-    fetch(`${serverOrigin}/api/tts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller ? controller.signal : undefined,
-      body: JSON.stringify({ text: clean, gender, personaId })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (widgetTtsAbortController === controller) {
-        widgetTtsAbortController = null;
-      }
-      if (token !== widgetSpeechToken) return;
+      fetch(`${serverOrigin}/api/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({ text: clean, gender, personaId })
+      })
+      .then(r => r.json())
+      .then(data => {
+        clearTimeout(timeoutId);
+        if (widgetTtsAbortController === controller) {
+          widgetTtsAbortController = null;
+        }
+        if (token !== widgetSpeechToken) return;
 
-      if (data && data.audioData) {
-        widgetAudioCache.set(cacheKey, {
-          audioData: data.audioData,
-          mimeType: data.mimeType || 'audio/mp3'
-        });
-        playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3');
-        return;
-      }
-      fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-    })
-    .catch(() => {
-      if (widgetTtsAbortController === controller) {
-        widgetTtsAbortController = null;
-      }
-      if (token !== widgetSpeechToken) return;
-      fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-    });
+        if (data && data.audioData) {
+          widgetAudioCache.set(cacheKey, {
+            audioData: data.audioData,
+            mimeType: data.mimeType || 'audio/mp3'
+          });
+          playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3');
+          return;
+        }
+        if (!isRetry) {
+          requestTts(true);
+        } else {
+          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+        }
+      })
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        if (widgetTtsAbortController === controller) {
+          widgetTtsAbortController = null;
+        }
+        if (token !== widgetSpeechToken) return;
+        if (!isRetry) {
+          requestTts(true);
+        } else {
+          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+        }
+      });
+    };
+
+    requestTts(false);
   }
 
   function fallbackSpeechSynthesis(clean, gender, autoListenAfter) {

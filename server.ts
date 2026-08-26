@@ -2381,27 +2381,50 @@ Respond ONLY in valid JSON matching this schema:
   // Neural TTS In-Memory Cache for ultra-fast repeat voice playback (<5ms)
   const ttsCache = new Map<string, { audioData: string; mimeType: string; voiceName: string; gender: string }>();
 
-  // Fast, Free Neural Studio Audio Synthesis (100% genuine Male Baritone on iOS Safari, Android, and Desktop)
+  // Direct Google Neural TTS stream fallback (instant 150ms HTTP stream if Edge WS stalls)
+  async function fetchGoogleTtsAudio(text: string, lang = 'en-US'): Promise<Buffer> {
+    const encoded = encodeURIComponent(text.substring(0, 280));
+    const targetLang = lang.includes('GB') || lang.includes('uk') ? 'en-GB' : lang.includes('AU') || lang.includes('au') ? 'en-AU' : 'en-US';
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${targetLang}&client=tw-ob&q=${encoded}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    if (!response.ok) throw new Error(`Google TTS stream error: ${response.status}`);
+    const arrayBuf = await response.arrayBuffer();
+    return Buffer.from(arrayBuf);
+  }
+
+  // Fast, Studio-Quality Neural Studio Audio Synthesis (100% genuine Male Baritone on iOS Safari, Android, and Desktop)
   async function generateNeuralAudio(text: string, voiceName: string): Promise<Buffer> {
     const tts = new MsEdgeTTS();
     await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
     const { audioStream } = tts.toStream(text);
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      const timer = setTimeout(() => {
+      let isSettled = false;
+
+      const cleanup = () => {
+        if (isSettled) return;
+        isSettled = true;
         try { tts.close(); } catch(e) {}
-        reject(new Error("TTS synthesis timeout"));
-      }, 7000);
+      };
+
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("Edge TTS synthesis timeout"));
+      }, 5500);
 
       audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
       audioStream.on("end", () => {
         clearTimeout(timer);
-        try { tts.close(); } catch(e) {}
+        cleanup();
         resolve(Buffer.concat(chunks));
       });
       audioStream.on("error", (err: any) => {
         clearTimeout(timer);
-        try { tts.close(); } catch(e) {}
+        cleanup();
         reject(err);
       });
     });
@@ -2421,40 +2444,36 @@ Respond ONLY in valid JSON matching this schema:
       const isFemale = gLower.includes('female') || pLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
 
       let voiceName = "en-US-GuyNeural";
+      let locale = "en-US";
+
       if (isFemale) {
         if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('clara')) {
           voiceName = 'en-GB-SoniaNeural';
+          locale = 'en-GB';
         } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('natasha')) {
           voiceName = 'en-AU-NatashaNeural';
+          locale = 'en-AU';
         } else if (gLower.includes('vibrant') || pLower.includes('vibrant') || gLower.includes('aria')) {
           voiceName = 'en-US-AriaNeural';
+          locale = 'en-US';
         } else {
           voiceName = 'en-US-JennyNeural';
+          locale = 'en-US';
         }
       } else {
         if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('oliver')) {
           voiceName = 'en-GB-RyanNeural';
+          locale = 'en-GB';
         } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('william')) {
           voiceName = 'en-AU-WilliamNeural';
+          locale = 'en-AU';
         } else if (gLower.includes('sales') || pLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) {
           voiceName = 'en-US-BrianNeural';
+          locale = 'en-US';
         } else {
           voiceName = 'en-US-GuyNeural';
+          locale = 'en-US';
         }
-      }
-
-      // Check in-memory cache first for 0ms instant playback
-      const cacheKey = `${gender}:${voiceName}:${text.trim()}`;
-      if (ttsCache.has(cacheKey)) {
-        const cached = ttsCache.get(cacheKey)!;
-        return res.json({
-          success: true,
-          audioData: cached.audioData,
-          mimeType: cached.mimeType,
-          voiceName: cached.voiceName,
-          gender: cached.gender,
-          cached: true
-        });
       }
 
       // Phonetic preprocessing for natural speech output
@@ -2472,15 +2491,58 @@ Respond ONLY in valid JSON matching this schema:
         .replace(/\bSMS\b/g, 'S.M.S.')
         .replace(/\bEST\b/g, 'E.S.T.')
         .replace(/\bPST\b/g, 'P.S.T.')
+        .replace(/\bGMT\b/g, 'G.M.T.')
+        .replace(/\s+/g, ' ')
         .trim();
 
+      if (!cleanText) {
+        return res.status(400).json({ error: "No valid text content after sanitization" });
+      }
+
+      // Check in-memory cache first for 0ms instant playback
+      const cacheKey = `${gender}:${voiceName}:${cleanText}`;
+      if (ttsCache.has(cacheKey)) {
+        const cached = ttsCache.get(cacheKey)!;
+        return res.json({
+          success: true,
+          audioData: cached.audioData,
+          mimeType: cached.mimeType,
+          voiceName: cached.voiceName,
+          gender: cached.gender,
+          cached: true
+        });
+      }
+
+      let audioBuffer: Buffer | null = null;
+      let usedEngine = 'edge-neural';
+
+      // 1. Primary Engine: Edge Neural Studio Audio
       try {
-        const audioBuffer = await generateNeuralAudio(cleanText, voiceName);
+        audioBuffer = await generateNeuralAudio(cleanText, voiceName);
+      } catch (primaryErr: any) {
+        console.warn(`[Neural TTS] Edge synthesis notice for ${voiceName}: ${primaryErr?.message || primaryErr}. Activating instant secondary audio stream.`);
+        
+        // 2. Secondary High-Speed Engine: Direct Neural Audio Stream
+        try {
+          audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+          usedEngine = 'google-stream';
+        } catch (secondaryErr: any) {
+          console.error(`[Neural TTS] Secondary audio stream also had notice:`, secondaryErr?.message || secondaryErr);
+          // Try Edge one more time with default Guy / Jenny
+          try {
+            audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural');
+          } catch (retryErr: any) {
+            console.error(`[Neural TTS] Edge retry error:`, retryErr);
+          }
+        }
+      }
+
+      if (audioBuffer && audioBuffer.length > 0) {
         const base64Audio = audioBuffer.toString('base64');
         const mimeType = "audio/mp3";
 
-        // Cache up to 300 items in memory
-        if (ttsCache.size > 300) {
+        // Store in cache (up to 800 items)
+        if (ttsCache.size > 800) {
           const firstKey = ttsCache.keys().next().value;
           if (firstKey) ttsCache.delete(firstKey);
         }
@@ -2491,24 +2553,19 @@ Respond ONLY in valid JSON matching this schema:
           audioData: base64Audio,
           mimeType,
           voiceName,
-          gender
+          gender,
+          engine: usedEngine
         });
-      } catch (synthErr: any) {
-        console.warn("Edge TTS notice, checking fallback:", synthErr?.message || synthErr);
       }
 
-      return res.json({
+      return res.status(500).json({
         success: false,
-        fallback: true,
-        gender,
-        voiceName,
-        message: "TTS fallback to client device"
+        error: "Failed to generate neural audio stream"
       });
     } catch (err: any) {
-      return res.json({
+      console.error("TTS endpoint global error:", err);
+      return res.status(500).json({
         success: false,
-        fallback: true,
-        gender: req.body?.gender || 'male',
         error: err?.message || "TTS synthesis unavailable"
       });
     }

@@ -226,7 +226,7 @@ export function VoiceDemo({
 
     const controller = new AbortController();
     simCallAbortControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 3800);
+    const timeoutId = setTimeout(() => controller.abort(), 18000);
 
     try {
       const response = await fetch('/api/voice-agent/simulate-call', {
@@ -283,10 +283,6 @@ export function VoiceDemo({
       clearTimeout(timeoutId);
       if (simCallAbortControllerRef.current === controller) {
         simCallAbortControllerRef.current = null;
-      }
-      if (err?.name === 'AbortError') {
-        setIsAiThinking(false);
-        return;
       }
       console.warn("AI turn error fallback:", err?.message || err);
       setIsAiThinking(false);

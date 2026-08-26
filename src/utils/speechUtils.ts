@@ -237,42 +237,83 @@ export async function speakSpeech(
   const playAudioData = (base64Audio: string) => {
     if (thisToken !== currentSpeechToken) return;
 
-    try {
-      const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-      activeHtmlAudio = audio;
-      audio.preload = 'auto';
+    // High compatibility audio playback: try Web Audio Context decoding or HTML5 Audio
+    const playWithWebAudioOrHtmlAudio = async () => {
+      try {
+        const binaryString = atob(base64Audio);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const audioContext = getAudioContext();
+        if (audioContext && audioContext.state !== 'closed') {
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume().catch(() => {});
+          }
+          const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
+          if (thisToken !== currentSpeechToken) return;
 
-      let endedOrFailed = false;
-      const finish = () => {
-        if (endedOrFailed) return;
-        endedOrFailed = true;
-        if (activeHtmlAudio === audio) activeHtmlAudio = null;
-        if (options.onEnd && thisToken === currentSpeechToken) options.onEnd();
-      };
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
 
-      audio.onplay = () => {
-        if (thisToken !== currentSpeechToken) {
-          audio.pause();
-          audio.currentTime = 0;
+          if (options.onStart) options.onStart();
+          source.onended = () => {
+            if (thisToken === currentSpeechToken && options.onEnd) {
+              options.onEnd();
+            }
+          };
+          source.start(0);
           return;
         }
-        if (options.onStart) options.onStart();
-      };
-      audio.onended = finish;
-      audio.onerror = (err) => {
-        console.warn("Audio playback notice:", err);
-        finish();
-      };
-
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn("Audio play promise catch:", err);
-          finish();
-        });
+      } catch (webaudioErr) {
+        console.info("[Neural Audio] WebAudio stream notice, attempting standard HTML5 audio:", webaudioErr);
       }
+
+      // Fallback to HTML5 Audio element
+      try {
+        const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+        activeHtmlAudio = audio;
+        audio.preload = 'auto';
+
+        let endedOrFailed = false;
+        const finish = () => {
+          if (endedOrFailed) return;
+          endedOrFailed = true;
+          if (activeHtmlAudio === audio) activeHtmlAudio = null;
+          if (options.onEnd && thisToken === currentSpeechToken) options.onEnd();
+        };
+
+        audio.onplay = () => {
+          if (thisToken !== currentSpeechToken) {
+            audio.pause();
+            audio.currentTime = 0;
+            return;
+          }
+          if (options.onStart) options.onStart();
+        };
+        audio.onended = finish;
+        audio.onerror = () => {
+          speakNativeUtterance(cleanText, options);
+        };
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn("HTML5 Audio play notice:", err);
+            speakNativeUtterance(cleanText, options);
+          });
+        }
+      } catch (e) {
+        speakNativeUtterance(cleanText, options);
+      }
+    };
+
+    try {
+      playWithWebAudioOrHtmlAudio();
     } catch (e) {
-      if (options.onEnd && thisToken === currentSpeechToken) options.onEnd();
+      speakNativeUtterance(cleanText, options);
     }
   };
 
@@ -339,12 +380,8 @@ export async function speakSpeech(
     clientAudioCache.set(cacheKey, audioData);
     playAudioData(audioData);
   } else {
-    // Only if completely offline or failed and client explicitly permits device utterance
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      speakNativeUtterance(cleanText, options);
-    } else {
-      if (options.onEnd) options.onEnd();
-    }
+    // Immediate fallback to speech synthesis to guarantee voice is heard under all conditions
+    speakNativeUtterance(cleanText, options);
   }
 }
 

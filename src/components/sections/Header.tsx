@@ -29,6 +29,7 @@ export function Header() {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Voice Agent', href: '/voice-agent' },
+    { name: 'Team', href: '/team' },
     { name: 'Industries', href: '/industry' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'Partners', href: '/partnerships' },

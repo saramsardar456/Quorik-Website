@@ -21,6 +21,7 @@ import { RefundPolicyPage } from '../pages/RefundPolicyPage';
 import { TermsOfServicePage } from '../pages/TermsOfServicePage';
 import { WelcomePage } from '../pages/WelcomePage';
 import { PartnershipPage } from '../pages/PartnershipPage';
+import { TeamPage } from '../pages/TeamPage';
 
 const PageWrapper = ({ children }: { children: ReactNode }) => (
   <motion.div
@@ -44,6 +45,9 @@ export function AnimatedRoutes() {
         <Route path="/" element={<PageWrapper><HomePage /></PageWrapper>} />
         <Route path="/services" element={<PageWrapper><ServicesPage /></PageWrapper>} />
         <Route path="/about" element={<PageWrapper><AboutPage /></PageWrapper>} />
+        <Route path="/team" element={<PageWrapper><TeamPage /></PageWrapper>} />
+        <Route path="/leadership" element={<PageWrapper><TeamPage /></PageWrapper>} />
+        <Route path="/members" element={<PageWrapper><TeamPage /></PageWrapper>} />
         <Route path="/process" element={<PageWrapper><ProcessPage /></PageWrapper>} />
         <Route path="/work" element={<PageWrapper><WorkPage /></PageWrapper>} />
         <Route path="/partnerships" element={<PageWrapper><PartnershipPage /></PageWrapper>} />

@@ -275,60 +275,113 @@
     const playBase64Mp3 = (base64Audio, mimeType = 'audio/mp3') => {
       if (token !== widgetSpeechToken) return;
 
-      try {
-        const audioSrc = `data:${mimeType};base64,${base64Audio}`;
-        const audio = new Audio(audioSrc);
-        currentAudio = audio;
-        audio.preload = 'auto';
+      const playAudioPipeline = async () => {
+        // 1. Try Web Audio Context buffer decoding (highest reliability in cross-origin & iframes)
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            if (!window._quorikAudioCtx || window._quorikAudioCtx.state === 'closed') {
+              window._quorikAudioCtx = new AudioContextClass();
+            }
+            const actx = window._quorikAudioCtx;
+            if (actx.state === 'suspended') {
+              await actx.resume().catch(() => {});
+            }
+            const binaryString = atob(base64Audio);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const buffer = await actx.decodeAudioData(bytes.buffer.slice(0));
+            if (token !== widgetSpeechToken) return;
 
-        let finished = false;
-        const handleEnd = () => {
-          if (finished) return;
-          finished = true;
-          if (currentAudio === audio) currentAudio = null;
-          isSpeaking = false;
-          if (token === widgetSpeechToken) {
-            updateUIStatus('idle');
-          }
-          if (autoListenAfter && isVoiceActive && token === widgetSpeechToken) {
-            setTimeout(() => {
-              if (isVoiceActive && !isSpeaking && !isThinking && token === widgetSpeechToken) {
-                startListening();
+            const source = actx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(actx.destination);
+
+            isSpeaking = true;
+            updateUIStatus('speaking');
+
+            source.onended = () => {
+              isSpeaking = false;
+              if (token === widgetSpeechToken) {
+                updateUIStatus('idle');
               }
-            }, 400);
-          }
-        };
+              if (autoListenAfter && isVoiceActive && token === widgetSpeechToken) {
+                setTimeout(() => {
+                  if (isVoiceActive && !isSpeaking && !isThinking && token === widgetSpeechToken) {
+                    startListening();
+                  }
+                }, 400);
+              }
+            };
 
-        audio.onplay = () => {
-          if (token !== widgetSpeechToken) {
-            audio.pause();
-            audio.currentTime = 0;
+            source.start(0);
             return;
           }
-          isSpeaking = true;
-          updateUIStatus('speaking');
-        };
-        audio.onended = handleEnd;
-        audio.onerror = () => {
-          if (currentAudio === audio) currentAudio = null;
-          if (token === widgetSpeechToken) {
-            fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-          }
-        };
+        } catch (webaudioErr) {
+          // Continue to HTML5 Audio
+        }
 
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(() => {
+        // 2. HTML5 Audio element fallback
+        try {
+          const audioSrc = `data:${mimeType};base64,${base64Audio}`;
+          const audio = new Audio(audioSrc);
+          currentAudio = audio;
+          audio.preload = 'auto';
+
+          let finished = false;
+          const handleEnd = () => {
+            if (finished) return;
+            finished = true;
+            if (currentAudio === audio) currentAudio = null;
+            isSpeaking = false;
+            if (token === widgetSpeechToken) {
+              updateUIStatus('idle');
+            }
+            if (autoListenAfter && isVoiceActive && token === widgetSpeechToken) {
+              setTimeout(() => {
+                if (isVoiceActive && !isSpeaking && !isThinking && token === widgetSpeechToken) {
+                  startListening();
+                }
+              }, 400);
+            }
+          };
+
+          audio.onplay = () => {
+            if (token !== widgetSpeechToken) {
+              audio.pause();
+              audio.currentTime = 0;
+              return;
+            }
+            isSpeaking = true;
+            updateUIStatus('speaking');
+          };
+          audio.onended = handleEnd;
+          audio.onerror = () => {
+            if (currentAudio === audio) currentAudio = null;
             if (token === widgetSpeechToken) {
               fallbackSpeechSynthesis(clean, gender, autoListenAfter);
             }
-          });
+          };
+
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {
+              if (token === widgetSpeechToken) {
+                fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+              }
+            });
+          }
+        } catch (err) {
+          if (token === widgetSpeechToken) {
+            fallbackSpeechSynthesis(clean, gender, autoListenAfter);
+          }
         }
-      } catch (err) {
-        if (token === widgetSpeechToken) {
-          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-        }
-      }
+      };
+
+      playAudioPipeline();
     };
 
     // 1. Instant cache check (<5ms playback)
@@ -952,7 +1005,7 @@
 
     try {
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timeoutId = setTimeout(() => controller?.abort(), 4000);
+      const timeoutId = setTimeout(() => controller?.abort(), 18000);
 
       const res = await fetch(`${serverOrigin}/api/chat`, {
         method: 'POST',

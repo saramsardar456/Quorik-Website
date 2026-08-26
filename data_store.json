@@ -125,6 +125,112 @@
   ],
   "auditsLog": [
     {
+      "id": "jv72b13",
+      "businessName": "TechCorp",
+      "websiteUrl": "https://example.com",
+      "industry": "SaaS",
+      "currentPlatform": "N/A",
+      "goals": "Increase leads by 50%",
+      "contactName": "Valued Lead",
+      "email": "N/A",
+      "phone": "N/A",
+      "score": 42,
+      "summary": "TechCorp’s current digital infrastructure lacks integrated lead-to-revenue automation, leading to significant manual overhead and lost conversion opportunities. By implementing AI-driven qualification and CRM synchronization, the company can reclaim lost time and scale lead generation efficiency.",
+      "opportunities": [
+        {
+          "title": "AI-Powered Lead Qualification",
+          "impact": "Critical",
+          "description": "Deploy an AI chatbot that qualifies leads in real-time based on firmographics and schedules high-intent meetings directly into sales calendars.",
+          "estimatedSavings": "20 hours/week"
+        },
+        {
+          "title": "Automated Multi-Channel Outreach",
+          "impact": "High",
+          "description": "Implement an automated sequence via Email and WhatsApp for immediate follow-up on form submissions to boost lead response rates by 40%.",
+          "estimatedSavings": "+$5,000/mo"
+        },
+        {
+          "title": "CRM Data Enrichment",
+          "impact": "Medium",
+          "description": "Use AI agents to automatically scrape and enrich lead data from public sources, eliminating manual CRM entry for sales staff.",
+          "estimatedSavings": "10 hours/week"
+        }
+      ],
+      "bottlenecks": [
+        {
+          "issue": "Manual lead routing and manual follow-up processes",
+          "severity": "High",
+          "fix": "Implement Quorik’s automated CRM trigger system to route leads instantly based on lead score."
+        },
+        {
+          "issue": "High abandonment rate on landing pages due to lack of real-time engagement",
+          "severity": "High",
+          "fix": "Integrate an AI-driven concierge to guide users through conversion paths based on behavior."
+        }
+      ],
+      "estimatedMonthlyRevenueGrowth": "+$6,500 - $12,000 / month",
+      "hoursSavedPerWeek": 30,
+      "actionPlan": [
+        "Phase 1: Audit current traffic flow and integrate AI lead capturing tools to eliminate manual data entry.",
+        "Phase 2: Implement automated nurturing sequences across email and WhatsApp to move leads through the sales funnel.",
+        "Phase 3: Optimize conversion paths using predictive behavioral analytics to scale the 50% lead generation goal."
+      ],
+      "createdAt": "2026-08-26T18:46:48.772Z"
+    },
+    {
+      "id": "avo52ci",
+      "businessName": "TechCorp",
+      "websiteUrl": "https://example.com",
+      "industry": "SaaS",
+      "currentPlatform": "N/A",
+      "goals": "Increase leads by 50%",
+      "contactName": "Valued Lead",
+      "email": "N/A",
+      "phone": "N/A",
+      "score": 42,
+      "summary": "TechCorp’s current infrastructure lacks deep integration between site traffic and automated lead nurturing, resulting in significant manual friction. Implementing AI-driven conversion funnels and automated follow-up sequences will directly address the 50% lead growth goal.",
+      "opportunities": [
+        {
+          "title": "AI Conversational Sales Agent",
+          "impact": "Critical",
+          "description": "Deploy an AI chatbot on the landing page to qualify visitors in real-time, schedule demos, and answer product-specific queries 24/7.",
+          "estimatedSavings": "20 hours/week"
+        },
+        {
+          "title": "Automated CRM Lead Enrichment",
+          "impact": "High",
+          "description": "Integrate a workflow automation tool to automatically append company data to new sign-ups, filtering leads for the sales team instantly.",
+          "estimatedSavings": "+$5,000/mo in qualified pipeline"
+        },
+        {
+          "title": "Multi-Channel Follow-up Automation",
+          "impact": "High",
+          "description": "Use triggered workflows to send personalized WhatsApp and Email sequences immediately after a demo request to prevent lead cooling.",
+          "estimatedSavings": "10 hours/week"
+        }
+      ],
+      "bottlenecks": [
+        {
+          "issue": "Slow manual response time for inbound demo requests",
+          "severity": "High",
+          "fix": "Implement an automated scheduling API directly linked to sales representative calendars."
+        },
+        {
+          "issue": "High abandonment rate on lead capture forms",
+          "severity": "High",
+          "fix": "Replace standard long-form contact pages with an AI-guided conversational form interface to improve UX."
+        }
+      ],
+      "estimatedMonthlyRevenueGrowth": "+$12,000 - $20,000 / month",
+      "hoursSavedPerWeek": 30,
+      "actionPlan": [
+        "Phase 1: Deploy conversational AI interface on the website to capture and qualify lead data.",
+        "Phase 2: Establish CRM integrations and automated outreach workflows to minimize manual follow-up.",
+        "Phase 3: Optimize conversion paths using A/B testing and AI-driven performance analytics to scale lead volume."
+      ],
+      "createdAt": "2026-08-26T18:46:36.342Z"
+    },
+    {
       "id": "audit-demo-1",
       "businessName": "Apex Fitness & Gyms",
       "websiteUrl": "https://apexfitness-demo.com",
@@ -341,6 +447,40 @@
       "lastActive": "2026-08-19T09:30:16.765Z",
       "conversations": [],
       "createdAt": "2026-08-19T09:30:16.765Z"
+    }
+  ],
+  "partnerApplications": [
+    {
+      "id": "partner-app-xeven-1",
+      "companyName": "Xeven Solutions",
+      "websiteUrl": "https://www.xevensolutions.com",
+      "partnerTrack": "agency-software-house",
+      "clientBaseSize": "50-200",
+      "contactName": "Strategic Alliances Lead",
+      "contactEmail": "partnerships@xevensolutions.com",
+      "contactPhone": "+1 (302) 555-0199",
+      "notes": "We are an established AI and custom software development agency. Looking to integrate Quorik's sub-second 24/7 AI Voice receptionists into our healthcare and enterprise client portfolios for high-ticket co-selling.",
+      "status": "in_review",
+      "estimatedPipeline": "$75,000 – $150,000 / yr",
+      "commissionTier": "25% Agency Co-Sell",
+      "internalNotes": "High synergy partner candidate. Reviewing joint discovery pitch and custom healthcare voice templates.",
+      "createdAt": "2026-08-26T16:35:23.050Z"
+    },
+    {
+      "id": "partner-app-apex-2",
+      "companyName": "Nexus Automation Labs",
+      "websiteUrl": "https://nexusautomation-demo.io",
+      "partnerTrack": "certified-solution-integrator",
+      "clientBaseSize": "10-50",
+      "contactName": "Marcus Sterling",
+      "contactEmail": "marcus@nexusautomation-demo.io",
+      "contactPhone": "+1 (415) 555-8321",
+      "notes": "We build HubSpot and HighLevel CRM setups for commercial contractors and dental clinics. Want to embed Quorik Voice Agents for instant appointment booking.",
+      "status": "approved",
+      "estimatedPipeline": "$36,000 / yr",
+      "commissionTier": "20% Rev-Share + 100% Setup Fees",
+      "internalNotes": "Approved for Integrator Sandbox. Telephony Webhook keys dispatched.",
+      "createdAt": "2026-08-25T18:35:23.050Z"
     }
   ]
 }

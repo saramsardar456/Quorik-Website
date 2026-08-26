@@ -239,7 +239,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
     const controller = new AbortController();
     demoAbortControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 3800);
+    const timeoutId = setTimeout(() => controller.abort(), 18000);
 
     try {
       const historyForApi = simMessages.map(m => ({
@@ -298,10 +298,6 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       clearTimeout(timeoutId);
       if (demoAbortControllerRef.current === controller) {
         demoAbortControllerRef.current = null;
-      }
-      if (err?.name === 'AbortError') {
-        setIsAiThinking(false);
-        return;
       }
       setIsAiThinking(false);
       const fallback = `Thank you for asking! For ${data.companyName}, we provide ${data.services[0]?.title || 'premier services'} starting at ${data.services[0]?.price || 'competitive rates'}. Would you like me to reserve an appointment for you?`;

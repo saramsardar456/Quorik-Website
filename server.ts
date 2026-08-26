@@ -1502,11 +1502,12 @@ ${message}
     config?: any;
     primaryModel?: string;
   }) {
-    // Active supported model sequence prioritizing high-availability flash tiers
+    // Ultra-low latency model sequence (<800ms) with high availability
     const modelsToTry = [
-      options.primaryModel || "gemini-2.0-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
+      options.primaryModel || "gemini-3.5-flash-lite",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-3.6-flash",
       "gemini-3.7-flash"
     ];
     const uniqueModels = Array.from(new Set(modelsToTry));
@@ -1514,22 +1515,25 @@ ${message}
     let lastError: any = null;
     for (const model of uniqueModels) {
       try {
-        const response = await ai.models.generateContent({
+        const attemptPromise = ai.models.generateContent({
           model,
           contents: options.contents,
           config: options.config
         });
+        const attemptTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Model ${model} timed out after 4s`)), 4000)
+        );
+        const response: any = await Promise.race([attemptPromise, attemptTimeout]);
         if (response && response.text) {
           return response;
         }
       } catch (err: any) {
         lastError = err;
         const msg = err?.message || String(err);
-        // If 503 or transient spike, quietly try next tier
         if (msg.includes("503") || msg.includes("high demand") || msg.includes("UNAVAILABLE")) {
-          console.info(`[Gemini Resilience] Model ${model} is experiencing high demand (503). Smoothly switching to fallback tier.`);
+          console.info(`[Gemini Resilience] Model ${model} high demand notice. Smoothly switching to next fast tier.`);
         } else {
-          console.warn(`[Gemini Resilience] Model ${model} returned notice: ${msg.substring(0, 90)}. Switching to next backup model.`);
+          console.warn(`[Gemini Resilience] Model ${model} notice: ${msg.substring(0, 90)}. Switching to next backup model.`);
         }
       }
     }
@@ -1816,9 +1820,12 @@ CORE OBJECTIVES & PERSONA RULES:
         systemInstruction = `You are Quorik AI, an intelligent assistant for Quorik (founded by Shehram Meellu, Founder & CEO).
 ${toneInstruction}
 
-FOUNDER & LEADERSHIP INFORMATION:
-- Founder & CEO: Shehram Meellu is the Founder & CEO of Quorik.
-- About Shehram Meellu: Shehram Meellu is a senior AI engineering architect, full-stack software engineer, and digital growth executive. He founded Quorik to bridge high-performance custom web development with autonomous, zero-latency 24/7 AI Voice Agents and intelligent chatbots. Under his leadership, Quorik builds robust digital systems, multi-lingual conversational AI, and automated lead pipelines for businesses worldwide to scale without missing calls or revenue.
+FOUNDER & LEADERSHIP INFORMATION (5 CORE COUNCIL SPECIALISTS):
+- 1. Founder & CEO / Lead Developer: Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect, full-stack software engineer, and digital growth executive. Tagline: "Building Scalable Solutions. Driving Innovation." Under his leadership, Quorik builds robust digital systems, multi-lingual conversational AI, and automated lead pipelines for businesses worldwide.
+- 2. Tech Director: M.R. directs Quorik's global technology standards, backend infrastructure, and software scalability paradigms.
+- 3. Voice Solutions Lead: A.K. leads Quorik's neural voice technology and telephony orchestration layer, specializing in sub-800ms low-latency conversational speech synthesis and WebRTC/SIP streams.
+- 4. Systems Ops Director: Farhaj oversees 24/7 cloud infrastructure, server reliability, Kubernetes clusters, and site reliability engineering.
+- 5. Integration Lead: D.C. leads Quorik's enterprise CRM synchronizations (HubSpot, GoHighLevel, Salesforce) and multi-channel webhook dispatch architectures.
 - Corporate Contact & Bookings: Clients can book a direct discovery consultation right on the website or connect with General Inquiries at info@quoriksystems.com, or Sales at sales@quoriksystems.com.
 
 RESPONSE STYLE RULES:
@@ -1853,9 +1860,9 @@ IMPORTANT CARD TRIGGER RULES:
       const isVoiceRequest = Boolean(isVoice || isVoiceMode);
       let replyText = "";
       try {
-        // Fast timeout wrapper for voice responsiveness (<2.2s ceiling)
+        // Resilient model invocation
         const generatePromise = generateResilientContent(ai, {
-          primaryModel: "gemini-2.5-flash",
+          primaryModel: "gemini-3.5-flash-lite",
           contents: formattedContents,
           config: {
             systemInstruction,
@@ -1865,7 +1872,7 @@ IMPORTANT CARD TRIGGER RULES:
         });
 
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("AI response timeout")), 2200)
+          setTimeout(() => reject(new Error("AI response timeout")), 12000)
         );
 
         const response: any = await Promise.race([generatePromise, timeoutPromise]);
@@ -2317,7 +2324,7 @@ Respond ONLY in valid JSON matching this schema:
 
       try {
         const generatePromise = generateResilientContent(ai, {
-          primaryModel: "gemini-2.5-flash",
+          primaryModel: "gemini-3.5-flash-lite",
           contents: prompt,
           config: {
             responseMimeType: "application/json",
@@ -2327,7 +2334,7 @@ Respond ONLY in valid JSON matching this schema:
         });
 
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Voice response timeout")), 2000)
+          setTimeout(() => reject(new Error("Voice response timeout")), 12000)
         );
 
         const response: any = await Promise.race([generatePromise, timeoutPromise]);

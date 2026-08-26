@@ -196,6 +196,12 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link to="/team" className="text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
+                  <span>Leadership & Team</span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-brand-teal/15 text-brand-teal">5 Core</span>
+                </Link>
+              </li>
+              <li>
                 <Link to="/about" className="text-gray-400 hover:text-white transition-colors">
                   About Quorik
                 </Link>

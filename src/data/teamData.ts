@@ -3,6 +3,7 @@ import mrImage from '../assets/images/mr_tech_director_exact_1787773636586.jpg';
 import akImage from '../assets/images/ak_voice_exact_1787773652611.jpg';
 import farhajImage from '../assets/images/farhaj_ops_exact_1787773678438.jpg';
 import dcImage from '../assets/images/dc_lead_exact_1787773700053.jpg';
+import erImage from '../assets/images/team_er_architect_1787845901729.jpg';
 
 export interface TeamMember {
   id: string;
@@ -157,6 +158,33 @@ export const TEAM_MEMBERS: TeamMember[] = [
       { label: 'Position', value: 'Integration Lead' },
       { label: 'Sync Latency', value: 'Real-Time (<1s)' },
       { label: 'Integrations', value: 'CRM & Webhooks' }
+    ]
+  },
+  {
+    id: 'e-r',
+    order: 6,
+    name: 'E.R.',
+    displayRole: 'AI Architect',
+    badge: 'Cognitive Architecture & Deep Learning',
+    tagline: 'Building Intelligent Systems. Shaping Tomorrow.',
+    image: erImage,
+    bio: 'Directs Quorik’s cognitive architectures, deep learning model engineering, and agentic reasoning systems. Specializes in LLM fine-tuning, multi-agent coordination, semantic vector search, and next-generation neural decision workflows.',
+    specialties: [
+      'Cognitive Multi-Agent Architectures',
+      'LLM Fine-Tuning & Prompt Engineering',
+      'Vector Search & RAG Knowledge Graphs',
+      'Autonomous Neural Decision Systems'
+    ],
+    techStack: ['PyTorch', 'Gemini AI', 'LangChain', 'Python / FastAPI', 'Vector Databases', 'TensorRT', 'CUDA'],
+    responsibilities: [
+      'Architects proprietary neural reasoning pipelines and specialized model fine-tuning',
+      'Leads cognitive multi-agent orchestration for enterprise client workflows',
+      'Optimizes inference latency and semantic retrieval accuracy across model clusters'
+    ],
+    stats: [
+      { label: 'Position', value: 'AI Architect' },
+      { label: 'Domain', value: 'Cognitive AI' },
+      { label: 'Systems', value: 'Multi-Agent RAG' }
     ]
   }
 ];

@@ -207,8 +207,19 @@ export function VoiceDemo({
   const handleSendCallerTurn = async (customMessage?: string) => {
     stopAllSpeech();
     unlockAudio();
-    const textToSend = customMessage || userCallerInput;
-    if (!textToSend.trim() || isAiThinking) return;
+    let textToSend = (customMessage || userCallerInput).trim();
+    if (!textToSend || isAiThinking) return;
+
+    // Normalize common speech-to-text acoustic mishearings for founder queries
+    if (
+      /th\s*(?:ouyr|our|your|ur)?\s*(?:oundrr|founder|foundr|fownder)/i.test(textToSend) ||
+      /(?:who(?:'s| is)?\s+(?:the|your|ur)?\s*(?:oundrr|founder|foundr|fownder|ceo|c\.e\.o\.|owner|boss|creator|lead))/i.test(textToSend) ||
+      /(?:who\s+(?:started|founded|created|built|made)\s*(?:quorik|korik|this|company)?)/i.test(textToSend) ||
+      /(?:tell\s+me\s+about\s+(?:the|your)?\s*(?:founder|ceo|shehram))/i.test(textToSend) ||
+      /(?:shehram\s+meellu|shehram\s+melu|shehram)/i.test(textToSend)
+    ) {
+      textToSend = "Who is the Founder & CEO of Quorik?";
+    }
 
     if (simCallAbortControllerRef.current) {
       try { simCallAbortControllerRef.current.abort(); } catch (e) {}
@@ -303,7 +314,16 @@ export function VoiceDemo({
 
       let fallbackAi = `${greeting} Thank you for reaching Quorik. I'm ${selectedGender === 'female' ? 'Zephyr' : 'Arthur'}. How can I assist you with web development or AI automation?`;
 
-      if (lowerQuery.includes('founder') || lowerQuery.includes('ceo') || lowerQuery.includes('who founded') || lowerQuery.includes('who owns') || lowerQuery.includes('shehram') || lowerQuery.includes('who built')) {
+      if (
+        lowerQuery.includes('founder') || 
+        lowerQuery.includes('ceo') || 
+        lowerQuery.includes('who founded') || 
+        lowerQuery.includes('who owns') || 
+        lowerQuery.includes('shehram') || 
+        lowerQuery.includes('who built') ||
+        lowerQuery.includes('oundrr') ||
+        lowerQuery.includes('foundr')
+      ) {
         fallbackAi = "Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect and technology strategist who founded Quorik to build high-performance custom web applications and zero-latency 24/7 AI Voice Agents for modern businesses. Under his technical leadership, Quorik develops autonomous AI receptionists and digital platforms that drive measurable growth. Would you like to schedule a discovery consultation with him and our team?";
         setLeadDetails(prev => ({
           ...prev,
@@ -384,26 +404,40 @@ export function VoiceDemo({
       recognition.onstart = () => setIsRecordingMic(true);
 
       recognition.onresult = (event: any) => {
-        let accumulatedText = '';
-        for (let i = 0; i < event.results.length; i++) {
-          accumulatedText += event.results[i][0].transcript + ' ';
+        let finalChunk = '';
+        let interimChunk = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          const res = event.results[i];
+          const transcript = res[0]?.transcript || '';
+          if (res.isFinal) {
+            finalChunk += transcript + ' ';
+          } else {
+            interimChunk += transcript + ' ';
+          }
         }
-        if (accumulatedText.trim()) {
-          setUserCallerInput(accumulatedText.trim());
+        const accumulatedText = (finalChunk + interimChunk).trim();
+        if (accumulatedText) {
+          setUserCallerInput(accumulatedText);
         }
 
+        // Generous 1.8s silence window so natural pauses between words are NOT truncated
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          if (accumulatedText.trim()) {
+          if (accumulatedText) {
             try { recognition.stop(); } catch(e){}
             setIsRecordingMic(false);
-            handleSendCallerTurn(accumulatedText.trim());
+            handleSendCallerTurn(accumulatedText);
           }
-        }, 380);
+        }, 1800);
       };
 
-      recognition.onerror = () => setIsRecordingMic(false);
-      recognition.onend = () => setIsRecordingMic(false);
+      recognition.onerror = (e: any) => {
+        console.warn("Speech recognition notice:", e);
+        setIsRecordingMic(false);
+      };
+      recognition.onend = () => {
+        setIsRecordingMic(false);
+      };
 
       recognition.start();
     } catch (e) {
@@ -412,10 +446,10 @@ export function VoiceDemo({
   };
 
   const endSimulatedCall = () => {
-    // 1. Immediately stop any and all playing speech and pending audio fetches
+    // 1. Immediately stop all playing audio and cancel WebAudio & SpeechSynthesis
     stopAllSpeech();
     
-    // 2. Clear greeting timer if call was just starting
+    // 2. Clear greeting timer if call was starting
     if (callGreetingTimerRef.current) {
       clearTimeout(callGreetingTimerRef.current);
       callGreetingTimerRef.current = null;
@@ -431,6 +465,7 @@ export function VoiceDemo({
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e){}
+      recognitionRef.current = null;
     }
 
     setIsRecordingMic(false);
@@ -441,155 +476,155 @@ export function VoiceDemo({
   };
 
   return (
-    <section id="demo" className="py-24 bg-[#07090F] border-t border-b border-white/5 relative">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-3xl mx-auto mb-16">
+    <section id="demo" className="py-12 sm:py-24 bg-[#07090F] border-t border-b border-white/5 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-brand-teal/10 border border-brand-teal/30 text-brand-teal text-xs font-mono uppercase tracking-widest rounded-full mb-4">
             <Sparkles className="w-3.5 h-3.5" /> Interactive AI Voice Concierge
           </div>
-          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight uppercase text-white">
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight uppercase text-white">
             Talk or Type to the AI Voice Assistant
           </h2>
-          <p className="text-gray-400 text-sm mt-3 font-sans">
-            Test with your own custom name, questions, or requirements. Gemini AI responds in real-time, speaks out loud, and updates Google Calendar and WhatsApp dispatches dynamically.
+          <p className="text-gray-400 text-xs sm:text-sm mt-3 font-sans max-w-2xl mx-auto">
+            Test with your own custom questions, founder inquiries, or meeting bookings. The AI responds with natural speech and automatically logs calendar syncs.
           </p>
         </div>
 
         <div className="grid lg:grid-cols-12 gap-6 sm:gap-8 items-stretch">
           {/* Call Screen Simulator Box */}
-          <div className="lg:col-span-7 bg-[#0A0E1A] border border-brand-teal/40 p-4 sm:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden rounded-xl sm:rounded-none">
+          <div className="lg:col-span-7 bg-[#0A0E1A] border border-brand-teal/40 p-4 sm:p-6 lg:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden rounded-xl sm:rounded-none">
             <div className="absolute top-0 right-0 w-80 h-80 bg-brand-teal/10 blur-[120px] rounded-full pointer-events-none" />
 
             <div>
               {/* Voice Persona Selector Controls */}
-              <div className="mb-6 bg-[#05060A]/90 border border-white/10 p-3 sm:p-4 rounded-lg flex flex-col gap-3">
-                <div className="flex items-center justify-between">
+              <div className="mb-4 sm:mb-6 bg-[#05060A]/90 border border-white/10 p-3 sm:p-4 rounded-lg flex flex-col gap-2.5 sm:gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-bold">Active Voice:</span>
                     <span className="text-[11px] font-mono text-brand-teal font-bold bg-brand-teal/10 px-2 py-0.5 rounded border border-brand-teal/30">
                       {activeVoiceName} ({selectedGender.toUpperCase()})
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono text-gray-400 uppercase">8 Studio Genders & Accents Available</span>
+                  <span className="text-[10px] font-mono text-gray-400 uppercase">8 Studio Genders & Accents</span>
                 </div>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('male', 'us-executive')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'male' && activePersonaId === 'us-executive'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇺🇸 👨</span>
-                    <span className="mt-0.5">Arthur</span>
-                    <span className="text-[10px] opacity-75 font-normal">US Executive (M)</span>
+                    <span className="mt-0.5 truncate w-full">Arthur</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">US Exec (M)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('female', 'us-executive')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'female' && activePersonaId === 'us-executive'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇺🇸 👩</span>
-                    <span className="mt-0.5">Zephyr</span>
-                    <span className="text-[10px] opacity-75 font-normal">US Executive (F)</span>
+                    <span className="mt-0.5 truncate w-full">Zephyr</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">US Exec (F)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('male', 'uk-refined')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'male' && activePersonaId === 'uk-refined'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇬🇧 👨</span>
-                    <span className="mt-0.5">Oliver</span>
-                    <span className="text-[10px] opacity-75 font-normal">UK Refined (M)</span>
+                    <span className="mt-0.5 truncate w-full">Oliver</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">UK Refined (M)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('female', 'uk-refined')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'female' && activePersonaId === 'uk-refined'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇬🇧 👩</span>
-                    <span className="mt-0.5">Clara</span>
-                    <span className="text-[10px] opacity-75 font-normal">UK Refined (F)</span>
+                    <span className="mt-0.5 truncate w-full">Clara</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">UK Refined (F)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('male', 'us-sales')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'male' && activePersonaId === 'us-sales'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇺🇸 👨</span>
-                    <span className="mt-0.5">Brian</span>
-                    <span className="text-[10px] opacity-75 font-normal">US Sales (M)</span>
+                    <span className="mt-0.5 truncate w-full">Brian</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">US Sales (M)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('female', 'us-vibrant')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'female' && (activePersonaId === 'us-vibrant' || activePersonaId === 'us-sales')
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇺🇸 👩</span>
-                    <span className="mt-0.5">Aria</span>
-                    <span className="text-[10px] opacity-75 font-normal">US Vibrant (F)</span>
+                    <span className="mt-0.5 truncate w-full">Aria</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">US Vibrant (F)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('male', 'au-friendly')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'male' && activePersonaId === 'au-friendly'
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇦🇺 👨</span>
-                    <span className="mt-0.5">William</span>
-                    <span className="text-[10px] opacity-75 font-normal">AU Warm (M)</span>
+                    <span className="mt-0.5 truncate w-full">William</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">AU Warm (M)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectVoice('female', 'au-friendly')}
-                    className={`px-2.5 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
+                    className={`px-2 py-2 rounded text-xs font-mono font-bold flex flex-col items-center justify-center text-center transition-all ${
                       selectedGender === 'female' && (activePersonaId === 'au-friendly' || activePersonaId === 'au-modern')
                         ? 'bg-brand-teal text-[#05060A] shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     <span className="text-sm">🇦🇺 👩</span>
-                    <span className="mt-0.5">Natasha</span>
-                    <span className="text-[10px] opacity-75 font-normal">AU Modern (F)</span>
+                    <span className="mt-0.5 truncate w-full">Natasha</span>
+                    <span className="text-[10px] opacity-75 font-normal truncate w-full">AU Modern (F)</span>
                   </button>
                 </div>
               </div>
 
               {/* Voice Status Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 mb-6 gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-3 sm:pb-4 mb-4 sm:mb-6 gap-3">
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full shrink-0 ${
                     simState === 'ringing' ? 'bg-yellow-400 animate-ping' :
@@ -600,7 +635,7 @@ export function VoiceDemo({
                     <h4 className="text-xs sm:text-sm font-bold text-white uppercase font-mono">
                       {simState === 'idle' && 'AI VOICE SANDBOX: OFFLINE'}
                       {simState === 'ringing' && 'Connecting to Voice AI Pipeline...'}
-                      {simState === 'connected' && `Active Session: ${activeVoiceName} (${selectedGender.toUpperCase()}) Connected`}
+                      {simState === 'connected' && `Active: ${activeVoiceName} (${selectedGender.toUpperCase()})`}
                       {simState === 'completed' && 'Session Finished: Booking Dispatched'}
                     </h4>
                     <p className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
@@ -612,14 +647,14 @@ export function VoiceDemo({
                 {simState === 'idle' ? (
                   <button
                     onClick={startSimulatedCall}
-                    className="w-full sm:w-auto justify-center px-5 py-2.5 bg-brand-teal text-[#05060A] font-bold font-mono text-xs uppercase tracking-wider hover:bg-white transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                    className="w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 bg-brand-teal text-[#05060A] font-bold font-mono text-xs uppercase tracking-wider hover:bg-white transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)] min-h-[44px]"
                   >
                     <Mic className="w-4 h-4" /> Start Voice Demo
                   </button>
                 ) : (
                   <button
                     onClick={endSimulatedCall}
-                    className="w-full sm:w-auto justify-center px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/40 font-mono text-xs uppercase hover:bg-red-500/30 transition-colors flex items-center gap-1.5"
+                    className="w-full sm:w-auto justify-center px-4 py-2.5 bg-red-500/20 text-red-400 border border-red-500/40 font-mono text-xs uppercase hover:bg-red-500/30 transition-colors flex items-center gap-1.5 min-h-[44px]"
                   >
                     <MicOff className="w-3.5 h-3.5" /> End Session
                   </button>
@@ -627,18 +662,18 @@ export function VoiceDemo({
               </div>
 
               {/* Live Transcript Stream */}
-              <div className="bg-[#05060A] border border-white/10 p-3.5 sm:p-6 h-[320px] overflow-y-auto space-y-4 font-sans text-sm">
+              <div className="bg-[#05060A] border border-white/10 p-3 sm:p-5 h-[280px] sm:h-[320px] overflow-y-auto space-y-3 font-sans text-sm rounded">
                 {simState === 'idle' && (
-                  <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 font-mono text-xs">
+                  <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 font-mono text-xs p-4">
                     <Radio className="w-8 h-8 text-brand-teal/40 mb-3 animate-pulse" />
-                    <p className="mb-2 text-gray-300 font-bold">Click "Start Voice Demo" above to open the active voice channel.</p>
-                    <p className="text-gray-500 text-[11px]">You can speak or type custom queries directly to {activeVoiceName}!</p>
+                    <p className="mb-1 text-gray-300 font-bold">Click "Start Voice Demo" to connect live.</p>
+                    <p className="text-gray-500 text-[11px]">Ask {activeVoiceName} about our founder, pricing, or book a consultation!</p>
                   </div>
                 )}
 
                 {simState === 'ringing' && (
-                  <div className="py-16 text-center text-yellow-400 font-mono text-xs uppercase tracking-widest animate-pulse flex flex-col items-center gap-2">
-                    <Zap className="w-8 h-8 animate-bounce text-brand-teal" />
+                  <div className="py-12 text-center text-yellow-400 font-mono text-xs uppercase tracking-widest animate-pulse flex flex-col items-center gap-2">
+                    <Zap className="w-7 h-7 animate-bounce text-brand-teal" />
                     <span>Connecting to Voice AI... Launching {activeVoiceName} ({selectedGender})...</span>
                   </div>
                 )}
@@ -646,17 +681,17 @@ export function VoiceDemo({
                 {simMessages.map((msg, idx) => (
                   <motion.div
                     key={idx}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`flex flex-col ${msg.sender === 'ai' ? 'items-start' : 'items-end'}`}
                   >
-                    <div className="flex items-center gap-2 mb-1 text-[10px] font-mono text-gray-400">
+                    <div className="flex items-center gap-1.5 mb-1 text-[10px] font-mono text-gray-400">
                       <span className={msg.sender === 'ai' ? 'text-brand-teal font-bold' : 'text-blue-400 font-bold'}>
                         {msg.sender === 'ai' ? `Quorik AI (${activeVoiceName})` : 'You (Caller)'}
                       </span>
                       <span>• {msg.time}</span>
                     </div>
-                    <div className={`p-3.5 max-w-[85%] text-xs sm:text-sm leading-relaxed ${
+                    <div className={`p-3 max-w-[92%] sm:max-w-[85%] text-xs sm:text-sm leading-relaxed break-words rounded ${
                       msg.sender === 'ai' 
                         ? 'bg-[#0A0E1A] border border-brand-teal/30 text-gray-200' 
                         : 'bg-brand-blue/20 border border-brand-blue/40 text-white'
@@ -668,17 +703,17 @@ export function VoiceDemo({
 
                 {isAiThinking && (
                   <div className="flex items-center gap-2 text-xs font-mono text-brand-teal animate-pulse py-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> {activeVoiceName} is thinking & processing speech response...
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" /> {activeVoiceName} is generating response...
                   </div>
                 )}
 
                 {isAiSpeaking && (
-                  <div className="flex items-center justify-between bg-brand-teal/10 border border-brand-teal/40 p-2.5 text-xs font-mono text-brand-teal">
-                    <div className="flex items-center gap-2">
-                      <Volume2 className="w-4 h-4 animate-pulse" />
-                      <span>🔊 {activeVoiceName} is speaking full audio response...</span>
+                  <div className="flex items-center justify-between bg-brand-teal/10 border border-brand-teal/40 p-2 sm:p-2.5 text-xs font-mono text-brand-teal rounded">
+                    <div className="flex items-center gap-2 truncate">
+                      <Volume2 className="w-4 h-4 animate-pulse shrink-0" />
+                      <span className="truncate">🔊 {activeVoiceName} speaking...</span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <span className="w-1.5 h-4 bg-brand-teal animate-pulse" />
                       <span className="w-1.5 h-3 bg-brand-teal animate-pulse" style={{ animationDelay: '150ms' }} />
                       <span className="w-1.5 h-5 bg-brand-teal animate-pulse" style={{ animationDelay: '300ms' }} />
@@ -689,31 +724,31 @@ export function VoiceDemo({
 
               {/* Interactive Caller Input Controls */}
               {simState === 'connected' && (
-                <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                <div className="mt-3 pt-3 border-t border-white/10 space-y-2.5">
                   {isRecordingMic && (
-                    <div className="bg-red-500/10 border border-red-500/40 p-2.5 text-[11px] font-mono text-red-300 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <Mic className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-                        <span>🎙️ Continuous Speech Active — Speak as long as you like!</span>
+                    <div className="bg-red-500/10 border border-red-500/40 p-2 text-[11px] font-mono text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-1 rounded">
+                      <span className="flex items-center gap-2 truncate">
+                        <Mic className="w-3.5 h-3.5 text-red-400 animate-pulse shrink-0" />
+                        <span className="truncate">🎙️ Listening... Speak naturally</span>
                       </span>
-                      <span className="text-[10px] text-gray-400 font-sans">(Click Mic or pause to submit)</span>
+                      <span className="text-[10px] text-gray-400 font-sans shrink-0">(Auto-sends after pause or tap Send)</span>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 w-full">
                     <input
                       type="text"
                       value={userCallerInput}
                       onChange={(e) => setUserCallerInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSendCallerTurn()}
-                      placeholder={`Speak or type custom query (e.g., "Hello, my name is Alex. I would like to build a custom website.")`}
-                      className="flex-1 bg-[#05060A] border border-white/20 text-white text-xs px-4 py-3 rounded-none focus:outline-none focus:border-brand-teal font-sans"
+                      placeholder="Ask questions or type a message..."
+                      className="flex-1 min-w-0 bg-[#05060A] border border-white/20 text-white text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:border-brand-teal font-sans rounded"
                     />
 
                     <button
                       onClick={toggleMicInput}
-                      title={isRecordingMic ? "Click to finish speaking" : "Hold or click to speak with microphone"}
-                      className={`p-3 border text-xs font-mono transition-colors flex items-center gap-1.5 ${
+                      title={isRecordingMic ? "Click to finish speaking" : "Click to speak with microphone"}
+                      className={`p-2.5 sm:p-3 border text-xs font-mono transition-colors flex items-center justify-center shrink-0 min-h-[42px] min-w-[42px] rounded ${
                         isRecordingMic 
                           ? 'bg-red-500 text-white border-red-500 animate-pulse' 
                           : 'bg-white/5 border-white/15 text-gray-300 hover:text-white hover:border-brand-teal'
@@ -725,46 +760,46 @@ export function VoiceDemo({
                     <button
                       onClick={() => handleSendCallerTurn()}
                       disabled={isAiThinking}
-                      className="px-5 py-3 bg-brand-teal text-[#05060A] font-bold font-mono text-xs uppercase tracking-wider hover:bg-white transition-colors flex items-center gap-1.5"
+                      className="px-3 sm:px-5 py-2.5 sm:py-3 bg-brand-teal text-[#05060A] font-bold font-mono text-xs uppercase tracking-wider hover:bg-white transition-colors flex items-center gap-1 shrink-0 min-h-[42px] rounded"
                     >
-                      <Send className="w-3.5 h-3.5" /> Speak
+                      <Send className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Send</span>
                     </button>
                   </div>
 
                   {/* Preset Quick Caller Starters */}
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[10px] font-mono text-gray-400">
-                      <span>Interactive Voice Prompts:</span>
-                      <span className="text-brand-teal">Simulate Full Booking Flow</span>
+                      <span>Quick Voice Prompts:</span>
+                      <span className="text-brand-teal">Tap to Ask</span>
                     </div>
-                    <div className="flex flex-wrap gap-2 text-[10px] font-mono">
+                    <div className="flex flex-wrap gap-1.5 text-[10px] font-mono">
+                      <button
+                        onClick={() => handleSendCallerTurn("Who is your founder and CEO?")}
+                        className="px-2 py-1 bg-purple-500/10 border border-purple-500/30 text-purple-300 hover:border-purple-400 hover:text-white transition-colors flex items-center gap-1 font-bold rounded"
+                      >
+                        <span>👑 Founder & CEO</span>
+                      </button>
                       <button
                         onClick={() => handleSendCallerTurn("I would like to book a discovery consultation for AI Voice Agent setup.")}
-                        className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1"
+                        className="px-2 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1 rounded"
                       >
                         <span>1️⃣ Request Meeting</span>
                       </button>
                       <button
                         onClick={() => handleSendCallerTurn("My name is Sarah, and tomorrow at 2:00 PM works best for me.")}
-                        className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1"
+                        className="px-2 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1 rounded"
                       >
-                        <span>2️⃣ Give Name & Time</span>
+                        <span>2️⃣ Name & Time</span>
                       </button>
                       <button
                         onClick={() => handleSendCallerTurn("My email is sarah@gmail.com and my phone number is +1 (555) 234-5678.")}
-                        className="px-2.5 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1"
+                        className="px-2 py-1 bg-white/5 border border-white/10 text-gray-300 hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1 rounded"
                       >
-                        <span>3️⃣ Give Email & Phone</span>
-                      </button>
-                      <button
-                        onClick={() => handleSendCallerTurn("Hello! Can you tell me in detail about the founder and CEO of Quorik?")}
-                        className="px-2.5 py-1 bg-white/5 border border-purple-500/30 text-purple-300 hover:border-purple-400 hover:text-white transition-colors flex items-center gap-1 font-bold"
-                      >
-                        <span>👑 Ask About Founder & CEO</span>
+                        <span>3️⃣ Email & Phone</span>
                       </button>
                       <button
                         onClick={() => handleSendCallerTurn("Hello, my name is Alex. I want to build a custom website with AI chatbot. My email is alex@gmail.com, phone +1-555-9876, available Friday at 11 AM.")}
-                        className="px-2.5 py-1 bg-brand-teal/10 border border-brand-teal/30 text-brand-teal hover:bg-brand-teal hover:text-[#05060A] transition-colors flex items-center gap-1 font-bold"
+                        className="px-2 py-1 bg-brand-teal/10 border border-brand-teal/30 text-brand-teal hover:bg-brand-teal hover:text-[#05060A] transition-colors flex items-center gap-1 font-bold rounded"
                       >
                         <span>⚡ All-In-One Booking</span>
                       </button>
@@ -776,59 +811,59 @@ export function VoiceDemo({
           </div>
 
           {/* Real-Time Outcome Panel: Dynamic Google Calendar + WhatsApp Notification */}
-          <div className="lg:col-span-5 space-y-6 flex flex-col justify-between">
+          <div className="lg:col-span-5 space-y-4 sm:space-y-6 flex flex-col justify-between">
             {/* Google Calendar Sync Card */}
-            <div className={`p-6 bg-[#0A0E1A] border transition-all ${
+            <div className={`p-4 sm:p-6 bg-[#0A0E1A] border transition-all rounded-xl sm:rounded-none ${
               leadDetails.bookingStatus === 'confirmed' 
                 ? 'border-green-500 bg-green-500/5' 
                 : bookedCalendar 
                   ? 'border-brand-teal/50 bg-brand-teal/5' 
                   : 'border-white/10'
             }`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  <Calendar className="w-5 h-5 text-brand-teal" />
-                  <h4 className="text-sm font-bold text-white uppercase font-mono">GOOGLE CALENDAR CRM</h4>
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-brand-teal" />
+                  <h4 className="text-xs sm:text-sm font-bold text-white uppercase font-mono">GOOGLE CALENDAR CRM</h4>
                 </div>
                 {leadDetails.bookingStatus === 'confirmed' ? (
-                  <span className="px-2.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-green-500/30">
-                    <Check className="w-3 h-3" /> Confirmed & Synced
+                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-green-500/30 rounded">
+                    <Check className="w-3 h-3" /> Synced
                   </span>
                 ) : leadDetails.callerName || leadDetails.requestedSlot ? (
-                  <span className="px-2.5 py-0.5 bg-yellow-500/20 text-yellow-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-yellow-500/30">
-                    <Clock className="w-3 h-3" /> Collecting Details
+                  <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-yellow-500/30 rounded">
+                    <Clock className="w-3 h-3" /> Collecting
                   </span>
                 ) : (
-                  <span className="text-[10px] text-gray-500 font-mono uppercase">AWAITING CALLER</span>
+                  <span className="text-[10px] text-gray-500 font-mono uppercase">STANDBY</span>
                 )}
               </div>
 
-              <div className="bg-[#05060A] border border-white/10 p-4 text-xs font-mono space-y-2.5">
-                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                  <span className="text-gray-400">Consultation Topic:</span>
-                  <span className="text-white font-bold text-right max-w-[60%] truncate">{leadDetails.topic}</span>
+              <div className="bg-[#05060A] border border-white/10 p-3 sm:p-4 text-xs font-mono space-y-2 rounded">
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5 gap-2">
+                  <span className="text-gray-400 shrink-0">Topic:</span>
+                  <span className="text-white font-bold text-right truncate">{leadDetails.topic}</span>
                 </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                  <span className="text-gray-400">Caller Name:</span>
-                  <span className={leadDetails.callerName ? "text-brand-teal font-bold" : "text-gray-600 italic"}>
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5 gap-2">
+                  <span className="text-gray-400 shrink-0">Caller Name:</span>
+                  <span className={leadDetails.callerName ? "text-brand-teal font-bold truncate" : "text-gray-600 italic"}>
                     {leadDetails.callerName || "Awaiting Name..."}
                   </span>
                 </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                  <span className="text-gray-400">Preferred Time Slot:</span>
-                  <span className={leadDetails.requestedSlot ? "text-green-400 font-bold" : "text-gray-600 italic"}>
-                    {leadDetails.requestedSlot || "Awaiting Time Slot..."}
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5 gap-2">
+                  <span className="text-gray-400 shrink-0">Time Slot:</span>
+                  <span className={leadDetails.requestedSlot ? "text-green-400 font-bold truncate" : "text-gray-600 italic"}>
+                    {leadDetails.requestedSlot || "Awaiting Slot..."}
                   </span>
                 </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                  <span className="text-gray-400">Email Address:</span>
-                  <span className={leadDetails.callerEmail ? "text-cyan-300 font-bold" : "text-gray-600 italic"}>
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5 gap-2">
+                  <span className="text-gray-400 shrink-0">Email:</span>
+                  <span className={leadDetails.callerEmail ? "text-cyan-300 font-bold truncate" : "text-gray-600 italic"}>
                     {leadDetails.callerEmail || "Awaiting Email..."}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Phone Number:</span>
-                  <span className={leadDetails.callerPhone ? "text-emerald-300 font-bold" : "text-gray-600 italic"}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-400 shrink-0">Phone:</span>
+                  <span className={leadDetails.callerPhone ? "text-emerald-300 font-bold truncate" : "text-gray-600 italic"}>
                     {leadDetails.callerPhone || "Awaiting Phone..."}
                   </span>
                 </div>
@@ -836,24 +871,24 @@ export function VoiceDemo({
             </div>
 
             {/* WhatsApp Alert Card */}
-            <div className={`p-6 bg-[#0A0E1A] border transition-all ${whatsappSent ? 'border-green-500 bg-green-500/5' : 'border-white/10'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  <MessageSquare className="w-5 h-5 text-green-400" />
-                  <h4 className="text-sm font-bold text-white uppercase font-mono">WHATSAPP DISPATCH ALERT</h4>
+            <div className={`p-4 sm:p-6 bg-[#0A0E1A] border transition-all rounded-xl sm:rounded-none ${whatsappSent ? 'border-green-500 bg-green-500/5' : 'border-white/10'}`}>
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                  <h4 className="text-xs sm:text-sm font-bold text-white uppercase font-mono">WHATSAPP DISPATCH</h4>
                 </div>
                 {whatsappSent ? (
-                  <span className="px-2.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-green-500/30">
-                    <Check className="w-3 h-3" /> Real-Time Feed
+                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-[10px] font-mono font-bold uppercase flex items-center gap-1 border border-green-500/30 rounded">
+                    <Check className="w-3 h-3" /> Live Feed
                   </span>
                 ) : (
-                  <span className="text-[10px] text-gray-500 font-mono uppercase">AWAITING CALL COMPLETION</span>
+                  <span className="text-[10px] text-gray-500 font-mono uppercase">STANDBY</span>
                 )}
               </div>
 
-              <div className="bg-[#0B141A] border border-green-500/20 p-4 font-sans text-xs text-green-100 leading-relaxed rounded relative">
+              <div className="bg-[#0B141A] border border-green-500/20 p-3 sm:p-4 font-sans text-xs text-green-100 leading-relaxed rounded relative break-words">
                 <div className="text-[10px] font-mono text-green-400 uppercase mb-1 flex items-center justify-between">
-                  <span>WHATSAPP CRM DISPATCH</span>
+                  <span>CRM DISPATCH</span>
                   <span>LIVE SYNC</span>
                 </div>
                 "{leadDetails.whatsappMessage || "Ready to dispatch lead data once caller provides meeting details."}"

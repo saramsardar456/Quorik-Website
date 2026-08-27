@@ -482,5 +482,9 @@
       "internalNotes": "Approved for Integrator Sandbox. Telephony Webhook keys dispatched.",
       "createdAt": "2026-08-25T18:35:23.050Z"
     }
-  ]
+  ],
+  "teamImages": {
+    "m-r": "/team/team-m-r-1787844263515.png",
+    "a-k": "/team/team-a-k-1787844275612.png"
+  }
 }

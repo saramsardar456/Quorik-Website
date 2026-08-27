@@ -352,7 +352,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
             setIsRecordingMic(false);
             handleSendQuery(accumulatedTranscript);
           }
-        }, 750);
+        }, 1800);
       };
 
       recognition.onerror = () => {

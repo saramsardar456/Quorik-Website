@@ -77,6 +77,7 @@ export function sanitizeTextForSpeech(text: string): string {
 // -------------------------------------------------------------
 
 let activeHtmlAudio: HTMLAudioElement | null = null;
+let activeBufferSource: AudioBufferSourceNode | null = null;
 let globalAudioCtx: AudioContext | null = null;
 let activeUtteranceHeartbeat: any = null;
 let currentSpeechToken = 0;
@@ -139,7 +140,17 @@ export function stopAllSpeech(): void {
     activeTtsAbortController = null;
   }
 
-  // 3. Immediately pause and reset HTML5 Audio
+  // 3. Immediately stop and disconnect active Web Audio Buffer Source
+  if (activeBufferSource) {
+    try {
+      activeBufferSource.onended = null;
+      activeBufferSource.stop(0);
+      activeBufferSource.disconnect();
+    } catch (e) {}
+    activeBufferSource = null;
+  }
+
+  // 4. Immediately pause and reset HTML5 Audio
   if (activeHtmlAudio) {
     try {
       activeHtmlAudio.pause();
@@ -152,16 +163,20 @@ export function stopAllSpeech(): void {
     activeHtmlAudio = null;
   }
 
-  // 4. Clear heartbeat timer
+  // 5. Clear heartbeat timer
   if (activeUtteranceHeartbeat) {
     clearInterval(activeUtteranceHeartbeat);
     activeUtteranceHeartbeat = null;
   }
 
-  // 5. Cancel browser SpeechSynthesis if active
+  // 6. Cancel browser SpeechSynthesis if active
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
+      window.speechSynthesis.pause();
       window.speechSynthesis.cancel();
+      if ((window as any)._quorikUtterances) {
+        (window as any)._quorikUtterances = [];
+      }
     } catch (e) {}
   }
 }
@@ -251,6 +266,8 @@ export async function speakSpeech(
           if (audioContext.state === 'suspended') {
             await audioContext.resume().catch(() => {});
           }
+          if (thisToken !== currentSpeechToken) return;
+
           const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
           if (thisToken !== currentSpeechToken) return;
 
@@ -258,18 +275,28 @@ export async function speakSpeech(
           source.buffer = audioBuffer;
           source.connect(audioContext.destination);
 
-          if (options.onStart) options.onStart();
+          activeBufferSource = source;
+
           source.onended = () => {
+            if (activeBufferSource === source) {
+              activeBufferSource = null;
+            }
             if (thisToken === currentSpeechToken && options.onEnd) {
               options.onEnd();
             }
           };
+
+          if (options.onStart && thisToken === currentSpeechToken) {
+            options.onStart();
+          }
           source.start(0);
           return;
         }
       } catch (webaudioErr) {
         console.info("[Neural Audio] WebAudio stream notice, attempting standard HTML5 audio:", webaudioErr);
       }
+
+      if (thisToken !== currentSpeechToken) return;
 
       // Fallback to HTML5 Audio element
       try {
@@ -295,25 +322,33 @@ export async function speakSpeech(
         };
         audio.onended = finish;
         audio.onerror = () => {
-          speakNativeUtterance(cleanText, options);
+          if (thisToken === currentSpeechToken) {
+            speakNativeUtterance(cleanText, options);
+          }
         };
 
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.catch((err) => {
             console.warn("HTML5 Audio play notice:", err);
-            speakNativeUtterance(cleanText, options);
+            if (thisToken === currentSpeechToken) {
+              speakNativeUtterance(cleanText, options);
+            }
           });
         }
       } catch (e) {
-        speakNativeUtterance(cleanText, options);
+        if (thisToken === currentSpeechToken) {
+          speakNativeUtterance(cleanText, options);
+        }
       }
     };
 
     try {
       playWithWebAudioOrHtmlAudio();
     } catch (e) {
-      speakNativeUtterance(cleanText, options);
+      if (thisToken === currentSpeechToken) {
+        speakNativeUtterance(cleanText, options);
+      }
     }
   };
 

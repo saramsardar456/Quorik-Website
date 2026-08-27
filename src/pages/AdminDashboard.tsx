@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Phone, Clock, User, ArrowLeft, RefreshCw, Mail, MessageSquare, Edit2, Trash2, Save, X, Download, FileText, Plus, Star, Send, CheckCircle2, Sparkles, Globe, Search, AlertTriangle, TrendingUp, CreditCard, Users, Mic, Handshake, Building2 } from 'lucide-react';
+import { Calendar, Phone, Clock, User, ArrowLeft, RefreshCw, Mail, MessageSquare, Edit2, Trash2, Save, X, Download, FileText, Plus, Star, Send, CheckCircle2, Sparkles, Globe, Search, AlertTriangle, TrendingUp, CreditCard, Users, Mic, Handshake, Building2, Camera } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -7,6 +7,7 @@ import { formatWhatsAppPhone } from '../utils/phone';
 import { DemoBuilderPage } from './DemoBuilderPage';
 import { ClientAccountsManager } from '../components/admin/ClientAccountsManager';
 import { PartnerApplicationsManager } from '../components/admin/PartnerApplicationsManager';
+import { TeamPhotoManager } from '../components/admin/TeamPhotoManager';
 import { ClientAccount } from '../types/client';
 import { PartnerApplication } from '../types/partner';
 
@@ -86,7 +87,7 @@ export function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('adminToken'));
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
-  const [activeTab, setActiveTab] = useState<'clients' | 'partnerships' | 'appointments' | 'contacts' | 'notifications' | 'audits' | 'blog' | 'testimonials' | 'demo-builder'>('clients');
+  const [activeTab, setActiveTab] = useState<'clients' | 'partnerships' | 'appointments' | 'contacts' | 'notifications' | 'audits' | 'blog' | 'testimonials' | 'team' | 'demo-builder'>('clients');
 
   const [clients, setClients] = useState<ClientAccount[]>([]);
   const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>([]);
@@ -591,6 +592,15 @@ export function AdminDashboard() {
           >
             <Star className="w-4 h-4" />
             Testimonials ({testimonials.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`px-6 py-3 font-mono text-sm tracking-widest uppercase transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'team' ? 'bg-brand-teal text-[#07090F] font-bold shadow-lg shadow-brand-teal/20' : 'bg-white/5 text-white hover:bg-white/10 border border-brand-teal/30'
+            }`}
+          >
+            <Camera className="w-4 h-4 text-brand-teal" />
+            Council Photos (Admin Only)
           </button>
           <button
             onClick={() => setActiveTab('demo-builder')}
@@ -1112,6 +1122,8 @@ export function AdminDashboard() {
                 </div>
               )}
             </div>
+          ) : activeTab === 'team' ? (
+            <TeamPhotoManager />
           ) : activeTab === 'demo-builder' ? (
             <div>
               <DemoBuilderPage embedded={true} />

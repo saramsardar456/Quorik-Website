@@ -223,6 +223,9 @@ export interface PartnerApplication {
 }
 const partnerApplications: PartnerApplication[] = [];
 
+// Custom team member uploaded images map (memberId -> image url or base64)
+const teamImages: Record<string, string> = {};
+
 function saveStore() {
   try {
     const data = {
@@ -233,7 +236,8 @@ function saveStore() {
       posts,
       testimonials,
       clientAccounts,
-      partnerApplications
+      partnerApplications,
+      teamImages
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
@@ -252,6 +256,9 @@ function loadStore() {
       if (Array.isArray(data.auditsLog)) { auditsLog.length = 0; auditsLog.push(...data.auditsLog); }
       if (Array.isArray(data.posts) && data.posts.length > 0) { posts.length = 0; posts.push(...data.posts); }
       if (Array.isArray(data.partnerApplications)) { partnerApplications.length = 0; partnerApplications.push(...data.partnerApplications); }
+      if (data.teamImages && typeof data.teamImages === 'object') {
+        Object.assign(teamImages, data.teamImages);
+      }
       if (Array.isArray(data.clientAccounts) && data.clientAccounts.length > 0) { 
         clientAccounts.length = 0; 
         // Keep only real clients, strip out any legacy mock dummy data (client-1, client-2, etc.)
@@ -716,10 +723,36 @@ async function startServer() {
   });
 
   app.use(express.json({
+    limit: '50mb',
     verify: (req: any, _res, buf) => {
       req.rawBody = buf;
     }
   }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Ensure public, public/team, and public/uploads directories exist
+  const publicDir = path.join(process.cwd(), 'public');
+  const teamDir = path.join(publicDir, 'team');
+  const uploadsDir = path.join(publicDir, 'uploads');
+  if (!fs.existsSync(teamDir)) fs.mkdirSync(teamDir, { recursive: true });
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+  // Serve static assets with proper CORS and Cache-Control headers
+  app.use('/team', express.static(teamDir, {
+    maxAge: '1h',
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
+  }));
+  app.use('/uploads', express.static(uploadsDir, {
+    maxAge: '1h',
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
+  }));
+  app.use(express.static(publicDir));
 
   app.post("/api/login", (req, res) => {
     const { password } = req.body;
@@ -732,6 +765,96 @@ async function startServer() {
   });
 
   // API routes FIRST
+  app.get("/api/team/images", (req, res) => {
+    // Filter out any broken paths where the file on disk doesn't exist
+    const validImages: Record<string, string> = {};
+    for (const [id, url] of Object.entries(teamImages)) {
+      if (url.startsWith('/team/')) {
+        const filePath = path.join(process.cwd(), 'public', url.replace(/^\//, ''));
+        if (fs.existsSync(filePath)) {
+          validImages[id] = url;
+        }
+      } else if (url.startsWith('data:image/') || url.startsWith('http')) {
+        validImages[id] = url;
+      }
+    }
+    res.json(validImages);
+  });
+
+  app.post("/api/team/upload-image", (req, res) => {
+    try {
+      const { memberId, imageData } = req.body;
+      if (!memberId || !imageData) {
+        return res.status(400).json({ error: "memberId and imageData are required" });
+      }
+
+      if (imageData.startsWith('data:image/')) {
+        const matches = imageData.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+        const ext = matches ? matches[1] : 'png';
+        const base64Data = matches ? matches[2] : imageData.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const filename = `team-${memberId}-${Date.now()}.${ext === 'jpeg' ? 'jpg' : ext}`;
+        const teamDir = path.join(process.cwd(), 'public', 'team');
+        if (!fs.existsSync(teamDir)) {
+          fs.mkdirSync(teamDir, { recursive: true });
+        }
+        const filePath = path.join(teamDir, filename);
+        fs.writeFileSync(filePath, buffer);
+        
+        const publicUrl = `/team/${filename}`;
+        
+        // Also write to dist/team if dist directory exists for production build
+        const distTeamDir = path.join(process.cwd(), 'dist', 'team');
+        if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+          if (!fs.existsSync(distTeamDir)) fs.mkdirSync(distTeamDir, { recursive: true });
+          fs.writeFileSync(path.join(distTeamDir, filename), buffer);
+        }
+
+        teamImages[memberId] = publicUrl;
+        saveStore();
+        return res.json({ success: true, url: publicUrl, memberId });
+      } else {
+        teamImages[memberId] = imageData;
+        saveStore();
+        return res.json({ success: true, url: imageData, memberId });
+      }
+    } catch (err: any) {
+      console.error("Error saving team image:", err);
+      res.status(500).json({ error: err.message || "Failed to save team image" });
+    }
+  });
+
+  app.delete("/api/team/images/:memberId", (req, res) => {
+    const { memberId } = req.params;
+    if (teamImages[memberId]) {
+      const oldUrl = teamImages[memberId];
+      if (oldUrl.startsWith('/team/')) {
+        try {
+          const filePath = path.join(process.cwd(), 'public', oldUrl.replace(/^\//, ''));
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        } catch (e) {}
+      }
+      delete teamImages[memberId];
+      saveStore();
+    }
+    res.json({ success: true, memberId });
+  });
+
+  app.post("/api/team/images/reset", (req, res) => {
+    for (const key of Object.keys(teamImages)) {
+      const oldUrl = teamImages[key];
+      if (oldUrl && oldUrl.startsWith('/team/')) {
+        try {
+          const filePath = path.join(process.cwd(), 'public', oldUrl.replace(/^\//, ''));
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        } catch (e) {}
+      }
+      delete teamImages[key];
+    }
+    saveStore();
+    res.json({ success: true, message: "All team photos reset to default" });
+  });
+
   app.get("/api/testimonials", (req, res) => {
     res.json(testimonials);
   });
@@ -2027,6 +2150,18 @@ IMPORTANT CARD TRIGGER RULES:
     try {
       const { personaId, gender, userQuery, scenario, conversationHistory, customCompany } = req.body;
 
+      let normalizedUserQuery = (userQuery || "").trim();
+      // Normalize common speech-to-text mishearings for founder queries
+      if (
+        /th\s*(?:ouyr|our|your|ur)?\s*(?:oundrr|founder|foundr|fownder)/i.test(normalizedUserQuery) ||
+        /(?:who(?:'s| is)?\s+(?:the|your|ur)?\s*(?:oundrr|founder|foundr|fownder|ceo|c\.e\.o\.|owner|boss|creator|lead))/i.test(normalizedUserQuery) ||
+        /(?:who\s+(?:started|founded|created|built|made)\s*(?:quorik|korik|this|company)?)/i.test(normalizedUserQuery) ||
+        /(?:tell\s+me\s+about\s+(?:the|your)?\s*(?:founder|ceo|shehram))/i.test(normalizedUserQuery) ||
+        /(?:shehram\s+meellu|shehram\s+melu|shehram)/i.test(normalizedUserQuery)
+      ) {
+        normalizedUserQuery = "Who is the founder and CEO of Quorik?";
+      }
+
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ error: "GEMINI_API_KEY is not set on the server." });
@@ -2126,7 +2261,7 @@ Keep responses articulate, authoritative, and natural (2 to 3 concise spoken sen
 
       const prompt = `${systemPersonaInstruction}
 
-User Caller Query: "${userQuery || `Hello, I'm calling to inquire about services and book a consultation with ${companyName}.`}"
+User Caller Query: "${normalizedUserQuery || `Hello, I'm calling to inquire about services and book a consultation with ${companyName}.`}"
 
 Previous Conversation History:
 ${JSON.stringify(conversationHistory || [])}

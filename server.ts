@@ -2524,18 +2524,65 @@ Respond ONLY in valid JSON matching this schema:
   const ttsCache = new Map<string, { audioData: string; mimeType: string; voiceName: string; gender: string }>();
 
   // Direct Google Neural TTS stream fallback (instant 150ms HTTP stream if Edge WS stalls)
-  async function fetchGoogleTtsAudio(text: string, lang = 'en-US'): Promise<Buffer> {
-    const encoded = encodeURIComponent(text.substring(0, 280));
-    const targetLang = lang.includes('GB') || lang.includes('uk') ? 'en-GB' : lang.includes('AU') || lang.includes('au') ? 'en-AU' : 'en-US';
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${targetLang}&client=tw-ob&q=${encoded}`;
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  function splitTextIntoTtsChunks(text: string, maxLen = 140): string[] {
+    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+    const chunks: string[] = [];
+    let current = "";
+    for (const s of sentences) {
+      const trimmed = s.trim();
+      if (!trimmed) continue;
+      if ((current + " " + trimmed).trim().length <= maxLen) {
+        current = (current + " " + trimmed).trim();
+      } else {
+        if (current) chunks.push(current);
+        if (trimmed.length <= maxLen) {
+          current = trimmed;
+        } else {
+          const words = trimmed.split(" ");
+          let subChunk = "";
+          for (const w of words) {
+            if ((subChunk + " " + w).trim().length <= maxLen) {
+              subChunk = (subChunk + " " + w).trim();
+            } else {
+              if (subChunk) chunks.push(subChunk);
+              subChunk = w;
+            }
+          }
+          current = subChunk;
+        }
       }
-    });
-    if (!response.ok) throw new Error(`Google TTS stream error: ${response.status}`);
-    const arrayBuf = await response.arrayBuffer();
-    return Buffer.from(arrayBuf);
+    }
+    if (current) chunks.push(current);
+    return chunks.length > 0 ? chunks : [text.substring(0, maxLen)];
+  }
+
+  async function fetchGoogleChunk(chunk: string, targetLang = 'en'): Promise<Buffer> {
+    const encoded = encodeURIComponent(chunk);
+    const clients = ["tw-ob", "gtx", "dict-chrome-ex"];
+    for (const client of clients) {
+      try {
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=${targetLang}&total=1&idx=0&textlen=${chunk.length}&client=${client}`;
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        });
+        if (response.ok) {
+          const arrayBuf = await response.arrayBuffer();
+          if (arrayBuf.byteLength > 100) {
+            return Buffer.from(arrayBuf);
+          }
+        }
+      } catch (err) {}
+    }
+    throw new Error(`Google TTS synthesis notice for text chunk: ${chunk.substring(0, 30)}`);
+  }
+
+  async function fetchGoogleTtsAudio(text: string, lang = 'en-US'): Promise<Buffer> {
+    const targetLang = lang.includes('GB') || lang.includes('uk') ? 'en-GB' : lang.includes('AU') || lang.includes('au') ? 'en-AU' : 'en';
+    const chunks = splitTextIntoTtsChunks(text, 140);
+    const audioBuffers = await Promise.all(chunks.map(chunk => fetchGoogleChunk(chunk, targetLang)));
+    return Buffer.concat(audioBuffers);
   }
 
   // Fast, Studio-Quality Neural Studio Audio Synthesis (100% genuine Male Baritone on iOS Safari, Android, and Desktop)
@@ -2554,23 +2601,170 @@ Respond ONLY in valid JSON matching this schema:
       };
 
       const timer = setTimeout(() => {
+        if (chunks.length > 0) {
+          const totalBuffer = Buffer.concat(chunks);
+          if (totalBuffer.length > 512) {
+            cleanup();
+            resolve(totalBuffer);
+            return;
+          }
+        }
         cleanup();
         reject(new Error("Edge TTS synthesis timeout"));
-      }, 5500);
+      }, 7500);
 
       audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
       audioStream.on("end", () => {
         clearTimeout(timer);
         cleanup();
-        resolve(Buffer.concat(chunks));
+        if (chunks.length > 0) {
+          resolve(Buffer.concat(chunks));
+        } else {
+          reject(new Error("No audio frames received"));
+        }
       });
       audioStream.on("error", (err: any) => {
         clearTimeout(timer);
         cleanup();
+        // If we already received audio frames before premature stream close, resolve the playable audio!
+        if (chunks.length > 0) {
+          const totalBuffer = Buffer.concat(chunks);
+          if (totalBuffer.length > 512) {
+            resolve(totalBuffer);
+            return;
+          }
+        }
         reject(err);
       });
     });
   }
+
+  // Helper function to resolve voice settings
+  function resolveVoiceSettings(gender: string = 'male', personaId: string = 'us-executive') {
+    const gLower = (gender || '').toLowerCase();
+    const pLower = (personaId || '').toLowerCase();
+    const isFemale = gLower.includes('female') || pLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
+
+    let voiceName = "en-US-GuyNeural";
+    let locale = "en-US";
+
+    if (isFemale) {
+      if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('clara')) {
+        voiceName = 'en-GB-SoniaNeural';
+        locale = 'en-GB';
+      } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('natasha')) {
+        voiceName = 'en-AU-NatashaNeural';
+        locale = 'en-AU';
+      } else if (gLower.includes('vibrant') || pLower.includes('vibrant') || gLower.includes('aria')) {
+        voiceName = 'en-US-AriaNeural';
+        locale = 'en-US';
+      } else {
+        voiceName = 'en-US-JennyNeural';
+        locale = 'en-US';
+      }
+    } else {
+      if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('oliver')) {
+        voiceName = 'en-GB-RyanNeural';
+        locale = 'en-GB';
+      } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('william')) {
+        voiceName = 'en-AU-WilliamNeural';
+        locale = 'en-AU';
+      } else if (gLower.includes('sales') || pLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) {
+        voiceName = 'en-US-BrianNeural';
+        locale = 'en-US';
+      } else if (pLower.includes('arthur') || gLower.includes('arthur') || pLower.includes('executive')) {
+        // Arthur Studio Baritone Voice
+        voiceName = 'en-US-GuyNeural';
+        locale = 'en-US';
+      } else {
+        voiceName = 'en-US-GuyNeural';
+        locale = 'en-US';
+      }
+    }
+    return { voiceName, locale, isFemale };
+  }
+
+  function sanitizeSpeechText(text: string): string {
+    return text
+      .replace(/\[CARD:[^\]]+\]/gi, '')
+      .replace(/https?:\/\/\S+/gi, '')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/#+\s+/g, '')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
+      .replace(/\bQuorik\b/gi, 'Korik')
+      .replace(/\bAI\b/g, 'A.I.')
+      .replace(/\bROI\b/g, 'R.O.I.')
+      .replace(/\bCRM\b/g, 'C.R.M.')
+      .replace(/\bSMS\b/g, 'S.M.S.')
+      .replace(/\bEST\b/g, 'E.S.T.')
+      .replace(/\bPST\b/g, 'P.S.T.')
+      .replace(/\bGMT\b/g, 'G.M.T.')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Direct Audio Streaming Endpoint (Streams hardware MP3 directly to browser audio elements)
+  app.get("/api/tts/stream", async (req: express.Request, res: express.Response) => {
+    try {
+      const text = (req.query.text as string) || '';
+      const gender = (req.query.gender as string) || 'male';
+      const personaId = (req.query.personaId as string) || 'arthur';
+
+      if (!text || typeof text !== 'string') {
+        return res.status(400).send("Text query parameter is required");
+      }
+
+      const cleanText = sanitizeSpeechText(text);
+      if (!cleanText) {
+        return res.status(400).send("No valid text content");
+      }
+
+      const { voiceName, locale, isFemale } = resolveVoiceSettings(gender, personaId);
+      const cacheKey = `${gender}:${voiceName}:${cleanText}`;
+
+      if (ttsCache.has(cacheKey)) {
+        const cached = ttsCache.get(cacheKey)!;
+        const buffer = Buffer.from(cached.audioData, 'base64');
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.send(buffer);
+      }
+
+      let audioBuffer: Buffer | null = null;
+      try {
+        audioBuffer = await generateNeuralAudio(cleanText, voiceName);
+      } catch (err: any) {
+        try {
+          audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+        } catch (err2: any) {
+          try {
+            audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural');
+          } catch (err3) {}
+        }
+      }
+
+      if (audioBuffer && audioBuffer.length > 0) {
+        const base64Audio = audioBuffer.toString('base64');
+        ttsCache.set(cacheKey, { audioData: base64Audio, mimeType: 'audio/mp3', voiceName, gender });
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Length', audioBuffer.length);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.send(audioBuffer);
+      }
+
+      return res.status(500).send("TTS audio synthesis unavailable");
+    } catch (err: any) {
+      console.error("GET /api/tts/stream error:", err);
+      return res.status(500).send(err?.message || "TTS stream error");
+    }
+  });
 
   // Neural TTS Endpoint: Generates genuine Studio-Quality Voice (Arthur/Oliver = Male Baritone, Zephyr/Clara = Female)
   app.post("/api/tts", async (req: express.Request, res: express.Response) => {
@@ -2580,66 +2774,12 @@ Respond ONLY in valid JSON matching this schema:
         return res.status(400).json({ error: "Text is required" });
       }
 
-      // Voice mapping supporting all regional genders & personas:
-      const gLower = (gender || '').toLowerCase();
-      const pLower = (personaId || '').toLowerCase();
-      const isFemale = gLower.includes('female') || pLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
-
-      let voiceName = "en-US-GuyNeural";
-      let locale = "en-US";
-
-      if (isFemale) {
-        if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('clara')) {
-          voiceName = 'en-GB-SoniaNeural';
-          locale = 'en-GB';
-        } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('natasha')) {
-          voiceName = 'en-AU-NatashaNeural';
-          locale = 'en-AU';
-        } else if (gLower.includes('vibrant') || pLower.includes('vibrant') || gLower.includes('aria')) {
-          voiceName = 'en-US-AriaNeural';
-          locale = 'en-US';
-        } else {
-          voiceName = 'en-US-JennyNeural';
-          locale = 'en-US';
-        }
-      } else {
-        if (gLower.includes('uk') || pLower.includes('uk') || gLower.includes('oliver')) {
-          voiceName = 'en-GB-RyanNeural';
-          locale = 'en-GB';
-        } else if (gLower.includes('au') || pLower.includes('au') || gLower.includes('william')) {
-          voiceName = 'en-AU-WilliamNeural';
-          locale = 'en-AU';
-        } else if (gLower.includes('sales') || pLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) {
-          voiceName = 'en-US-BrianNeural';
-          locale = 'en-US';
-        } else {
-          voiceName = 'en-US-GuyNeural';
-          locale = 'en-US';
-        }
-      }
-
-      // Phonetic preprocessing for natural speech output
-      const cleanText = text
-        .replace(/\[CARD:[^\]]+\]/gi, '')
-        .replace(/https?:\/\/\S+/gi, '')
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/#+\s+/g, '')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
-        .replace(/\bQuorik\b/gi, 'Korik')
-        .replace(/\bAI\b/g, 'A.I.')
-        .replace(/\bROI\b/g, 'R.O.I.')
-        .replace(/\bCRM\b/g, 'C.R.M.')
-        .replace(/\bSMS\b/g, 'S.M.S.')
-        .replace(/\bEST\b/g, 'E.S.T.')
-        .replace(/\bPST\b/g, 'P.S.T.')
-        .replace(/\bGMT\b/g, 'G.M.T.')
-        .replace(/\s+/g, ' ')
-        .trim();
-
+      const cleanText = sanitizeSpeechText(text);
       if (!cleanText) {
         return res.status(400).json({ error: "No valid text content after sanitization" });
       }
+
+      const { voiceName, locale, isFemale } = resolveVoiceSettings(gender, personaId);
 
       // Check in-memory cache first for 0ms instant playback
       const cacheKey = `${gender}:${voiceName}:${cleanText}`;

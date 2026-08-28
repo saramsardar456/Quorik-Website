@@ -59,9 +59,28 @@ export function ChatbotWidget() {
     if (!cleanText) return;
 
     const activeAccent = overrideAccent || accent;
-    const gender = activeAccent === 'arthur' ? 'male' : (activeAccent === 'uk' ? 'male' : 'female');
-    const preferredLocale = activeAccent === 'uk' ? 'en-GB' : 'en-US';
-    const personaId = activeAccent === 'uk' ? 'uk-refined' : 'us-executive';
+    let gender = 'male';
+    let preferredLocale = 'en-US';
+    let personaId = 'arthur';
+
+    if (activeAccent === 'uk') {
+      gender = 'male';
+      preferredLocale = 'en-GB';
+      personaId = 'uk-refined';
+    } else if (activeAccent === 'casual') {
+      gender = 'male';
+      preferredLocale = 'en-US';
+      personaId = 'casual';
+    } else if (activeAccent === 'us') {
+      gender = 'male';
+      preferredLocale = 'en-US';
+      personaId = 'us-executive';
+    } else {
+      // Default: Arthur Executive Male Baritone Voice
+      gender = 'male';
+      preferredLocale = 'en-US';
+      personaId = 'arthur';
+    }
 
     if (msgId) setIsSpeaking(msgId);
 
@@ -241,14 +260,14 @@ export function ChatbotWidget() {
                   onClick={() => {
                     const next = !speechEnabled;
                     setSpeechEnabled(next);
-                    if (!next) window.speechSynthesis.cancel();
+                    if (!next) stopAllSpeech();
                   }}
                   className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors border ${
                     speechEnabled 
                       ? 'bg-brand-teal/20 border-brand-teal text-brand-teal' 
                       : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                   }`}
-                  title={speechEnabled ? "Mute Voice Readout" : "Enable Voice Readout"}
+                  title={speechEnabled ? "Mute Arthur Voice" : "Enable Arthur Neural Studio Voice"}
                 >
                   {speechEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                 </button>
@@ -256,7 +275,7 @@ export function ChatbotWidget() {
                 <button 
                   onClick={() => {
                     setIsOpen(false);
-                    window.speechSynthesis.cancel();
+                    stopAllSpeech();
                   }}
                   className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
                 >

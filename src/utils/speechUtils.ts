@@ -252,103 +252,108 @@ export async function speakSpeech(
   const playAudioData = (base64Audio: string) => {
     if (thisToken !== currentSpeechToken) return;
 
-    // High compatibility audio playback: try Web Audio Context decoding or HTML5 Audio
-    const playWithWebAudioOrHtmlAudio = async () => {
-      try {
-        const binaryString = atob(base64Audio);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const audioContext = getAudioContext();
-        if (audioContext && audioContext.state !== 'closed') {
-          if (audioContext.state === 'suspended') {
-            await audioContext.resume().catch(() => {});
-          }
-          if (thisToken !== currentSpeechToken) return;
+    try {
+      const binaryString = atob(base64Audio);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const blob = new Blob([bytes], { type: 'audio/mpeg' });
+      const objectUrl = URL.createObjectURL(blob);
+      const audio = new Audio(objectUrl);
+      activeHtmlAudio = audio;
+      audio.preload = 'auto';
 
-          const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
-          if (thisToken !== currentSpeechToken) return;
+      let cleanedUp = false;
+      const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+        if (activeHtmlAudio === audio) activeHtmlAudio = null;
+      };
 
-          const source = audioContext.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(audioContext.destination);
-
-          activeBufferSource = source;
-
-          source.onended = () => {
-            if (activeBufferSource === source) {
-              activeBufferSource = null;
-            }
-            if (thisToken === currentSpeechToken && options.onEnd) {
-              options.onEnd();
-            }
-          };
-
-          if (options.onStart && thisToken === currentSpeechToken) {
-            options.onStart();
-          }
-          source.start(0);
+      audio.onplay = () => {
+        if (thisToken !== currentSpeechToken) {
+          audio.pause();
+          cleanup();
           return;
         }
-      } catch (webaudioErr) {
-        console.info("[Neural Audio] WebAudio stream notice, attempting standard HTML5 audio:", webaudioErr);
-      }
+        if (options.onStart) options.onStart();
+      };
 
-      if (thisToken !== currentSpeechToken) return;
-
-      // Fallback to HTML5 Audio element
-      try {
-        const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-        activeHtmlAudio = audio;
-        audio.preload = 'auto';
-
-        let endedOrFailed = false;
-        const finish = () => {
-          if (endedOrFailed) return;
-          endedOrFailed = true;
-          if (activeHtmlAudio === audio) activeHtmlAudio = null;
-          if (options.onEnd && thisToken === currentSpeechToken) options.onEnd();
-        };
-
-        audio.onplay = () => {
-          if (thisToken !== currentSpeechToken) {
-            audio.pause();
-            audio.currentTime = 0;
-            return;
-          }
-          if (options.onStart) options.onStart();
-        };
-        audio.onended = finish;
-        audio.onerror = () => {
-          if (thisToken === currentSpeechToken) {
-            speakNativeUtterance(cleanText, options);
-          }
-        };
-
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn("HTML5 Audio play notice:", err);
-            if (thisToken === currentSpeechToken) {
-              speakNativeUtterance(cleanText, options);
-            }
-          });
+      audio.onended = () => {
+        cleanup();
+        if (thisToken === currentSpeechToken && options.onEnd) {
+          options.onEnd();
         }
-      } catch (e) {
+      };
+
+      audio.onerror = (e) => {
+        console.warn("[Neural Audio] Blob playback notice:", e);
+        cleanup();
+        // Try fallback to direct server stream URL
         if (thisToken === currentSpeechToken) {
-          speakNativeUtterance(cleanText, options);
+          playDirectStreamUrl();
         }
-      }
-    };
+      };
 
-    try {
-      playWithWebAudioOrHtmlAudio();
-    } catch (e) {
-      if (thisToken === currentSpeechToken) {
-        speakNativeUtterance(cleanText, options);
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("[Neural Audio] Play promise notice:", err);
+          cleanup();
+          if (thisToken === currentSpeechToken) {
+            playDirectStreamUrl();
+          }
+        });
       }
+    } catch (e) {
+      console.warn("[Neural Audio] Blob creation error:", e);
+      if (thisToken === currentSpeechToken) {
+        playDirectStreamUrl();
+      }
+    }
+  };
+
+  const playDirectStreamUrl = () => {
+    if (thisToken !== currentSpeechToken) return;
+    try {
+      const streamUrl = `/api/tts/stream?text=${encodeURIComponent(cleanText)}&gender=${encodeURIComponent(rawGender)}&personaId=${encodeURIComponent(personaId)}`;
+      const streamAudio = new Audio(streamUrl);
+      activeHtmlAudio = streamAudio;
+
+      streamAudio.onplay = () => {
+        if (thisToken !== currentSpeechToken) {
+          streamAudio.pause();
+          return;
+        }
+        if (options.onStart) options.onStart();
+      };
+
+      streamAudio.onended = () => {
+        if (activeHtmlAudio === streamAudio) activeHtmlAudio = null;
+        if (thisToken === currentSpeechToken && options.onEnd) {
+          options.onEnd();
+        }
+      };
+
+      streamAudio.onerror = () => {
+        if (activeHtmlAudio === streamAudio) activeHtmlAudio = null;
+        if (options.onError) options.onError();
+      };
+
+      const p = streamAudio.play();
+      if (p !== undefined) {
+        p.catch((err) => {
+          console.warn("[Neural Stream Audio] Stream play catch:", err);
+          if (activeHtmlAudio === streamAudio) activeHtmlAudio = null;
+          if (options.onError) options.onError(err);
+        });
+      }
+    } catch (err) {
+      if (options.onError) options.onError(err);
     }
   };
 
@@ -415,8 +420,8 @@ export async function speakSpeech(
     clientAudioCache.set(cacheKey, audioData);
     playAudioData(audioData);
   } else {
-    // Immediate fallback to speech synthesis to guarantee voice is heard under all conditions
-    speakNativeUtterance(cleanText, options);
+    // If API response had issues, stream directly via /api/tts/stream
+    playDirectStreamUrl();
   }
 }
 
@@ -634,9 +639,9 @@ export function speakNativeUtterance(
 export function speakEnglishUtterance(
   rawText: string,
   options: {
-    gender?: 'female' | 'male';
+    gender?: 'female' | 'male' | 'male-uk' | 'female-uk' | 'male-sales' | 'female-vibrant' | 'male-au' | 'female-au' | string;
     personaId?: string;
-    preferredLocale?: 'en-US' | 'en-GB';
+    preferredLocale?: 'en-US' | 'en-GB' | 'en-AU' | string;
     onStart?: () => void;
     onEnd?: () => void;
     onError?: (err?: any) => void;

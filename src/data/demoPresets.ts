@@ -510,6 +510,16 @@ export function generateSmartDemoData(businessQuery: string): Partial<DemoSiteDa
         { title: 'Traditional Straight Razor Shave', desc: 'Pre-shave essential oils, 3 hot steam towels, badger brush lather, and cooling aftershave balm.', price: '$40 Session', tag: 'Classic' },
         { title: 'Royal Scalp Detox & Face Steam', desc: 'Tea tree exfoliating scalp treatment, facial steam scrub, and pore tightening cold mask.', price: '$35 Add-on', tag: 'Spa' },
         { title: 'Father & Son VIP Combo Cut', desc: 'Side-by-side chair styling with complimentary beverages and styling pomade.', price: '$85 Duo', tag: 'Special' }
+      ],
+      reviews: [
+        { name: 'Marcus Vance', role: 'Executive Client', rating: 5, comment: 'Sharpest taper fade in town and Arthur booked my Friday evening slot in under 30 seconds!' },
+        { name: 'Derek Thorne', role: 'Regular Member', rating: 5, comment: 'Hot towel shave and beard sculpting are unmatched. Always consistent, professional, and on time.' },
+        { name: 'Julian Hayes', role: 'Verified Client', rating: 5, comment: 'Clean shop, great atmosphere, and zero waiting time. Best barbershop experience hands down.' }
+      ],
+      faqs: [
+        { q: 'Do you accept walk-ins or appointments only?', a: 'We accept walk-ins when available, but reserving your slot via our AI receptionist guarantees zero waiting room time.' },
+        { q: 'What is included in the Executive Fade & Beard package?', a: 'It includes custom hair consultation, precision fade, straight razor perimeter lineup, hot lather beard trim, and styling balm.' },
+        { q: 'Can I book for multiple people at once?', a: 'Yes! Our AI voice agent or online portal can schedule back-to-back or combo sessions for fathers, sons, and groups.' }
       ]
     };
   }
@@ -532,6 +542,16 @@ export function generateSmartDemoData(businessQuery: string): Partial<DemoSiteDa
         { title: 'Ultrasonic Dental Cleaning', desc: 'General anesthesia scaling, gum pocket treatment, polishing, and digital dental X-rays.', price: 'From $250', tag: 'Dental' },
         { title: '24/7 Urgent Emergency Surgery', desc: 'Immediate trauma stabilization, digital ultrasound, oxygen therapy, and soft-tissue surgery.', price: 'Immediate Intake', tag: 'Emergency' },
         { title: 'Laser Pain Relief Therapy', desc: 'Non-invasive photobiomodulation for arthritis, hip dysplasia, and rapid wound healing.', price: '$45 Session', tag: 'Therapy' }
+      ],
+      reviews: [
+        { name: 'Jessica Vance', role: 'Golden Retriever Mom', rating: 5, comment: 'Called at midnight in a panic when Milo ate chocolate. Zephyr triaged him calmly and had a room ready!' },
+        { name: 'Dr. Michael Chen', role: 'Dog Foster Care', rating: 5, comment: 'The most compassionate veterinarians in the state. Transparent fees and true fear-free handling.' },
+        { name: 'Rachel Gomez', role: 'Cat Owner', rating: 5, comment: 'They treat every pet like family. Clean surgical suite, kind technicians, and 24/7 peace of mind.' }
+      ],
+      faqs: [
+        { q: 'Do you accept emergency cases without prior notice?', a: 'Yes! Our emergency intake is open 24/7/365. You can call our AI concierge anytime so our trauma staff is prepped on arrival.' },
+        { q: 'Do you offer pet insurance direct billing or payment plans?', a: 'We work with all major pet insurance providers (Trupanion, Nationwide, Healthy Paws) and offer 0% APR CareCredit.' },
+        { q: 'How do you keep anxious dogs and cats calm?', a: 'We are 100% Fear-Free certified, featuring pheromone-infused waiting rooms, separate cat/dog entrances, and gentle handling techniques.' }
       ]
     };
   }
@@ -554,6 +574,16 @@ export function generateSmartDemoData(businessQuery: string): Partial<DemoSiteDa
         { title: 'Move-In / Move-Out Turnover', desc: 'Comprehensive deposit-back cleaning for tenants, landlords, and real estate staging.', price: 'Flat Rate Quote', tag: 'Turnover' },
         { title: 'Recurring Weekly / Bi-Weekly Maid', desc: 'Reliable dedicated cleaning team keeping your home pristine on autopilot.', price: 'Save 20% on Plans', tag: 'Recurring' },
         { title: 'Commercial Office & Medical Facility', desc: 'Nightly janitorial sanitation, trash removal, restroom stocking, and floor buffing.', price: 'Custom Bid', tag: 'Commercial' }
+      ],
+      reviews: [
+        { name: 'Katherine Lewis', role: 'Homeowner', rating: 5, comment: 'House smelled clean and fresh without chemical fumes. They even cleaned inside the oven and behind the fridge!' },
+        { name: 'Robert Tanaka', role: 'Property Manager', rating: 5, comment: 'They clean our 24 rental units between tenants. Flawless turnover inspection every single time.' },
+        { name: 'Samantha Ross', role: 'Bi-Weekly Client', rating: 5, comment: 'Having the same trusted crew every 2 weeks gives me my entire weekend back. Worth every penny!' }
+      ],
+      faqs: [
+        { q: 'Are your cleaning technicians background-checked and insured?', a: 'Yes, 100% of our staff undergo comprehensive background checks and are fully bonded and insured with $2M liability coverage.' },
+        { q: 'Do I need to supply cleaning products or vacuums?', a: 'No, our team arrives fully equipped with hospital-grade HEPA vacuums, microfiber systems, and plant-based non-toxic detergents.' },
+        { q: 'What happens if I am unsatisfied with a spot or room?', a: 'We offer an ironclad 24-Hour Clean Guarantee: notify us within 24 hours and a supervisor will return to re-clean the area free of charge.' }
       ]
     };
   }
@@ -580,6 +610,16 @@ export function generateSmartDemoData(businessQuery: string): Partial<DemoSiteDa
       { title: 'Priority Expedited Delivery & Support', desc: 'Accelerated turnaround with 24/7 direct communication and guaranteed milestone delivery.', price: 'Free Consultation', tag: 'Fast Track' },
       { title: 'Full-Service Maintenance & Retainer', desc: 'Proactive monitoring, regular optimizations, and zero-downtime preventative care.', price: 'Custom Quote', tag: 'Enterprise' },
       { title: 'Emergency On-Demand Dispatch', desc: 'Rapid response team deployed for urgent troubleshooting and mission-critical interventions.', price: 'Same-Day Slot', tag: 'Urgent' }
+    ],
+    reviews: [
+      { name: 'Sarah Jenkins', role: 'Verified Client', rating: 5, comment: `Called after business hours and ${formattedName}'s AI receptionist Arthur secured my priority appointment in under 1 minute!` },
+      { name: 'David Miller', role: 'Repeat Customer', rating: 5, comment: `Transparent pricing, zero waiting room delays, and genuine 24/7 responsiveness. Highly recommended.` },
+      { name: 'Elena Rostova', role: 'Managing Director', rating: 5, comment: `Exceeded all expectations with immaculate execution and professional communication from day one.` }
+    ],
+    faqs: [
+      { q: `How quickly can I be scheduled with ${formattedName}?`, a: `Our 24/7 AI Voice Concierge can instantly verify availability and secure a priority slot within 60 seconds.` },
+      { q: `What pricing and payment options are available?`, a: `We offer transparent upfront quotes, flexible payment schedules, and major card/invoice options with zero surprise fees.` },
+      { q: `Can I speak with a live representative directly?`, a: `Yes! You can speak directly to our AI voice concierge right here, or call our direct phone line anytime.` }
     ]
   };
 }

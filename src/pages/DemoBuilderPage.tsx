@@ -23,7 +23,17 @@ import {
   VolumeX,
   Play,
   Square,
-  UserCheck
+  UserCheck,
+  Star,
+  Plus,
+  Trash2,
+  HelpCircle,
+  DollarSign,
+  Flame,
+  Zap,
+  Mic,
+  Check,
+  X
 } from 'lucide-react';
 import { DemoSiteData, PRESETS, THEME_CONFIGS, generateSmartDemoData, Preset } from '../data/demoPresets';
 import { DemoWebsiteView } from '../components/demo/DemoWebsiteView';
@@ -138,10 +148,19 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Control Tab
-  const [activeControlTab, setActiveControlTab] = useState<'branding' | 'agent' | 'services' | 'trust' | 'presets'>('branding');
+  const [activeControlTab, setActiveControlTab] = useState<'branding' | 'agent' | 'services' | 'reviews' | 'faq' | 'trust' | 'presets'>('branding');
 
   // Main Demo Site Data State
   const [siteData, setSiteData] = useState<DemoSiteData>(() => {
+    // Check if custom data was previously saved
+    try {
+      const saved = localStorage.getItem('quorik_latest_custom_demo');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.companyName && parsed.services) return parsed;
+      }
+    } catch (e) {}
+
     const defaultPreset = PRESETS[0];
     return {
       companyName: defaultPreset.name,
@@ -162,12 +181,23 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
     };
   });
 
-  // AI Prompt Generator input
+  // Auto-save state to localStorage so updates are persisted immediately
+  useEffect(() => {
+    try {
+      const key = `quorik_custom_demo_${siteData.companyName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      localStorage.setItem(key, JSON.stringify(siteData));
+      localStorage.setItem('quorik_latest_custom_demo', JSON.stringify(siteData));
+    } catch (e) {}
+  }, [siteData]);
+
+  // AI Prompt Generator input & Call simulation signals
   const [aiPromptInput, setAiPromptInput] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isPlayingVoiceSample, setIsPlayingVoiceSample] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [autoStartCallSignal, setAutoStartCallSignal] = useState(0);
+  const [showPitchModal, setShowPitchModal] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -293,11 +323,132 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
         ...prev,
         ...generated,
         stats: generated.stats ? { ...generated.stats } : prev.stats,
-        services: generated.services ? [...generated.services] : prev.services
+        services: generated.services ? [...generated.services] : prev.services,
+        reviews: generated.reviews ? [...generated.reviews] : prev.reviews,
+        faqs: generated.faqs ? [...generated.faqs] : prev.faqs
       }));
       setIsAiGenerating(false);
       setAiPromptInput('');
     }, 400);
+  };
+
+  const applyPricingPreset = (presetType: 'local' | 'high-ticket' | 'retainer') => {
+    if (presetType === 'local') {
+      setSiteData(prev => ({
+        ...prev,
+        services: prev.services.map((s, idx) => ({
+          ...s,
+          price: idx === 0 ? '$99 Intake' : idx === 1 ? '$149 Standard' : idx === 2 ? 'Same-Day' : '$299 Premium'
+        }))
+      }));
+    } else if (presetType === 'high-ticket') {
+      setSiteData(prev => ({
+        ...prev,
+        services: prev.services.map((s, idx) => ({
+          ...s,
+          price: idx === 0 ? '$1,500 Package' : idx === 1 ? '$3,500 Full Suite' : idx === 2 ? 'Priority Expedited' : '$5,000 Advisory'
+        }))
+      }));
+    } else {
+      setSiteData(prev => ({
+        ...prev,
+        services: prev.services.map((s, idx) => ({
+          ...s,
+          price: idx === 0 ? '$49/mo Starter' : idx === 1 ? '$149/mo Pro' : idx === 2 ? '$299/mo Business' : 'Custom Enterprise'
+        }))
+      }));
+    }
+  };
+
+  const handleAddService = () => {
+    if (siteData.services.length >= 6) return;
+    const newService = {
+      title: 'VIP Dedicated Solution',
+      desc: 'High-touch personalized service tailored to client specific needs.',
+      price: '$299 Session',
+      tag: 'New'
+    };
+    setSiteData(prev => ({
+      ...prev,
+      services: [...prev.services, newService]
+    }));
+  };
+
+  const handleRemoveService = (index: number) => {
+    if (siteData.services.length <= 2) return;
+    setSiteData(prev => ({
+      ...prev,
+      services: prev.services.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddReview = () => {
+    if (siteData.reviews.length >= 6) return;
+    const newRev = {
+      name: 'Michael Sterling',
+      role: 'Verified Client',
+      rating: 5,
+      comment: `Incredible experience with ${siteData.companyName}. ${siteData.agentName} took care of my request immediately!`
+    };
+    setSiteData(prev => ({
+      ...prev,
+      reviews: [...prev.reviews, newRev]
+    }));
+  };
+
+  const handleRemoveReview = (index: number) => {
+    if (siteData.reviews.length <= 1) return;
+    setSiteData(prev => ({
+      ...prev,
+      reviews: prev.reviews.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleResetReviews = () => {
+    const defaultPreset = PRESETS.find(p => p.name.toLowerCase() === siteData.companyName.toLowerCase()) || PRESETS[0];
+    setSiteData(prev => ({
+      ...prev,
+      reviews: [...defaultPreset.reviews]
+    }));
+  };
+
+  const handleAddFaq = () => {
+    if (siteData.faqs.length >= 8) return;
+    const newFaq = {
+      q: `What makes ${siteData.companyName} different from competitors?`,
+      a: `We provide 24/7 dedicated responsiveness, transparent pricing upfront, and guaranteed quality on every service.`
+    };
+    setSiteData(prev => ({
+      ...prev,
+      faqs: [...prev.faqs, newFaq]
+    }));
+  };
+
+  const handleRemoveFaq = (index: number) => {
+    if (siteData.faqs.length <= 1) return;
+    setSiteData(prev => ({
+      ...prev,
+      faqs: prev.faqs.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleGenerateSmartFaqs = () => {
+    const generated = generateSmartDemoData(siteData.companyName);
+    if (generated.faqs && generated.faqs.length > 0) {
+      setSiteData(prev => ({
+        ...prev,
+        faqs: [...generated.faqs!]
+      }));
+    } else {
+      setSiteData(prev => ({
+        ...prev,
+        faqs: [
+          { q: `How soon can I schedule an appointment with ${siteData.companyName}?`, a: `Our 24/7 AI Voice Concierge ${siteData.agentName} can check real-time availability and confirm your reservation in under 60 seconds.` },
+          { q: `Do you provide upfront pricing or estimates?`, a: `Yes, we believe in 100% price transparency with zero surprise fees or hidden costs.` },
+          { q: `Can I speak with a specialist directly?`, a: `Yes! You can speak directly to our AI agent right now or call our hotline at ${siteData.phone}.` }
+        ]
+      }));
+    }
   };
 
   const getStandaloneDemoUrl = () => {
@@ -314,21 +465,20 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
     params.set('icon', siteData.logoIcon);
     params.set('maxCalls', siteData.maxCalls.toString());
 
-    if (siteData.services[0]) {
-      params.set('s1', siteData.services[0].title);
-      params.set('s1d', siteData.services[0].desc);
-      params.set('s1p', siteData.services[0].price);
-    }
-    if (siteData.services[1]) {
-      params.set('s2', siteData.services[1].title);
-      params.set('s2d', siteData.services[1].desc);
-      params.set('s2p', siteData.services[1].price);
-    }
-    if (siteData.services[2]) {
-      params.set('s3', siteData.services[2].title);
-      params.set('s3d', siteData.services[2].desc);
-      params.set('s3p', siteData.services[2].price);
-    }
+    // Encode all services
+    siteData.services.forEach((s, idx) => {
+      params.set(`s${idx + 1}`, s.title);
+      params.set(`s${idx + 1}d`, s.desc);
+      params.set(`s${idx + 1}p`, s.price);
+      if (s.tag) params.set(`s${idx + 1}t`, s.tag);
+    });
+
+    // Encode reviews, faqs, and stats
+    try {
+      params.set('reviews', JSON.stringify(siteData.reviews));
+      params.set('faqs', JSON.stringify(siteData.faqs));
+      params.set('stats', JSON.stringify(siteData.stats));
+    } catch (e) {}
 
     return `${window.location.origin}/client-demo?${params.toString()}`;
   };
@@ -436,6 +586,116 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
           </div>
         </div>
 
+        {/* URGENT CLIENT SHOWCASE & LIVE CALL LAUNCHPAD */}
+        <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-indigo-950/40 border-2 border-cyan-500/40 p-4 sm:p-5 rounded-2xl shadow-[0_0_30px_rgba(0,229,255,0.15)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">
+              <Mic className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-cyan-400">Live Client Showcase Ready</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  Agent Online: {siteData.agentName}
+                </span>
+              </div>
+              <p className="text-xs text-gray-200 font-medium mt-0.5">
+                Client on the line asking to test your voice receptionist? Launch an interactive test call in 1-click or grab your live pitch script.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
+            <button
+              onClick={() => setAutoStartCallSignal(prev => prev + 1)}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-black font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 transition-all shadow-lg active:scale-95"
+            >
+              <Phone className="w-4 h-4 fill-current" />
+              <span>Start Live Call in Preview</span>
+            </button>
+
+            <button
+              onClick={() => setShowPitchModal(true)}
+              className="px-3.5 py-2.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Client Pitch Script</span>
+            </button>
+
+            <button
+              onClick={copyShareableLink}
+              className="px-3.5 py-2.5 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedLink ? 'Link Copied!' : 'Copy Demo Link'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* PITCH CHEAT-SHEET MODAL */}
+        {showPitchModal && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#0A0E1A] border border-white/20 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl relative">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <Sparkles className="w-4 h-4" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-white">How to Close Your Client Right Now</h3>
+                </div>
+                <button
+                  onClick={() => setShowPitchModal(false)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3.5 text-xs text-gray-300">
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                  <span className="text-[10px] font-mono text-cyan-400 uppercase font-bold">Step 1: The Zero-Lag Greeting Hook</span>
+                  <p className="text-gray-200">
+                    Click <strong>"Start Live Call in Preview"</strong> and tell the client: <em>"Listen to how fast {siteData.agentName} picks up the call—under 800 milliseconds, sounding 100% human with zero robotic pause."</em>
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                  <span className="text-[10px] font-mono text-amber-400 uppercase font-bold">Step 2: Pricing & Services Handling</span>
+                  <p className="text-gray-200">
+                    Tell the client to ask: <em>"What are your prices?"</em> or <em>"Do you offer {siteData.services[0]?.title || 'emergency service'}?"</em>. {siteData.agentName} quotes your updated rates and answers objections accurately.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                  <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold">Step 3: Autonomous Booking Close</span>
+                  <p className="text-gray-200">
+                    Tell the client: <em>"Can you book me for tomorrow at 3 PM?"</em>. Watch as the AI captures caller name, phone number, and confirms the reservation without losing the lead to voicemail.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl">
+                  <div className="text-[11px] font-bold text-cyan-300">Winning Closer Line:</div>
+                  <p className="text-white italic mt-1">
+                    "Every missed phone call costs your business $300 to $1,500. We can turn on this exact voice receptionist and branded landing page for your company in 48 hours."
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    setShowPitchModal(false);
+                    setAutoStartCallSignal(prev => prev + 1);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-400 to-teal-400 text-black font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-1.5 shadow-lg"
+                >
+                  <Phone className="w-3.5 h-3.5 fill-current" />
+                  <span>Start Live Call Now</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MAIN SPLIT VIEW: BUILDER CONTROLS & LIVE WEBSITE PREVIEW */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
@@ -448,7 +708,7 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
                 onClick={() => setActiveControlTab('branding')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                   activeControlTab === 'branding' 
-                    ? 'bg-cyan-400 text-black' 
+                    ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/20' 
                     : 'text-gray-400 hover:text-white bg-white/5'
                 }`}
               >
@@ -459,7 +719,7 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
                 onClick={() => setActiveControlTab('agent')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                   activeControlTab === 'agent' 
-                    ? 'bg-cyan-400 text-black' 
+                    ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/20' 
                     : 'text-gray-400 hover:text-white bg-white/5'
                 }`}
               >
@@ -470,18 +730,40 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
                 onClick={() => setActiveControlTab('services')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                   activeControlTab === 'services' 
-                    ? 'bg-cyan-400 text-black' 
+                    ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/20' 
                     : 'text-gray-400 hover:text-white bg-white/5'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5" /> Services
+                <DollarSign className="w-3.5 h-3.5" /> Pricing & Services
+              </button>
+
+              <button
+                onClick={() => setActiveControlTab('reviews')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  activeControlTab === 'reviews' 
+                    ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/20' 
+                    : 'text-gray-400 hover:text-white bg-white/5'
+                }`}
+              >
+                <Star className="w-3.5 h-3.5" /> Reviews ({siteData.reviews.length})
+              </button>
+
+              <button
+                onClick={() => setActiveControlTab('faq')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  activeControlTab === 'faq' 
+                    ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/20' 
+                    : 'text-gray-400 hover:text-white bg-white/5'
+                }`}
+              >
+                <HelpCircle className="w-3.5 h-3.5" /> FAQ ({siteData.faqs.length})
               </button>
 
               <button
                 onClick={() => setActiveControlTab('trust')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                   activeControlTab === 'trust' 
-                    ? 'bg-cyan-400 text-black' 
+                    ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/20' 
                     : 'text-gray-400 hover:text-white bg-white/5'
                 }`}
               >
@@ -718,59 +1000,384 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
             {/* TAB 3: SERVICES & PRICING */}
             {activeControlTab === 'services' && (
               <div className="space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                  4 Core Services Customizer
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+                      Services & Pricing Rates Customizer
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Set custom pricing, package rates, tags, and service details.
+                    </p>
+                  </div>
+                  {siteData.services.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={handleAddService}
+                      className="px-2.5 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Service</span>
+                    </button>
+                  )}
                 </div>
 
-                {siteData.services.map((svc, idx) => (
-                  <div key={idx} className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-mono text-gray-400">
-                      <span>Service #0{idx + 1}</span>
-                      <input
-                        type="text"
-                        value={svc.price}
-                        onChange={(e) => {
-                          const updated = [...siteData.services];
-                          updated[idx].price = e.target.value;
-                          setSiteData({ ...siteData, services: updated });
-                        }}
-                        placeholder="Price (e.g. From $299)"
-                        className="bg-[#05060A] border border-white/10 rounded px-2 py-0.5 text-[10px] text-cyan-400 font-bold w-28 text-right"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={svc.title}
-                      onChange={(e) => {
-                        const updated = [...siteData.services];
-                        updated[idx].title = e.target.value;
-                        setSiteData({ ...siteData, services: updated });
-                      }}
-                      placeholder="Service Title"
-                      className="w-full bg-[#05060A] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      value={svc.desc}
-                      onChange={(e) => {
-                        const updated = [...siteData.services];
-                        updated[idx].desc = e.target.value;
-                        setSiteData({ ...siteData, services: updated });
-                      }}
-                      placeholder="Description"
-                      className="w-full bg-[#05060A] border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-300"
-                    />
+                {/* Quick Pricing Presets */}
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                  <div className="text-[10px] font-mono text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <DollarSign className="w-3 h-3 text-cyan-400" />
+                    <span>Quick Pricing Strategy Presets</span>
                   </div>
-                ))}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => applyPricingPreset('local')}
+                      className="p-1.5 text-center rounded-lg bg-white/5 hover:bg-cyan-500/20 text-gray-300 hover:text-cyan-300 border border-white/10 text-[10px] font-medium transition-all"
+                    >
+                      Local ($99-$299)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPricingPreset('high-ticket')}
+                      className="p-1.5 text-center rounded-lg bg-white/5 hover:bg-cyan-500/20 text-gray-300 hover:text-cyan-300 border border-white/10 text-[10px] font-medium transition-all"
+                    >
+                      High-Ticket ($1.5k+)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPricingPreset('retainer')}
+                      className="p-1.5 text-center rounded-lg bg-white/5 hover:bg-cyan-500/20 text-gray-300 hover:text-cyan-300 border border-white/10 text-[10px] font-medium transition-all"
+                    >
+                      Recurring Tier ($49-$299/mo)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Service Cards List */}
+                <div className="space-y-3">
+                  {siteData.services.map((svc, idx) => (
+                    <div key={idx} className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-gray-300">
+                          Service #0{idx + 1}
+                        </span>
+                        {siteData.services.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveService(idx)}
+                            className="p-1 text-gray-500 hover:text-rose-400 rounded transition-colors"
+                            title="Remove this service"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-mono text-gray-400 block mb-1">Service Title</label>
+                          <input
+                            type="text"
+                            value={svc.title}
+                            onChange={(e) => {
+                              const updated = [...siteData.services];
+                              updated[idx].title = e.target.value;
+                              setSiteData({ ...siteData, services: updated });
+                            }}
+                            placeholder="e.g. Comprehensive Dental Exam"
+                            className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-mono text-cyan-400 block mb-1">Price / Rate Display</label>
+                          <input
+                            type="text"
+                            value={svc.price}
+                            onChange={(e) => {
+                              const updated = [...siteData.services];
+                              updated[idx].price = e.target.value;
+                              setSiteData({ ...siteData, services: updated });
+                            }}
+                            placeholder="e.g. From $149, $1,500 Retainer"
+                            className="w-full bg-[#05060A] border border-cyan-500/30 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 font-bold focus:border-cyan-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] font-mono text-gray-400 block">Badge / Tag (Optional)</label>
+                          <span className="text-[9px] text-gray-500 font-mono">e.g. Popular, Same-Day, 24/7</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={svc.tag || ''}
+                          onChange={(e) => {
+                            const updated = [...siteData.services];
+                            updated[idx].tag = e.target.value;
+                            setSiteData({ ...siteData, services: updated });
+                          }}
+                          placeholder="e.g. Most Popular or Same-Day"
+                          className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1 text-xs text-amber-300 placeholder:text-gray-600 focus:border-cyan-400 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono text-gray-400 block mb-1">Description</label>
+                        <textarea
+                          rows={2}
+                          value={svc.desc}
+                          onChange={(e) => {
+                            const updated = [...siteData.services];
+                            updated[idx].desc = e.target.value;
+                            setSiteData({ ...siteData, services: updated });
+                          }}
+                          placeholder="Short summary of what is included in this service..."
+                          className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-300 focus:border-cyan-400 focus:outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* TAB 4: SOCIAL PROOF & STATS */}
+            {/* TAB 4: REVIEWS & TESTIMONIALS */}
+            {activeControlTab === 'reviews' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <span>Customer Reviews & Testimonials</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Edit verified reviews and 5-star ratings displayed on the demo website.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleResetReviews}
+                      className="px-2 py-1 text-gray-400 hover:text-white text-[10px] font-mono transition-colors"
+                      title="Reset to default reviews"
+                    >
+                      Reset
+                    </button>
+                    {siteData.reviews.length < 6 && (
+                      <button
+                        type="button"
+                        onClick={handleAddReview}
+                        className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Review</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Reviews List */}
+                <div className="space-y-3">
+                  {siteData.reviews.map((rev, idx) => (
+                    <div key={idx} className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono font-bold text-gray-300">
+                            Review #0{idx + 1}
+                          </span>
+                          
+                          {/* Star rating selector */}
+                          <div className="flex items-center gap-0.5 ml-2">
+                            {[1, 2, 3, 4, 5].map((starVal) => (
+                              <button
+                                key={starVal}
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...siteData.reviews];
+                                  updated[idx].rating = starVal;
+                                  setSiteData({ ...siteData, reviews: updated });
+                                }}
+                                className="p-0.5 text-amber-400 hover:scale-110 transition-transform"
+                                title={`Set rating to ${starVal} stars`}
+                              >
+                                <Star
+                                  className={`w-3.5 h-3.5 ${
+                                    starVal <= (rev.rating || 5)
+                                      ? 'fill-amber-400 text-amber-400'
+                                      : 'text-gray-600'
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                            <span className="text-[10px] font-mono text-amber-400 ml-1">
+                              {rev.rating || 5}.0
+                            </span>
+                          </div>
+                        </div>
+
+                        {siteData.reviews.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveReview(idx)}
+                            className="p-1 text-gray-500 hover:text-rose-400 rounded transition-colors"
+                            title="Remove this review"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-mono text-gray-400 block mb-1">Customer / Client Name</label>
+                          <input
+                            type="text"
+                            value={rev.name}
+                            onChange={(e) => {
+                              const updated = [...siteData.reviews];
+                              updated[idx].name = e.target.value;
+                              setSiteData({ ...siteData, reviews: updated });
+                            }}
+                            placeholder="e.g. Sarah Jenkins"
+                            className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white font-bold focus:border-cyan-400 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-mono text-gray-400 block mb-1">Role / Badge Label</label>
+                          <input
+                            type="text"
+                            value={rev.role || ''}
+                            onChange={(e) => {
+                              const updated = [...siteData.reviews];
+                              updated[idx].role = e.target.value;
+                              setSiteData({ ...siteData, reviews: updated });
+                            }}
+                            placeholder="e.g. Verified Patient, Homeowner"
+                            className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-emerald-300 focus:border-cyan-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono text-gray-400 block mb-1">Testimonial Comment</label>
+                        <textarea
+                          rows={2}
+                          value={rev.comment}
+                          onChange={(e) => {
+                            const updated = [...siteData.reviews];
+                            updated[idx].comment = e.target.value;
+                            setSiteData({ ...siteData, reviews: updated });
+                          }}
+                          placeholder="Write the customer's glowing review..."
+                          className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:border-cyan-400 focus:outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: FREQUENTLY ASKED QUESTIONS (FAQ) */}
+            {activeControlTab === 'faq' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      <span>Frequently Asked Questions (FAQ)</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Add common questions and answers. Used by the website accordion and voice agent.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateSmartFaqs}
+                      className="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all"
+                      title="Generate intelligent industry FAQs"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>AI FAQs</span>
+                    </button>
+                    {siteData.faqs.length < 8 && (
+                      <button
+                        type="button"
+                        onClick={handleAddFaq}
+                        className="px-2.5 py-1 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add FAQ</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* FAQ List */}
+                <div className="space-y-3">
+                  {siteData.faqs.map((faq, idx) => (
+                    <div key={idx} className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-teal-400">
+                          Question #0{idx + 1}
+                        </span>
+                        {siteData.faqs.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFaq(idx)}
+                            className="p-1 text-gray-500 hover:text-rose-400 rounded transition-colors"
+                            title="Remove this question"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          value={faq.q}
+                          onChange={(e) => {
+                            const updated = [...siteData.faqs];
+                            updated[idx].q = e.target.value;
+                            setSiteData({ ...siteData, faqs: updated });
+                          }}
+                          placeholder="e.g. How quickly can your team get started?"
+                          className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white font-medium focus:border-cyan-400 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <textarea
+                          rows={2}
+                          value={faq.a}
+                          onChange={(e) => {
+                            const updated = [...siteData.faqs];
+                            updated[idx].a = e.target.value;
+                            setSiteData({ ...siteData, faqs: updated });
+                          }}
+                          placeholder="Write the clear and concise answer..."
+                          className="w-full bg-[#05060A] border border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-300 focus:border-cyan-400 focus:outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 6: SOCIAL PROOF & STATS */}
             {activeControlTab === 'trust' && (
               <div className="space-y-4">
                 <div className="text-xs font-bold uppercase tracking-wider text-cyan-400">
                   Key Trust Proof Points & Metric Badges
                 </div>
+                <p className="text-[11px] text-gray-400">
+                  Configure numerical milestones that prove credibility to high-intent prospective customers.
+                </p>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
@@ -822,35 +1429,15 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
                   </div>
                 </div>
 
-                <div className="pt-2 text-xs font-bold uppercase tracking-wider text-amber-400">
-                  Featured Client Review
-                </div>
-                {siteData.reviews[0] && (
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                    <input
-                      type="text"
-                      value={siteData.reviews[0].name}
-                      onChange={(e) => {
-                        const updated = [...siteData.reviews];
-                        updated[0].name = e.target.value;
-                        setSiteData({ ...siteData, reviews: updated });
-                      }}
-                      placeholder="Reviewer Name"
-                      className="w-full bg-[#05060A] border border-white/10 rounded px-2.5 py-1 text-xs text-white font-bold"
-                    />
-                    <textarea
-                      rows={2}
-                      value={siteData.reviews[0].comment}
-                      onChange={(e) => {
-                        const updated = [...siteData.reviews];
-                        updated[0].comment = e.target.value;
-                        setSiteData({ ...siteData, reviews: updated });
-                      }}
-                      placeholder="Review Comment"
-                      className="w-full bg-[#05060A] border border-white/10 rounded px-2.5 py-1 text-xs text-gray-300"
-                    />
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
+                  <div className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Conversion Guarantee Badge</span>
                   </div>
-                )}
+                  <p className="text-[10px] text-gray-300">
+                    All demo sites include instant response metrics, verified reviews, and 24/7 AI availability guarantees automatically embedded.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -893,7 +1480,7 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
 
               {/* RENDERED CLIENT WEBSITE */}
               <div className="max-h-[850px] overflow-y-auto">
-                <DemoWebsiteView data={siteData} />
+                <DemoWebsiteView data={siteData} autoStartCallSignal={autoStartCallSignal} />
               </div>
 
             </div>

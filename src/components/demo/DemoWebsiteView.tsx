@@ -45,12 +45,14 @@ interface DemoWebsiteViewProps {
   data: DemoSiteData;
   onCallStateChange?: (active: boolean) => void;
   isStandalone?: boolean;
+  autoStartCallSignal?: number;
 }
 
 export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   data,
   onCallStateChange,
-  isStandalone = false
+  isStandalone = false,
+  autoStartCallSignal
 }) => {
   const theme = THEME_CONFIGS[data.theme] || THEME_CONFIGS.teal;
 
@@ -190,6 +192,12 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       speakText(greeting);
     }
   };
+
+  useEffect(() => {
+    if (autoStartCallSignal && autoStartCallSignal > 0) {
+      startCall();
+    }
+  }, [autoStartCallSignal]);
 
   const endCall = () => {
     clearSpeechEngine();

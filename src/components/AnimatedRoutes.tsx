@@ -22,6 +22,7 @@ import { TermsOfServicePage } from '../pages/TermsOfServicePage';
 import { WelcomePage } from '../pages/WelcomePage';
 import { PartnershipPage } from '../pages/PartnershipPage';
 import { TeamPage } from '../pages/TeamPage';
+import { DemoBuilderPage } from '../pages/DemoBuilderPage';
 
 const PageWrapper = ({ children }: { children: ReactNode }) => (
   <motion.div
@@ -56,9 +57,9 @@ export function AnimatedRoutes() {
         <Route path="/blog" element={<PageWrapper><Blog /></PageWrapper>} />
         <Route path="/blog/:id" element={<PageWrapper><BlogPostPage /></PageWrapper>} />
         <Route path="/voice-agent" element={<PageWrapper><VoiceAgentPage /></PageWrapper>} />
-        <Route path="/demo-builder" element={<Navigate to="/admin" replace />} />
-        <Route path="/custom-demo" element={<Navigate to="/admin" replace />} />
-        <Route path="/demo" element={<Navigate to="/admin" replace />} />
+        <Route path="/demo-builder" element={<PageWrapper><DemoBuilderPage /></PageWrapper>} />
+        <Route path="/custom-demo" element={<PageWrapper><DemoBuilderPage /></PageWrapper>} />
+        <Route path="/demo" element={<PageWrapper><DemoBuilderPage /></PageWrapper>} />
         <Route path="/client-demo" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />
         <Route path="/preview-demo" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />
         <Route path="/client-preview" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />

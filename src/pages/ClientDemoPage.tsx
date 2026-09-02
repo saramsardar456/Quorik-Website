@@ -39,7 +39,44 @@ export function ClientDemoPage() {
   const matchedPreset = PRESETS.find(p => p.name.toLowerCase() === companyName.toLowerCase());
   const fallbackData = generateSmartDemoData(companyName);
 
-  const services = [
+  // Check if custom data was passed in URL or saved in localStorage
+  const savedDemoKey = `quorik_custom_demo_${companyName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  const localSavedData: Partial<DemoSiteData> | null = (() => {
+    try {
+      const item = localStorage.getItem(savedDemoKey) || localStorage.getItem('quorik_latest_custom_demo');
+      return item ? JSON.parse(item) : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  // Parse custom reviews if provided in searchParams
+  let customReviews: any = null;
+  if (searchParams.get('reviews')) {
+    try {
+      customReviews = JSON.parse(searchParams.get('reviews')!);
+    } catch (e) {}
+  }
+
+  // Parse custom faqs if provided in searchParams
+  let customFaqs: any = null;
+  if (searchParams.get('faqs')) {
+    try {
+      customFaqs = JSON.parse(searchParams.get('faqs')!);
+    } catch (e) {}
+  }
+
+  // Parse custom services if provided in searchParams
+  let customServicesParam: any = null;
+  if (searchParams.get('services')) {
+    try {
+      customServicesParam = JSON.parse(searchParams.get('services')!);
+    } catch (e) {}
+  }
+
+  const isMatchingSaved = localSavedData && (localSavedData.companyName?.toLowerCase() === companyName.toLowerCase() || !searchParams.get('name'));
+
+  const services = customServicesParam || (isMatchingSaved && localSavedData?.services?.length ? localSavedData.services : [
     {
       title: searchParams.get('s1') || matchedPreset?.services[0]?.title || fallbackData.services?.[0]?.title || 'Core Premium Service',
       desc: searchParams.get('s1d') || matchedPreset?.services[0]?.desc || fallbackData.services?.[0]?.desc || 'Comprehensive diagnosis and dedicated care.',
@@ -64,7 +101,7 @@ export function ClientDemoPage() {
       price: searchParams.get('s4p') || matchedPreset?.services[3]?.price || fallbackData.services?.[3]?.price || 'Save 20%',
       tag: 'Maintenance'
     }
-  ];
+  ]);
 
   const siteData: DemoSiteData = {
     companyName,
@@ -78,7 +115,7 @@ export function ClientDemoPage() {
     theme,
     logoIcon,
     maxCalls,
-    stats: matchedPreset?.stats || fallbackData.stats || {
+    stats: (isMatchingSaved && localSavedData?.stats) || matchedPreset?.stats || fallbackData.stats || {
       stat1Label: 'Client Satisfaction',
       stat1Val: '99.4%',
       stat2Label: 'Emergency Slots',
@@ -87,16 +124,16 @@ export function ClientDemoPage() {
       stat3Val: '10,000+'
     },
     services,
-    reviews: matchedPreset?.reviews || [
+    reviews: customReviews || (isMatchingSaved && localSavedData?.reviews?.length ? localSavedData.reviews : (matchedPreset?.reviews || fallbackData.reviews || [
       { name: 'Sarah Jenkins', role: 'Verified Client', rating: 5, comment: `Called late in the evening and ${agentName} scheduled my appointment right away. Remarkable experience!` },
       { name: 'David Miller', role: 'Repeat Customer', rating: 5, comment: `Painless from start to finish. ${companyName} delivers world-class service.` },
       { name: 'Elena Rostova', role: 'Executive Client', rating: 5, comment: `Transparent pricing, zero waiting room delay, and genuine 24/7 responsiveness.` }
-    ],
-    faqs: matchedPreset?.faqs || [
+    ])),
+    faqs: customFaqs || (isMatchingSaved && localSavedData?.faqs?.length ? localSavedData.faqs : (matchedPreset?.faqs || fallbackData.faqs || [
       { q: `How quickly can I be scheduled at ${companyName}?`, a: `Our 24/7 AI Voice Concierge can instantly secure a priority slot within minutes.` },
       { q: `What payment and insurance options do you accept?`, a: `We accept all major payment methods, financing options, and flexible installment plans.` },
       { q: `Can I speak with a representative directly?`, a: `Yes! Speak with our AI receptionist above or call our main hotline anytime.` }
-    ]
+    ]))
   };
 
   // Demo Call Limit Safeguard

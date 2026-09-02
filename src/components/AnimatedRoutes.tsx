@@ -61,6 +61,8 @@ export function AnimatedRoutes() {
         <Route path="/custom-demo" element={<PageWrapper><DemoBuilderPage /></PageWrapper>} />
         <Route path="/demo" element={<PageWrapper><DemoBuilderPage /></PageWrapper>} />
         <Route path="/client-demo" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />
+        <Route path="/client-demo/:id" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />
+        <Route path="/d/:id" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />
         <Route path="/preview-demo" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />
         <Route path="/client-preview" element={<PageWrapper><ClientDemoPage /></PageWrapper>} />
         <Route path="/pricing" element={<PageWrapper><PricingPage /></PageWrapper>} />

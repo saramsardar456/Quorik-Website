@@ -16,7 +16,10 @@ import { Preloader } from './components/Preloader';
 
 function AppContent() {
   const location = useLocation();
-  const isClientDemo = location.pathname === '/client-demo' || location.pathname === '/preview-demo' || location.pathname === '/client-preview';
+  const isClientDemo = location.pathname.startsWith('/client-demo') || 
+                       location.pathname.startsWith('/preview-demo') || 
+                       location.pathname.startsWith('/client-preview') || 
+                       location.pathname.startsWith('/d/');
 
   if (isClientDemo) {
     return (

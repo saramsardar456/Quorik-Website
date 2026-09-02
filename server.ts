@@ -226,6 +226,9 @@ const partnerApplications: PartnerApplication[] = [];
 // Custom team member uploaded images map (memberId -> image url or base64)
 const teamImages: Record<string, string> = {};
 
+// Saved client demo portals map (slug -> DemoSiteData)
+const savedDemos: Record<string, any> = {};
+
 function saveStore() {
   try {
     const data = {
@@ -237,7 +240,8 @@ function saveStore() {
       testimonials,
       clientAccounts,
       partnerApplications,
-      teamImages
+      teamImages,
+      savedDemos
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
@@ -259,6 +263,9 @@ function loadStore() {
       if (data.teamImages && typeof data.teamImages === 'object') {
         Object.assign(teamImages, data.teamImages);
       }
+      if (data.savedDemos && typeof data.savedDemos === 'object') {
+        Object.assign(savedDemos, data.savedDemos);
+      }
       if (Array.isArray(data.clientAccounts) && data.clientAccounts.length > 0) { 
         clientAccounts.length = 0; 
         // Keep only real clients, strip out any legacy mock dummy data (client-1, client-2, etc.)
@@ -276,6 +283,75 @@ function loadStore() {
       console.error("Failed to read data_store.json:", err);
     }
   }
+
+  // Seed Leicester Roof Repairs LTD demo if not already stored
+  const leicesterData = {
+    companyName: 'Leicester Roof Repairs LTD',
+    tagline: 'Domestic & Commercial Roofing Services, based in Birstall, Leicester, operating throughout the UK',
+    heroSubtext: 'With more than 50 years of combined experience, Leicester Roof Repairs has built a reputation for reliability, transparency and delivering the highest quality work to excellent standards for commercial & residential clients.',
+    agentName: 'Arthur',
+    gender: 'male-uk',
+    phone: '+44 116 4560001',
+    location: '50 Brabazon Road, Oadby, Leicester, England, LE2 5HD',
+    hours: 'Mon-Sat: Open 24 Hours',
+    theme: 'teal',
+    logoIcon: 'hvac',
+    maxCalls: 10,
+    stats: {
+      stat1Label: 'Home Owner Satisfaction',
+      stat1Val: '99.4%',
+      stat2Label: 'Emergency Slots',
+      stat2Val: 'Same-Day',
+      stat3Label: 'Home Owner Treated',
+      stat3Val: '14,200+'
+    },
+    services: [
+      {
+        title: 'Roof inspection',
+        desc: 'A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem.',
+        price: 'Custom',
+        tag: 'Urgent'
+      },
+      {
+        title: 'Roof repair',
+        desc: 'Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently.',
+        price: 'Custom',
+        tag: 'Most Popular'
+      }
+    ],
+    reviews: [
+      {
+        name: 'Sam Frost',
+        role: 'Verified Client',
+        rating: 5,
+        comment: 'Mac and his team did an outstanding job fixing my roof. From the very beginning, Mac communicated with me at every stage and was completely open and honest about the problems that needed fixing. He gave me options across different price brackets and never pressured me, instead giving me the time and space to decide what was best for me.'
+      },
+      {
+        name: 'Caurtney Keating-Rogers',
+        role: 'Verified Client',
+        rating: 5,
+        comment: 'Just had my old ridge tiles replaced with dry ridge tiles. Really happy with the work carried out. From start to finish, communication was excellent and they kept me informed throughout. The team were friendly, polite, professional, and worked hard to get the job done to a high standard. My new dry ridge system looks great, and the price was very reasonable too. I wouldn\'t hesitate to recommend them to anyone looking for a reliable roofing company.'
+      },
+      {
+        name: 'F Muggeridge',
+        role: 'Verified Client',
+        rating: 5,
+        comment: 'Mac and his team were amazing from first contact to the job being done. We can’t believe how quick the process was and the customer service was fantastic.'
+      }
+    ],
+    faqs: [
+      {
+        q: 'Do you accept Roof inspection?',
+        a: 'A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem.'
+      },
+      {
+        q: 'How quickly you do Roof repair ?',
+        a: 'Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently.'
+      }
+    ]
+  };
+  savedDemos['leicester-roof'] = savedDemos['leicester-roof'] || leicesterData;
+  savedDemos['leicester-roof-repairs'] = savedDemos['leicester-roof-repairs'] || leicesterData;
 
   // Ensure quorik-google-ads client is present as the primary client
   const existingQuorik = clientAccounts.find(c => c.id === 'quorik-google-ads');
@@ -761,6 +837,55 @@ async function startServer() {
       res.json({ token });
     } else {
       res.status(401).json({ error: "Invalid password" });
+    }
+  });
+
+  // --- Demo Short URL and Persistence Endpoints ---
+  app.get("/d/:slug", (req, res) => {
+    const slug = req.params.slug;
+    res.redirect(302, `/client-demo?id=${encodeURIComponent(slug)}`);
+  });
+
+  app.get("/api/demo/:id", (req, res) => {
+    const id = (req.params.id || "").toLowerCase().trim();
+    if (savedDemos[id]) {
+      return res.json({ success: true, data: savedDemos[id] });
+    }
+    // Also try finding by companyName slug match
+    for (const [key, val] of Object.entries(savedDemos)) {
+      if (key.toLowerCase() === id || (val as any)?.companyName?.toLowerCase().replace(/[^a-z0-9]/g, '-') === id) {
+        return res.json({ success: true, data: val });
+      }
+    }
+    res.status(404).json({ error: "Demo not found" });
+  });
+
+  app.post("/api/demo/shorten", (req, res) => {
+    try {
+      const { data, customSlug } = req.body;
+      if (!data || !data.companyName) {
+        return res.status(400).json({ error: "companyName and data are required" });
+      }
+      let slug = customSlug
+        ? customSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+        : data.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+      
+      if (!slug) slug = 'demo-' + Math.random().toString(36).substring(2, 8);
+
+      savedDemos[slug] = data;
+      saveStore();
+
+      const host = req.get('x-forwarded-host') || req.get('host');
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+
+      res.json({
+        success: true,
+        id: slug,
+        shortPath: `/d/${slug}`,
+        shortUrl: `${protocol}://${host}/d/${slug}`
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to shorten demo URL" });
     }
   });
 

@@ -137,6 +137,73 @@ export const THEME_CONFIGS: Record<string, {
 
 export const PRESETS: Preset[] = [
   {
+    id: 'leicester-roof',
+    name: 'Leicester Roof Repairs LTD',
+    industry: 'Roofing Services',
+    tagline: 'Domestic & Commercial Roofing Services, based in Birstall, Leicester, operating throughout the UK',
+    heroSubtext: 'With more than 50 years of combined experience, Leicester Roof Repairs has built a reputation for reliability, transparency and delivering the highest quality work to excellent standards for commercial & residential clients.',
+    agentName: 'Arthur',
+    gender: 'male-uk',
+    icon: 'hvac',
+    theme: 'teal',
+    phone: '+44 116 4560001',
+    location: '50 Brabazon Road, Oadby, Leicester, England, LE2 5HD',
+    hours: 'Mon-Sat: Open 24 Hours',
+    maxCalls: 10,
+    stats: {
+      stat1Label: 'Home Owner Satisfaction',
+      stat1Val: '99.4%',
+      stat2Label: 'Emergency Slots',
+      stat2Val: 'Same-Day',
+      stat3Label: 'Home Owner Treated',
+      stat3Val: '14,200+'
+    },
+    services: [
+      {
+        title: 'Roof inspection',
+        desc: 'A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem.',
+        price: 'Custom',
+        tag: 'Urgent'
+      },
+      {
+        title: 'Roof repair',
+        desc: 'Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently.',
+        price: 'Custom',
+        tag: 'Most Popular'
+      }
+    ],
+    reviews: [
+      {
+        name: 'Sam Frost',
+        role: 'Verified Client',
+        rating: 5,
+        comment: 'Mac and his team did an outstanding job fixing my roof. From the very beginning, Mac communicated with me at every stage and was completely open and honest about the problems that needed fixing. He gave me options across different price brackets and never pressured me, instead giving me the time and space to decide what was best for me.'
+      },
+      {
+        name: 'Caurtney Keating-Rogers',
+        role: 'Verified Client',
+        rating: 5,
+        comment: 'Just had my old ridge tiles replaced with dry ridge tiles. Really happy with the work carried out. From start to finish, communication was excellent and they kept me informed throughout. The team were friendly, polite, professional, and worked hard to get the job done to a high standard. My new dry ridge system looks great, and the price was very reasonable too. I wouldn\'t hesitate to recommend them to anyone looking for a reliable roofing company.'
+      },
+      {
+        name: 'F Muggeridge',
+        role: 'Verified Client',
+        rating: 5,
+        comment: 'Mac and his team were amazing from first contact to the job being done. We can’t believe how quick the process was and the customer service was fantastic.'
+      }
+    ],
+    faqs: [
+      {
+        q: 'Do you accept Roof inspection?',
+        a: 'A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem.'
+      },
+      {
+        q: 'How quickly you do Roof repair ?',
+        a: 'Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently.'
+      }
+    ]
+  },
+  {
     id: 'dental',
     name: 'Apex Dental Studio',
     industry: 'Dental & Healthcare',

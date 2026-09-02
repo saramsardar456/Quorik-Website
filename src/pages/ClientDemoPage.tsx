@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useParams, Link } from 'react-router-dom';
 import { SEO } from '../components/SEO';
 import { 
   Building2, 
@@ -21,22 +21,47 @@ import { DemoWebsiteView } from '../components/demo/DemoWebsiteView';
 
 export function ClientDemoPage() {
   const [searchParams] = useSearchParams();
+  const { id } = useParams<{ id?: string }>();
 
-  // Parse Site Data from URL parameters
-  const companyName = searchParams.get('name') || 'Apex Dental Studio';
-  const tagline = searchParams.get('tagline') || 'Painless General, Cosmetic & Implant Dentistry with 5-Star Comfort';
-  const heroSubtext = searchParams.get('subtext') || `Experience modern, anxiety-free care with ${companyName}. Speak with our 24/7 AI Concierge to get instant price quotes or book your appointment.`;
-  const agentName = searchParams.get('agent') || 'Arthur';
-  const gender = searchParams.get('gender') || 'male';
-  const phone = searchParams.get('phone') || '+1 (800) 450-DENT';
-  const location = searchParams.get('location') || 'Metropolitan Center';
-  const hours = searchParams.get('hours') || 'Mon-Sat: 8:00 AM - 7:00 PM | 24/7 AI Hotline';
-  const theme = (searchParams.get('theme') as any) || 'teal';
-  const logoIcon = searchParams.get('icon') || 'dental';
-  const maxCalls = parseInt(searchParams.get('maxCalls') || '5', 10);
+  // Determine active identifier (route param /d/:id, or query params id, slug, preset)
+  const routeOrQueryId = id || searchParams.get('id') || searchParams.get('slug') || searchParams.get('preset') || '';
+  const paramName = searchParams.get('name') || '';
 
-  // Match preset or auto-generate fallback services
-  const matchedPreset = PRESETS.find(p => p.name.toLowerCase() === companyName.toLowerCase());
+  // Remote data state (if loaded dynamically via /api/demo/:id)
+  const [remoteDemoData, setRemoteDemoData] = useState<DemoSiteData | null>(null);
+
+  // Match preset first
+  const matchedPreset = PRESETS.find(p => 
+    (routeOrQueryId && (p.id.toLowerCase() === routeOrQueryId.toLowerCase() || p.name.toLowerCase() === routeOrQueryId.toLowerCase() || p.id.replace(/-/g, '') === routeOrQueryId.toLowerCase().replace(/-/g, ''))) ||
+    (paramName && p.name.toLowerCase() === paramName.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (routeOrQueryId && !matchedPreset) {
+      fetch(`/api/demo/${encodeURIComponent(routeOrQueryId)}`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && json.data) {
+            setRemoteDemoData(json.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [routeOrQueryId, matchedPreset]);
+
+  // Parse Site Data from URL parameters or preset or remote
+  const companyName = searchParams.get('name') || remoteDemoData?.companyName || matchedPreset?.name || 'Apex Dental Studio';
+  const tagline = searchParams.get('tagline') || remoteDemoData?.tagline || matchedPreset?.tagline || 'Painless General, Cosmetic & Implant Dentistry with 5-Star Comfort';
+  const heroSubtext = searchParams.get('subtext') || remoteDemoData?.heroSubtext || matchedPreset?.heroSubtext || `Experience modern, anxiety-free care with ${companyName}. Speak with our 24/7 AI Concierge to get instant price quotes or book your appointment.`;
+  const agentName = searchParams.get('agent') || remoteDemoData?.agentName || matchedPreset?.agentName || 'Arthur';
+  const gender = searchParams.get('gender') || remoteDemoData?.gender || matchedPreset?.gender || 'male';
+  const phone = searchParams.get('phone') || remoteDemoData?.phone || matchedPreset?.phone || '+1 (800) 450-DENT';
+  const location = searchParams.get('location') || remoteDemoData?.location || matchedPreset?.location || 'Metropolitan Center';
+  const hours = searchParams.get('hours') || remoteDemoData?.hours || matchedPreset?.hours || 'Mon-Sat: 8:00 AM - 7:00 PM | 24/7 AI Hotline';
+  const theme = (searchParams.get('theme') as any) || remoteDemoData?.theme || matchedPreset?.theme || 'teal';
+  const logoIcon = searchParams.get('icon') || remoteDemoData?.logoIcon || matchedPreset?.icon || 'dental';
+  const maxCalls = parseInt(searchParams.get('maxCalls') || (remoteDemoData?.maxCalls ? String(remoteDemoData.maxCalls) : '') || (matchedPreset?.maxCalls ? String(matchedPreset.maxCalls) : '') || '10', 10);
+
   const fallbackData = generateSmartDemoData(companyName);
 
   // Check if custom data was passed in URL or saved in localStorage
@@ -76,29 +101,29 @@ export function ClientDemoPage() {
 
   const isMatchingSaved = localSavedData && (localSavedData.companyName?.toLowerCase() === companyName.toLowerCase() || !searchParams.get('name'));
 
-  const services = customServicesParam || (isMatchingSaved && localSavedData?.services?.length ? localSavedData.services : [
+  const services = remoteDemoData?.services || customServicesParam || (isMatchingSaved && localSavedData?.services?.length ? localSavedData.services : matchedPreset?.services || [
     {
-      title: searchParams.get('s1') || matchedPreset?.services[0]?.title || fallbackData.services?.[0]?.title || 'Core Premium Service',
-      desc: searchParams.get('s1d') || matchedPreset?.services[0]?.desc || fallbackData.services?.[0]?.desc || 'Comprehensive diagnosis and dedicated care.',
-      price: searchParams.get('s1p') || matchedPreset?.services[0]?.price || fallbackData.services?.[0]?.price || 'From $299',
+      title: searchParams.get('s1') || fallbackData.services?.[0]?.title || 'Core Premium Service',
+      desc: searchParams.get('s1d') || fallbackData.services?.[0]?.desc || 'Comprehensive diagnosis and dedicated care.',
+      price: searchParams.get('s1p') || fallbackData.services?.[0]?.price || 'From $299',
       tag: 'Featured'
     },
     {
-      title: searchParams.get('s2') || matchedPreset?.services[1]?.title || fallbackData.services?.[1]?.title || 'Restorative Treatment & Consultation',
-      desc: searchParams.get('s2d') || matchedPreset?.services[1]?.desc || fallbackData.services?.[1]?.desc || 'Advanced technology with customized progress tracking.',
-      price: searchParams.get('s2p') || matchedPreset?.services[1]?.price || fallbackData.services?.[1]?.price || 'Free Exam',
+      title: searchParams.get('s2') || fallbackData.services?.[1]?.title || 'Restorative Treatment & Consultation',
+      desc: searchParams.get('s2d') || fallbackData.services?.[1]?.desc || 'Advanced technology with customized progress tracking.',
+      price: searchParams.get('s2p') || fallbackData.services?.[1]?.price || 'Free Exam',
       tag: 'Popular'
     },
     {
-      title: searchParams.get('s3') || matchedPreset?.services[2]?.title || fallbackData.services?.[2]?.title || '24/7 Urgent Emergency Dispatch',
-      desc: searchParams.get('s3d') || matchedPreset?.services[2]?.desc || fallbackData.services?.[2]?.desc || 'Immediate relief and same-day priority intervention.',
-      price: searchParams.get('s3p') || matchedPreset?.services[2]?.price || fallbackData.services?.[2]?.price || 'Same-Day',
+      title: searchParams.get('s3') || fallbackData.services?.[2]?.title || '24/7 Urgent Emergency Dispatch',
+      desc: searchParams.get('s3d') || fallbackData.services?.[2]?.desc || 'Immediate relief and same-day priority intervention.',
+      price: searchParams.get('s3p') || fallbackData.services?.[2]?.price || 'Same-Day',
       tag: 'Urgent'
     },
     {
-      title: searchParams.get('s4') || matchedPreset?.services[3]?.title || fallbackData.services?.[3]?.title || 'Full Maintenance & Checkup Plan',
-      desc: searchParams.get('s4d') || matchedPreset?.services[3]?.desc || fallbackData.services?.[3]?.desc || 'Complete ongoing support and zero-downtime preventative care.',
-      price: searchParams.get('s4p') || matchedPreset?.services[3]?.price || fallbackData.services?.[3]?.price || 'Save 20%',
+      title: searchParams.get('s4') || fallbackData.services?.[3]?.title || 'Full Maintenance & Checkup Plan',
+      desc: searchParams.get('s4d') || fallbackData.services?.[3]?.desc || 'Complete ongoing support and zero-downtime preventative care.',
+      price: searchParams.get('s4p') || fallbackData.services?.[3]?.price || 'Save 20%',
       tag: 'Maintenance'
     }
   ]);
@@ -115,7 +140,7 @@ export function ClientDemoPage() {
     theme,
     logoIcon,
     maxCalls,
-    stats: (isMatchingSaved && localSavedData?.stats) || matchedPreset?.stats || fallbackData.stats || {
+    stats: remoteDemoData?.stats || (isMatchingSaved && localSavedData?.stats) || matchedPreset?.stats || fallbackData.stats || {
       stat1Label: 'Client Satisfaction',
       stat1Val: '99.4%',
       stat2Label: 'Emergency Slots',
@@ -124,12 +149,12 @@ export function ClientDemoPage() {
       stat3Val: '10,000+'
     },
     services,
-    reviews: customReviews || (isMatchingSaved && localSavedData?.reviews?.length ? localSavedData.reviews : (matchedPreset?.reviews || fallbackData.reviews || [
+    reviews: remoteDemoData?.reviews || customReviews || (isMatchingSaved && localSavedData?.reviews?.length ? localSavedData.reviews : (matchedPreset?.reviews || fallbackData.reviews || [
       { name: 'Sarah Jenkins', role: 'Verified Client', rating: 5, comment: `Called late in the evening and ${agentName} scheduled my appointment right away. Remarkable experience!` },
       { name: 'David Miller', role: 'Repeat Customer', rating: 5, comment: `Painless from start to finish. ${companyName} delivers world-class service.` },
       { name: 'Elena Rostova', role: 'Executive Client', rating: 5, comment: `Transparent pricing, zero waiting room delay, and genuine 24/7 responsiveness.` }
     ])),
-    faqs: customFaqs || (isMatchingSaved && localSavedData?.faqs?.length ? localSavedData.faqs : (matchedPreset?.faqs || fallbackData.faqs || [
+    faqs: remoteDemoData?.faqs || customFaqs || (isMatchingSaved && localSavedData?.faqs?.length ? localSavedData.faqs : (matchedPreset?.faqs || fallbackData.faqs || [
       { q: `How quickly can I be scheduled at ${companyName}?`, a: `Our 24/7 AI Voice Concierge can instantly secure a priority slot within minutes.` },
       { q: `What payment and insurance options do you accept?`, a: `We accept all major payment methods, financing options, and flexible installment plans.` },
       { q: `Can I speak with a representative directly?`, a: `Yes! Speak with our AI receptionist above or call our main hotline anytime.` }
@@ -157,7 +182,9 @@ export function ClientDemoPage() {
   const [showAgencyBanner, setShowAgencyBanner] = useState(true);
 
   const copyDemoUrl = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const cleanSlug = routeOrQueryId || matchedPreset?.id || (companyName ? companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) : '');
+    const cleanUrl = cleanSlug ? `${window.location.origin}/d/${cleanSlug}` : window.location.href;
+    navigator.clipboard.writeText(cleanUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };

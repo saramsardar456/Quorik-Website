@@ -194,6 +194,8 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
   const [aiPromptInput, setAiPromptInput] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedWhatsApp, setCopiedWhatsApp] = useState(false);
+  const [isShortening, setIsShortening] = useState(false);
   const [isPlayingVoiceSample, setIsPlayingVoiceSample] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [autoStartCallSignal, setAutoStartCallSignal] = useState(0);
@@ -483,10 +485,72 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
     return `${window.location.origin}/client-demo?${params.toString()}`;
   };
 
-  const copyShareableLink = () => {
-    navigator.clipboard.writeText(getStandaloneDemoUrl());
+  const getShortSlug = () => {
+    const matched = PRESETS.find(p => p.name.toLowerCase() === siteData.companyName.toLowerCase() || p.id === siteData.companyName.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+    if (matched) return matched.id;
+    return siteData.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'demo';
+  };
+
+  const copyShareableLink = async () => {
+    setIsShortening(true);
+    let finalUrl = '';
+    try {
+      const matched = PRESETS.find(p => p.name.toLowerCase() === siteData.companyName.toLowerCase() || p.id === siteData.companyName.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+      if (matched) {
+        finalUrl = `${window.location.origin}/d/${matched.id}`;
+      } else {
+        const res = await fetch('/api/demo/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: siteData })
+        });
+        const data = await res.json();
+        if (data.success && (data.shortUrl || data.shortPath)) {
+          finalUrl = data.shortUrl || `${window.location.origin}${data.shortPath}`;
+        }
+      }
+    } catch (e) {} finally {
+      setIsShortening(false);
+    }
+
+    if (!finalUrl) {
+      finalUrl = `${window.location.origin}/d/${getShortSlug()}`;
+    }
+
+    navigator.clipboard.writeText(finalUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  const copyWhatsAppLink = async () => {
+    setIsShortening(true);
+    let finalUrl = '';
+    try {
+      const matched = PRESETS.find(p => p.name.toLowerCase() === siteData.companyName.toLowerCase() || p.id === siteData.companyName.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+      if (matched) {
+        finalUrl = `${window.location.origin}/d/${matched.id}`;
+      } else {
+        const res = await fetch('/api/demo/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: siteData })
+        });
+        const data = await res.json();
+        if (data.success && (data.shortUrl || data.shortPath)) {
+          finalUrl = data.shortUrl || `${window.location.origin}${data.shortPath}`;
+        }
+      }
+    } catch (e) {} finally {
+      setIsShortening(false);
+    }
+
+    if (!finalUrl) {
+      finalUrl = `${window.location.origin}/d/${getShortSlug()}`;
+    }
+
+    navigator.clipboard.writeText(finalUrl);
+    setCopiedWhatsApp(true);
+    setTimeout(() => setCopiedWhatsApp(false), 3000);
   };
 
   return (
@@ -515,14 +579,26 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={copyShareableLink}
+              disabled={isShortening}
               className="px-4 py-2.5 bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl text-xs font-bold text-white flex items-center gap-2 transition-all shadow-lg"
+              title="Copy clean short link (e.g. /d/leicester-roof)"
             >
               {copiedLink ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-cyan-400" />}
-              <span>{copiedLink ? 'Link Copied to Clipboard!' : 'Copy Client Demo Link'}</span>
+              <span>{copiedLink ? 'Short Link Copied!' : isShortening ? 'Generating Short Link...' : 'Copy Short Demo Link'}</span>
+            </button>
+
+            <button
+              onClick={copyWhatsAppLink}
+              disabled={isShortening}
+              className="px-4 py-2.5 bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/40 rounded-xl text-xs font-bold text-[#25D366] flex items-center gap-2 transition-all shadow-lg"
+              title="Copy clean link formatted for WhatsApp messaging"
+            >
+              {copiedWhatsApp ? <CheckCircle2 className="w-4 h-4 text-[#25D366]" /> : <MessageSquare className="w-4 h-4 text-[#25D366]" />}
+              <span>{copiedWhatsApp ? 'WhatsApp Link Copied!' : 'WhatsApp Short Link'}</span>
             </button>
 
             <a
-              href={getStandaloneDemoUrl()}
+              href={`/d/${getShortSlug()}`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2.5 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-black font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,229,255,0.3)]"

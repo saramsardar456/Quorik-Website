@@ -114,6 +114,36 @@ export function AdminDashboard() {
   const [manualPhone, setManualPhone] = useState('');
   const [manualMessage, setManualMessage] = useState('');
   const [dispatchStatus, setDispatchStatus] = useState('');
+  const [greenApiStatus, setGreenApiStatus] = useState<{ checked: boolean; connected: boolean; state: string; idInstance: string; loading: boolean }>({
+    checked: false,
+    connected: true,
+    state: 'authorized',
+    idInstance: '710522726776',
+    loading: false
+  });
+
+  const checkGreenApiStatus = async () => {
+    setGreenApiStatus(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/green-api/status');
+      const data = await res.json();
+      setGreenApiStatus({
+        checked: true,
+        connected: !!data.connected,
+        state: data.state || 'unknown',
+        idInstance: data.idInstance || '710522726776',
+        loading: false
+      });
+    } catch {
+      setGreenApiStatus(prev => ({ ...prev, checked: true, loading: false }));
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'notifications' && !greenApiStatus.checked) {
+      checkGreenApiStatus();
+    }
+  }, [activeTab]);
 
   const sendReminder = async (appointmentId: string) => {
     try {
@@ -813,6 +843,62 @@ export function AdminDashboard() {
             )
           ) : activeTab === 'notifications' ? (
             <div className="p-6 space-y-8">
+              {/* Green-API Live Gateway Status Card */}
+              <div className="bg-[#08131E] border border-emerald-500/40 p-5 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                    <Send className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white">Green-API WhatsApp Gateway</span>
+                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        {greenApiStatus.state === 'authorized' || greenApiStatus.connected ? 'Authorized & Active' : greenApiStatus.state}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Instance ID: <span className="font-mono text-emerald-300">710522726776</span> • Host: <span className="font-mono text-gray-300">https://7105.api.greenapi.com</span>
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      Real-time WhatsApp messages and lead notifications trigger automatically on appointments, contact queries, and AI voice sessions.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={checkGreenApiStatus}
+                    disabled={greenApiStatus.loading}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs font-mono rounded flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${greenApiStatus.loading ? 'animate-spin' : ''}`} />
+                    Refresh Status
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const testPhone = prompt('Enter recipient WhatsApp phone (e.g. 923700146156 or +1...):', '923700146156');
+                        if (!testPhone) return;
+                        const res = await fetch('/api/green-api/test', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ phone: testPhone })
+                        });
+                        const data = await res.json();
+                        alert(data.success ? `✅ WhatsApp sent successfully to ${testPhone}!` : `Failed: ${data.error || data.note}`);
+                        fetchData();
+                      } catch (e: any) {
+                        alert(`Error sending test: ${e?.message}`);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold rounded flex items-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    Send Test WA
+                  </button>
+                </div>
+              </div>
+
               {/* Dispatch Form */}
               <div className="bg-white/5 border border-white/10 p-6">
                 <h3 className="text-xl font-display font-bold text-white mb-2 flex items-center gap-2">

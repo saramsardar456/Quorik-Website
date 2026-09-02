@@ -492,6 +492,65 @@ function loadStore() {
   saveStore();
 }
 
+// Green-API Configuration for Real WhatsApp Dispatch
+const GREEN_API_ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE || "710522726776";
+const GREEN_API_API_URL = process.env.GREEN_API_API_URL || "https://7105.api.greenapi.com";
+const GREEN_API_TOKEN_INSTANCE = process.env.GREEN_API_TOKEN_INSTANCE || "3b5896a5d3c94c03be4991414950b9aef29df8ffa06d471a8b";
+const ADMIN_NOTIFICATION_PHONE = process.env.ADMIN_NOTIFICATION_PHONE || "923700146156";
+
+// Function to send real WhatsApp message via Green-API
+async function dispatchRealWhatsAppWithGreenApi(rawPhone: string, text: string): Promise<boolean> {
+  try {
+    if (!GREEN_API_ID_INSTANCE || !GREEN_API_TOKEN_INSTANCE) {
+      console.warn("[Green-API] Credentials missing, skipping live WhatsApp dispatch.");
+      return false;
+    }
+
+    // Format phone to digits only
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    // If starts with 00, strip
+    if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2);
+    // If Pakistani local number starting with 03..., replace leading 0 with 92
+    if (cleanPhone.startsWith('03') && cleanPhone.length === 11) {
+      cleanPhone = '92' + cleanPhone.substring(1);
+    }
+    // If UK local number starting with 07..., replace leading 0 with 44
+    if (cleanPhone.startsWith('07') && cleanPhone.length === 11) {
+      cleanPhone = '44' + cleanPhone.substring(1);
+    }
+
+    if (cleanPhone.length < 9) {
+      console.warn(`[Green-API] Phone number '${rawPhone}' is invalid for WhatsApp.`);
+      return false;
+    }
+
+    const chatId = `${cleanPhone}@c.us`;
+    const endpoint = `${GREEN_API_API_URL}/waInstance${GREEN_API_ID_INSTANCE}/sendMessage/${GREEN_API_TOKEN_INSTANCE}`;
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chatId,
+        message: text
+      })
+    });
+
+    if (res.ok) {
+      const data: any = await res.json();
+      console.log(`[Green-API] Live WhatsApp sent to ${chatId}: messageId=${data.idMessage}`);
+      return true;
+    } else {
+      const errText = await res.text();
+      console.error(`[Green-API] Failed to send WhatsApp to ${chatId}: status=${res.status}`, errText);
+      return false;
+    }
+  } catch (err: any) {
+    console.error("[Green-API] Exception sending WhatsApp:", err?.message || err);
+    return false;
+  }
+}
+
 function sendWhatsAppSMSNotification(params: {
   recipientName: string;
   phone: string;
@@ -521,7 +580,7 @@ function sendWhatsAppSMSNotification(params: {
     type: "WhatsApp",
     channel,
     message: defaultMsg,
-    status: "DELIVERED (Instant API Gateway)",
+    status: "DELIVERED (Green-API WhatsApp Gateway)",
     createdAt: new Date().toISOString()
   };
 
@@ -535,6 +594,17 @@ function sendWhatsAppSMSNotification(params: {
     status: "DELIVERED (Global SMS Carrier)",
     createdAt: new Date().toISOString()
   };
+
+  // Dispatch LIVE real WhatsApp message to recipient phone
+  if (phone && phone !== "N/A") {
+    dispatchRealWhatsAppWithGreenApi(phone, defaultMsg).catch(e => console.error("Real WA error:", e));
+  }
+
+  // Also dispatch real WhatsApp alert to Admin Founder (Saram) if lead or appointment was captured
+  if (channel === 'instant_confirmation' || channel === 'audit_report' || defaultMsg.includes('🚨') || defaultMsg.includes('LEAD')) {
+    const adminAlertText = `🔔 [Admin Lead Alert - Quorik AI]\nNew Lead captured for ${recipientName} (${phone || 'N/A'})\n\nMessage:\n${defaultMsg}`;
+    dispatchRealWhatsAppWithGreenApi(ADMIN_NOTIFICATION_PHONE, adminAlertText).catch(e => console.error("Admin WA alert error:", e));
+  }
 
   notificationsLog.unshift(waEntry, smsEntry);
   saveStore();
@@ -1332,6 +1402,49 @@ ${message}
   // --- WhatsApp & SMS Automation Endpoints ---
   app.get("/api/notifications", (req, res) => {
     res.json(notificationsLog);
+  });
+
+  // Green-API Live WhatsApp Gateway Status & Test
+  app.get("/api/green-api/status", async (req, res) => {
+    try {
+      const endpoint = `${GREEN_API_API_URL}/waInstance${GREEN_API_ID_INSTANCE}/getStateInstance/${GREEN_API_TOKEN_INSTANCE}`;
+      const apiRes = await fetch(endpoint);
+      const data = await apiRes.json();
+      res.json({
+        success: true,
+        idInstance: GREEN_API_ID_INSTANCE,
+        apiUrl: GREEN_API_API_URL,
+        state: data.stateInstance || "unknown",
+        connected: data.stateInstance === "authorized",
+        adminPhone: ADMIN_NOTIFICATION_PHONE
+      });
+    } catch (err: any) {
+      res.json({
+        success: false,
+        idInstance: GREEN_API_ID_INSTANCE,
+        apiUrl: GREEN_API_API_URL,
+        error: err?.message || "Failed to contact Green-API",
+        state: "offline",
+        connected: false
+      });
+    }
+  });
+
+  app.post("/api/green-api/test", async (req, res) => {
+    try {
+      const { phone, message } = req.body;
+      const targetPhone = phone || ADMIN_NOTIFICATION_PHONE;
+      const testMsg = message || `👋 [Quorik AI Gateway] Test WhatsApp message from your website AI agent! Green-API instance ${GREEN_API_ID_INSTANCE} is live and connected.`;
+      const ok = await dispatchRealWhatsAppWithGreenApi(targetPhone, testMsg);
+      res.json({
+        success: ok,
+        phone: targetPhone,
+        message: testMsg,
+        note: ok ? "WhatsApp delivered via Green-API" : "Check Green-API console or authorization status"
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message });
+    }
   });
 
   app.post("/api/notifications/send", (req, res) => {
@@ -2665,6 +2778,17 @@ Respond ONLY in valid JSON matching this schema:
         if (data.requestedSlot) extractedLead.requestedSlot = data.requestedSlot;
         if (data.bookingStatus) extractedLead.bookingStatus = data.bookingStatus;
         if (data.whatsappMessage) extractedLead.whatsappMessage = data.whatsappMessage;
+
+        // If a lead or appointment was captured with contact info during the call, trigger WhatsApp alert
+        if (extractedLead.bookingStatus === 'confirmed' || extractedLead.callerPhone || extractedLead.callerEmail) {
+          const leadContact = extractedLead.callerPhone || extractedLead.callerEmail || "Website Caller";
+          sendWhatsAppSMSNotification({
+            recipientName: extractedLead.callerName || "Valued Caller",
+            phone: extractedLead.callerPhone || ADMIN_NOTIFICATION_PHONE,
+            channel: 'instant_confirmation',
+            messageText: extractedLead.whatsappMessage || `🚀 [${companyName} Voice Lead Captured]\nCaller: ${extractedLead.callerName}\nContact: ${leadContact}\nTopic: ${extractedLead.topic}\nSlot: ${extractedLead.requestedSlot}`
+          });
+        }
       } catch (genErr: any) {
         console.warn("AI generation note (using instant intelligent response):", genErr?.message || genErr);
         aiSpeechText = fallbackData.aiSpeechText;

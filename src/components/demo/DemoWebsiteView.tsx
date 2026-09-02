@@ -439,9 +439,26 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     }
   };
 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBookingSubmitted(true);
+
+    // Trigger instant WhatsApp & SMS dispatch through the server's Green-API integration
+    try {
+      await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientName: bookingName,
+          phone: bookingPhone,
+          channel: 'instant_confirmation',
+          messageText: `📲 [${data.companyName} Confirmation] Hi ${bookingName}! Your appointment for "${bookingService}" (${bookingDate || 'Priority Slot'}) is registered. Our team will contact you shortly!`
+        })
+      });
+    } catch (err) {
+      console.warn('Booking notification trigger notice:', err);
+    }
+
     setTimeout(() => {
       setBookingSubmitted(false);
       setBookingName('');

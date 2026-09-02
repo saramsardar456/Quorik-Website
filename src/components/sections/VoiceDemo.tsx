@@ -97,6 +97,10 @@ export function VoiceDemo({
   const silenceTimerRef = useRef<any>(null);
   const callGreetingTimerRef = useRef<any>(null);
   const simCallAbortControllerRef = useRef<AbortController | null>(null);
+  const isProcessingRef = useRef<boolean>(false);
+  const lastSentTextRef = useRef<string>('');
+  const lastSentTimeRef = useRef<number>(0);
+  const hasSentMicRef = useRef<boolean>(false);
 
   const getActiveName = () => {
     if (activePersonaId === 'uk-refined') return selectedGender === 'female' ? 'Clara' : 'Oliver';
@@ -208,7 +212,31 @@ export function VoiceDemo({
     stopAllSpeech();
     unlockAudio();
     let textToSend = (customMessage || userCallerInput).trim();
-    if (!textToSend || isAiThinking) return;
+    if (!textToSend) return;
+
+    // Concurrency & Duplicate Check: prevent double questions and rapid re-triggers
+    const now = Date.now();
+    if (isProcessingRef.current) {
+      return;
+    }
+    if (textToSend.toLowerCase() === lastSentTextRef.current.toLowerCase() && (now - lastSentTimeRef.current) < 2500) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+    lastSentTextRef.current = textToSend;
+    lastSentTimeRef.current = now;
+
+    // Immediately stop mic listening & cancel pending silence timer
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    hasSentMicRef.current = true;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+    setIsRecordingMic(false);
 
     // Normalize common speech-to-text acoustic mishearings for founder queries
     if (
@@ -223,6 +251,7 @@ export function VoiceDemo({
 
     if (simCallAbortControllerRef.current) {
       try { simCallAbortControllerRef.current.abort(); } catch (e) {}
+      simCallAbortControllerRef.current = null;
     }
 
     setUserCallerInput('');
@@ -255,6 +284,10 @@ export function VoiceDemo({
       clearTimeout(timeoutId);
       if (simCallAbortControllerRef.current === controller) {
         simCallAbortControllerRef.current = null;
+      }
+
+      if (controller.signal.aborted) {
+        return;
       }
 
       const contentType = response.headers.get('content-type');
@@ -295,8 +328,14 @@ export function VoiceDemo({
       if (simCallAbortControllerRef.current === controller) {
         simCallAbortControllerRef.current = null;
       }
-      console.warn("AI turn error fallback:", err?.message || err);
       setIsAiThinking(false);
+
+      // If aborted, do NOT append fallback or speak!
+      if (controller.signal.aborted || err?.name === 'AbortError') {
+        return;
+      }
+
+      console.warn("AI turn error fallback:", err?.message || err);
       const aiTimeStr = `00:${String(updatedMessages.length * 6 + 6).padStart(2, '0')}`;
       const allText = updatedMessages.map(m => m.text).join(" ").toLowerCase();
       const lowerQuery = textToSend.toLowerCase();
@@ -371,6 +410,7 @@ export function VoiceDemo({
       speakText(fallbackAi);
     } finally {
       setIsAiThinking(false);
+      isProcessingRef.current = false;
     }
   };
 
@@ -388,7 +428,8 @@ export function VoiceDemo({
         try { recognitionRef.current.stop(); } catch(e){}
       }
       setIsRecordingMic(false);
-      if (userCallerInput.trim()) {
+      if (userCallerInput.trim() && !hasSentMicRef.current) {
+        hasSentMicRef.current = true;
         handleSendCallerTurn(userCallerInput);
       }
       return;
@@ -401,7 +442,14 @@ export function VoiceDemo({
       recognition.continuous = true;
       recognition.interimResults = true;
 
-      recognition.onstart = () => setIsRecordingMic(true);
+      hasSentMicRef.current = false;
+      let speechTranscript = '';
+
+      recognition.onstart = () => {
+        setIsRecordingMic(true);
+        hasSentMicRef.current = false;
+        speechTranscript = '';
+      };
 
       recognition.onresult = (event: any) => {
         let finalChunk = '';
@@ -417,18 +465,20 @@ export function VoiceDemo({
         }
         const accumulatedText = (finalChunk + interimChunk).trim();
         if (accumulatedText) {
+          speechTranscript = accumulatedText;
           setUserCallerInput(accumulatedText);
         }
 
-        // Generous 1.8s silence window so natural pauses between words are NOT truncated
+        // Generous silence window so natural pauses between words are NOT truncated
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          if (accumulatedText) {
+          if (accumulatedText && !hasSentMicRef.current) {
+            hasSentMicRef.current = true;
             try { recognition.stop(); } catch(e){}
             setIsRecordingMic(false);
             handleSendCallerTurn(accumulatedText);
           }
-        }, 1800);
+        }, 1500);
       };
 
       recognition.onerror = (e: any) => {
@@ -437,6 +487,10 @@ export function VoiceDemo({
       };
       recognition.onend = () => {
         setIsRecordingMic(false);
+        if (speechTranscript && !hasSentMicRef.current) {
+          hasSentMicRef.current = true;
+          handleSendCallerTurn(speechTranscript);
+        }
       };
 
       recognition.start();

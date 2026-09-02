@@ -83,6 +83,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   const audioFallbackRef = useRef<HTMLAudioElement | null>(null);
   const callConsoleRef = useRef<HTMLDivElement | null>(null);
   const demoAbortControllerRef = useRef<AbortController | null>(null);
+  const isProcessingRef = useRef<boolean>(false);
+  const lastSentTextRef = useRef<string>('');
+  const lastSentTimeRef = useRef<number>(0);
+  const hasSentMicTranscriptRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -218,10 +222,36 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   const handleSendQuery = async (queryText?: string) => {
     unlockAudio();
     const textToSend = (queryText || userQueryInput).trim();
-    if (!textToSend || isAiThinking) return;
+    if (!textToSend) return;
+
+    // Concurrency & Duplicate Check: prevent double questions and rapid re-triggers
+    const now = Date.now();
+    if (isProcessingRef.current) {
+      return;
+    }
+    // Check duplicate query within 2.5s window
+    if (textToSend.toLowerCase() === lastSentTextRef.current.toLowerCase() && (now - lastSentTimeRef.current) < 2500) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+    lastSentTextRef.current = textToSend;
+    lastSentTimeRef.current = now;
+
+    // Immediately cancel pending silence timer & stop recognition so onend will not double send
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    hasSentMicTranscriptRef.current = true;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+    setIsRecordingMic(false);
 
     if (demoAbortControllerRef.current) {
       try { demoAbortControllerRef.current.abort(); } catch (e) {}
+      demoAbortControllerRef.current = null;
     }
 
     // Ensure call is active
@@ -237,8 +267,8 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     // Stop previous speech cleanly so new answer plays fresh
     clearSpeechEngine();
 
-    const now = new Date();
-    const userTimeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const nowDate = new Date();
+    const userTimeStr = nowDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Append user query to transcript
     setSimMessages(prev => [...prev, { sender: 'user', text: textToSend, time: userTimeStr }]);
@@ -269,7 +299,9 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
             services: data.services.map(s => `${s.title} (${s.price}): ${s.desc}`),
             location: data.location,
             hours: data.hours,
-            phone: data.phone
+            phone: data.phone,
+            faqs: data.faqs?.map(f => `Q: ${f.q} A: ${f.a}`),
+            reviews: data.reviews?.map(r => `${r.name}: "${r.comment}"`)
           }
         })
       });
@@ -277,6 +309,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       clearTimeout(timeoutId);
       if (demoAbortControllerRef.current === controller) {
         demoAbortControllerRef.current = null;
+      }
+
+      if (controller.signal.aborted) {
+        return;
       }
 
       const contentType = res.headers.get('content-type');
@@ -308,10 +344,18 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
         demoAbortControllerRef.current = null;
       }
       setIsAiThinking(false);
+
+      // If aborted, do NOT generate a fallback response or speak!
+      if (controller.signal.aborted || err?.name === 'AbortError') {
+        return;
+      }
+
       const fallback = `Thank you for asking! For ${data.companyName}, we provide ${data.services[0]?.title || 'premier services'} starting at ${data.services[0]?.price || 'competitive rates'}. Would you like me to reserve an appointment for you?`;
       const aiTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setSimMessages(prev => [...prev, { sender: 'ai', text: fallback, time: aiTimeStr }]);
       speakText(fallback);
+    } finally {
+      isProcessingRef.current = false;
     }
   };
 
@@ -321,11 +365,21 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       return;
     }
 
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
     if (isRecordingMic) {
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch(e){}
       }
       setIsRecordingMic(false);
+      // If user manually stopped mic and there is recorded text that wasn't dispatched yet:
+      if (userQueryInput.trim() && !hasSentMicTranscriptRef.current) {
+        hasSentMicTranscriptRef.current = true;
+        handleSendQuery(userQueryInput.trim());
+      }
       return;
     }
 
@@ -337,10 +391,12 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       recognition.continuous = true;
       recognition.interimResults = true;
 
+      hasSentMicTranscriptRef.current = false;
       let accumulatedTranscript = '';
 
       recognition.onstart = () => {
         setIsRecordingMic(true);
+        hasSentMicTranscriptRef.current = false;
       };
 
       recognition.onresult = (event: any) => {
@@ -355,12 +411,13 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          if (accumulatedTranscript) {
+          if (accumulatedTranscript && !hasSentMicTranscriptRef.current) {
+            hasSentMicTranscriptRef.current = true;
             try { recognition.stop(); } catch(e){}
             setIsRecordingMic(false);
             handleSendQuery(accumulatedTranscript);
           }
-        }, 1800);
+        }, 1500);
       };
 
       recognition.onerror = () => {
@@ -369,7 +426,9 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
       recognition.onend = () => {
         setIsRecordingMic(false);
-        if (accumulatedTranscript && !simMessages.some(m => m.sender === 'user' && m.text === accumulatedTranscript)) {
+        // Only trigger if silence timer did NOT already send it
+        if (accumulatedTranscript && !hasSentMicTranscriptRef.current) {
+          hasSentMicTranscriptRef.current = true;
           handleSendQuery(accumulatedTranscript);
         }
       };

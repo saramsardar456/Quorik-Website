@@ -2151,15 +2151,17 @@ IMPORTANT CARD TRIGGER RULES:
       const { personaId, gender, userQuery, scenario, conversationHistory, customCompany } = req.body;
 
       let normalizedUserQuery = (userQuery || "").trim();
-      // Normalize common speech-to-text mishearings for founder queries
-      if (
-        /th\s*(?:ouyr|our|your|ur)?\s*(?:oundrr|founder|foundr|fownder)/i.test(normalizedUserQuery) ||
-        /(?:who(?:'s| is)?\s+(?:the|your|ur)?\s*(?:oundrr|founder|foundr|fownder|ceo|c\.e\.o\.|owner|boss|creator|lead))/i.test(normalizedUserQuery) ||
-        /(?:who\s+(?:started|founded|created|built|made)\s*(?:quorik|korik|this|company)?)/i.test(normalizedUserQuery) ||
-        /(?:tell\s+me\s+about\s+(?:the|your)?\s*(?:founder|ceo|shehram))/i.test(normalizedUserQuery) ||
-        /(?:shehram\s+meellu|shehram\s+melu|shehram)/i.test(normalizedUserQuery)
-      ) {
-        normalizedUserQuery = "Who is the founder and CEO of Quorik?";
+      // Normalize common speech-to-text mishearings for founder queries only when not a custom company
+      if (!customCompany?.name) {
+        if (
+          /th\s*(?:ouyr|our|your|ur)?\s*(?:oundrr|founder|foundr|fownder)/i.test(normalizedUserQuery) ||
+          /(?:who(?:'s| is)?\s+(?:the|your|ur)?\s*(?:oundrr|founder|foundr|fownder|ceo|c\.e\.o\.|owner|boss|creator|lead))/i.test(normalizedUserQuery) ||
+          /(?:who\s+(?:started|founded|created|built|made)\s*(?:quorik|korik|this|company)?)/i.test(normalizedUserQuery) ||
+          /(?:tell\s+me\s+about\s+(?:the|your)?\s*(?:founder|ceo|shehram))/i.test(normalizedUserQuery) ||
+          /(?:shehram\s+meellu|shehram\s+melu|shehram)/i.test(normalizedUserQuery)
+        ) {
+          normalizedUserQuery = "Who is the founder and CEO of Quorik?";
+        }
       }
 
       const apiKey = process.env.GEMINI_API_KEY;
@@ -2219,10 +2221,16 @@ When the caller asks about pricing or costs, provide these transparent package p
       if (customCompany?.name) {
         personaName = customCompany?.agentName || (gender === 'female' ? 'Zephyr' : 'Arthur');
         const customFounderText = customCompany?.founder
-          ? `Founder & Leadership: ${customCompany.name} is founded and led by ${customCompany.founder}, specializing in premier client services.`
-          : `Leadership: ${customCompany.name} is led by our experienced executive and specialist team.`;
+          ? `Founder, Owner & Leadership: ${customCompany.name} is founded and led by ${customCompany.founder}, who heads our specialist team.`
+          : `Leadership & Ownership: ${customCompany.name} is proudly owned and operated by our experienced local specialist management team.`;
         const locationText = customCompany?.location ? `Location: ${customCompany.location}` : '';
         const hoursText = customCompany?.hours ? `Hours: ${customCompany.hours}` : '';
+        const faqsText = customCompany?.faqs && Array.isArray(customCompany.faqs) && customCompany.faqs.length > 0
+          ? `Frequently Asked Questions:\n${customCompany.faqs.join('\n')}`
+          : '';
+        const reviewsText = customCompany?.reviews && Array.isArray(customCompany.reviews) && customCompany.reviews.length > 0
+          ? `Customer Reviews & Social Proof:\n${customCompany.reviews.join('\n')}`
+          : '';
 
         systemPersonaInstruction = `You are ${personaName}, the 24/7 AI Voice Concierge & Receptionist for "${companyName}".
 Tone: Professional, warm, articulate, and welcoming.
@@ -2232,12 +2240,13 @@ Company Details:
 - ${locationText}
 - ${hoursText}
 - ${customFounderText}
-
+${faqsText ? `- ${faqsText}\n` : ''}${reviewsText ? `- ${reviewsText}\n` : ''}
 RULES:
 1. Speak concisely in natural spoken English (1-2 sentences max).
 2. When asked about pricing or services, quote the specific services and rates provided above.
 3. When asked about location or business hours, provide the location and hours clearly.
-4. When asked to schedule an appointment, ask for their preferred day/time and contact details politely.
+4. When asked about the owner, founder, or leadership, state the leadership and ownership details clearly.
+5. When asked to schedule an appointment, ask for their preferred day/time and contact details politely.
 ${consultationBookingRules}`;
       } else if (personaId === 'uk-refined') {
         personaName = gender === 'female' ? 'Clara' : 'Arthur';
@@ -2334,12 +2343,53 @@ Respond ONLY in valid JSON matching this schema:
           };
         }
 
-        // Founder query
-        if (currentLower.includes('founder') || currentLower.includes('ceo') || currentLower.includes('who founded') || currentLower.includes('who owns') || currentLower.includes('who built') || currentLower.includes('doctor') || currentLower.includes('lawyer')) {
+        // Check if query matches any custom company FAQ
+        if (customCompany?.faqs && Array.isArray(customCompany.faqs)) {
+          for (const faq of customCompany.faqs) {
+            const faqStr = typeof faq === 'string' ? faq : '';
+            const qMatch = faqStr.match(/^Q:\s*(.*?)\s*A:\s*(.*)$/i);
+            if (qMatch) {
+              const question = qMatch[1].toLowerCase();
+              const answer = qMatch[2];
+              const queryTokens = currentLower.split(/\s+/).filter(t => t.length > 3);
+              const matchesCount = queryTokens.filter(t => question.includes(t)).length;
+              if (matchesCount >= 2 || (queryTokens.length > 0 && queryTokens.some(t => question.includes(t)))) {
+                return {
+                  aiSpeechText: `${answer} Would you like me to reserve an appointment for you today?`,
+                  callerName,
+                  callerEmail,
+                  callerPhone,
+                  requestedSlot: requestedSlot || 'Pending Slot Selection',
+                  topic: 'FAQ & Service Details',
+                  bookingStatus: 'inquiry_only',
+                  missingFields: ['name', 'time', 'email', 'phone'],
+                  whatsappMessage: `ℹ️ FAQ INQUIRY: Visitor asked about: "${qMatch[1]}" for ${cName}.`
+                };
+              }
+            }
+          }
+        }
+
+        // Founder / Owner / Leadership query
+        if (
+          currentLower.includes('founder') || 
+          currentLower.includes('ceo') || 
+          currentLower.includes('owner') ||
+          currentLower.includes('who owns') || 
+          currentLower.includes('who founded') || 
+          currentLower.includes('who runs') || 
+          currentLower.includes('who built') || 
+          currentLower.includes('leadership') ||
+          currentLower.includes('management') ||
+          currentLower.includes('director') ||
+          currentLower.includes('boss') ||
+          currentLower.includes('doctor') || 
+          currentLower.includes('lawyer')
+        ) {
           const founderResponse = customCompany?.founder
-            ? `${cName} was founded and is led by ${customCompany.founder}, dedicated to 5-star client satisfaction. Would you like me to book a consultation for you?`
+            ? `${cName} is founded and owned by ${customCompany.founder}, who leads our expert team. Would you like me to book a consultation or appointment for you?`
             : customCompany?.name
-              ? `${cName} is led by our experienced executive team and certified specialists. Would you like to schedule an appointment with our team?`
+              ? `${cName} is proudly owned and operated by our certified local specialist leadership team. Would you like to schedule an appointment with our team?`
               : `Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect and technology strategist who founded Quorik to build high-performance custom web applications and zero-latency 24/7 AI Voice Agents. Would you like me to schedule a discovery consultation?`;
 
           return {
@@ -2351,7 +2401,7 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Leadership & Specialist Inquiry',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `👑 LEADERSHIP INQUIRY: Caller inquired about leadership for ${cName}.`
+            whatsappMessage: `👑 LEADERSHIP INQUIRY: Caller inquired about owner/leadership for ${cName}.`
           };
         }
 

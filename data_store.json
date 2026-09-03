@@ -1,7 +1,87 @@
 {
-  "appointments": [],
-  "contacts": [],
+  "appointments": [
+    {
+      "id": "i2zr3jl",
+      "name": "Client Test",
+      "phone": "03700146156",
+      "email": "",
+      "service": "Google Ads & Voice Setup",
+      "notes": "",
+      "date_time": "Tomorrow 3:00 PM",
+      "status": "confirmed",
+      "createdAt": "2026-09-03T12:38:27.205Z"
+    }
+  ],
+  "contacts": [
+    {
+      "id": "fvfetgh",
+      "name": "Client Support Inquiry",
+      "phone": "03700146156",
+      "message": "Need assistance setting up widget on WordPress.",
+      "createdAt": "2026-09-03T12:38:27.223Z"
+    }
+  ],
   "notificationsLog": [
+    {
+      "id": "7cf60if",
+      "recipientName": "Client Support Inquiry",
+      "phone": "03700146156",
+      "type": "WhatsApp",
+      "channel": "instant_confirmation",
+      "message": "📲 [Quorik Instant Confirmation] Hi Client Support Inquiry! We received your inquiry regarding automation services. A Quorik specialist will text you shortly!",
+      "status": "DELIVERED (Green-API WhatsApp Gateway)",
+      "createdAt": "2026-09-03T12:38:27.223Z"
+    },
+    {
+      "id": "yca88zp",
+      "recipientName": "Client Support Inquiry",
+      "phone": "03700146156",
+      "type": "SMS",
+      "channel": "instant_confirmation",
+      "message": "📲 [Quorik Instant Confirmation] Hi Client Support Inquiry! We received your inquiry regarding automation services. A Quorik specialist will text you shortly!",
+      "status": "DELIVERED (Global SMS Carrier)",
+      "createdAt": "2026-09-03T12:38:27.223Z"
+    },
+    {
+      "id": "1sqioif",
+      "recipientName": "Client Test",
+      "phone": "03700146156",
+      "type": "WhatsApp",
+      "channel": "instant_confirmation",
+      "message": "📲 [Appointment Confirmed] Hi Client Test! Your appointment for \"Google Ads & Voice Setup\" (Tomorrow 3:00 PM) is confirmed. Our team will contact you shortly!",
+      "status": "DELIVERED (Green-API WhatsApp Gateway)",
+      "createdAt": "2026-09-03T12:38:27.205Z"
+    },
+    {
+      "id": "rvt4yd3",
+      "recipientName": "Client Test",
+      "phone": "03700146156",
+      "type": "SMS",
+      "channel": "instant_confirmation",
+      "message": "📲 [Appointment Confirmed] Hi Client Test! Your appointment for \"Google Ads & Voice Setup\" (Tomorrow 3:00 PM) is confirmed. Our team will contact you shortly!",
+      "status": "DELIVERED (Global SMS Carrier)",
+      "createdAt": "2026-09-03T12:38:27.205Z"
+    },
+    {
+      "id": "g0o2e3g",
+      "recipientName": "Hamza and",
+      "phone": "03700146156",
+      "type": "WhatsApp",
+      "channel": "instant_confirmation",
+      "message": "📲 [Leicester Roof Repairs Confirmation]\nHi Hamza and! Thank you for reaching Leicester Roof Repairs's 24/7 AI Assistant. We received your contact inquiry regarding \"Hello, my name is Hamza and my phone number is 03700146156. I need a roof i\". A representative will reach out to you shortly!",
+      "status": "DELIVERED (Green-API WhatsApp Gateway)",
+      "createdAt": "2026-09-03T12:36:07.267Z"
+    },
+    {
+      "id": "0xosdvb",
+      "recipientName": "Hamza and",
+      "phone": "03700146156",
+      "type": "SMS",
+      "channel": "instant_confirmation",
+      "message": "📲 [Leicester Roof Repairs Confirmation]\nHi Hamza and! Thank you for reaching Leicester Roof Repairs's 24/7 AI Assistant. We received your contact inquiry regarding \"Hello, my name is Hamza and my phone number is 03700146156. I need a roof i\". A representative will reach out to you shortly!",
+      "status": "DELIVERED (Global SMS Carrier)",
+      "createdAt": "2026-09-03T12:36:07.267Z"
+    },
     {
       "id": "h0s057m",
       "recipientName": "Quorik Client",
@@ -427,6 +507,61 @@
   ],
   "clientAccounts": [
     {
+      "id": "leicester-roof-repairs",
+      "clientName": "Leicester Roof Repairs",
+      "businessName": "Leicester Roof Repairs",
+      "industry": "Google Ads & Performance Marketing",
+      "email": "contact@leicester-roof-repairs.com",
+      "phone": "+1 (555) 019-2834",
+      "websiteUrl": "https://leicester-roof-repairs.com",
+      "tier": "starter",
+      "monthlyVoiceMinutesLimit": 300,
+      "voiceMinutesUsed": 0,
+      "monthlyTextChatLimit": 1000,
+      "textChatsUsed": 1,
+      "status": "active",
+      "voiceAgentName": "Arthur (Executive Concierge)",
+      "voiceLanguage": "English Only",
+      "totalConversations": 1,
+      "leadsCaptured": 1,
+      "lastActive": "2026-09-03T12:36:07.266Z",
+      "conversations": [
+        {
+          "id": "conv-ratjqim",
+          "visitorName": "Hamza and",
+          "visitorPhone": "03700146156",
+          "date": "2026-09-03T12:36:07.266Z",
+          "createdAt": "2026-09-03T12:36:07.266Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "Hello, my name is Hamza and my phone number is 0370014615...",
+          "transcriptSummary": "Visitor asked: \"Hello, my name is Hamza and my phone number is 03700146156. I need a roof inspection quote.\". AI answered: \"Hello Hamza, it's a pleasure to assist you today with Leicester Roof Repairs. I have noted your number, and I'd be happy to arrange a roof i...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Hello, my name is Hamza and my phone number is 03700146156. I need a roof inspection quote.",
+              "timestamp": "2026-09-03T12:36:07.266Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "Hello Hamza, it's a pleasure to assist you today with Leicester Roof Repairs. I have noted your number, and I'd be happy to arrange a roof inspection quote for you right away. Would you mind sharing your email address so our team can send over the details and get you scheduled?",
+              "timestamp": "2026-09-03T12:36:07.266Z"
+            }
+          ],
+          "leadInfo": {
+            "name": "Hamza and",
+            "phone": "03700146156",
+            "notes": "Live chat inquiry regarding: Hello, my name is Hamza and my phone number is 03700146156. I need a roof inspec"
+          },
+          "leadCaptured": true,
+          "status": "completed"
+        }
+      ],
+      "createdAt": "2026-09-03T12:36:06.295Z"
+    },
+    {
       "id": "quorik-google-ads",
       "clientName": "Saram Sardar",
       "businessName": "Quorik Google Ads",
@@ -486,5 +621,137 @@
   "teamImages": {
     "m-r": "/team/team-m-r-1787844263515.png",
     "a-k": "/team/team-a-k-1787844275612.png"
+  },
+  "savedDemos": {
+    "leicester-roof": {
+      "companyName": "Leicester Roof Repairs LTD",
+      "tagline": "Domestic & Commercial Roofing Services, based in Birstall, Leicester, operating throughout the UK",
+      "heroSubtext": "With more than 50 years of combined experience, Leicester Roof Repairs has built a reputation for reliability, transparency and delivering the highest quality work to excellent standards for commercial & residential clients.",
+      "agentName": "Arthur",
+      "gender": "male-uk",
+      "phone": "+44 116 4560001",
+      "location": "50 Brabazon Road, Oadby, Leicester, England, LE2 5HD",
+      "hours": "Mon-Sat: Open 24 Hours",
+      "theme": "teal",
+      "logoIcon": "hvac",
+      "maxCalls": 10,
+      "stats": {
+        "stat1Label": "Home Owner Satisfaction",
+        "stat1Val": "99.4%",
+        "stat2Label": "Emergency Slots",
+        "stat2Val": "Same-Day",
+        "stat3Label": "Home Owner Treated",
+        "stat3Val": "14,200+"
+      },
+      "services": [
+        {
+          "title": "Roof inspection",
+          "desc": "A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem.",
+          "price": "Custom",
+          "tag": "Urgent"
+        },
+        {
+          "title": "Roof repair",
+          "desc": "Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently.",
+          "price": "Custom",
+          "tag": "Most Popular"
+        }
+      ],
+      "reviews": [
+        {
+          "name": "Sam Frost",
+          "role": "Verified Client",
+          "rating": 5,
+          "comment": "Mac and his team did an outstanding job fixing my roof. From the very beginning, Mac communicated with me at every stage and was completely open and honest about the problems that needed fixing. He gave me options across different price brackets and never pressured me, instead giving me the time and space to decide what was best for me."
+        },
+        {
+          "name": "Caurtney Keating-Rogers",
+          "role": "Verified Client",
+          "rating": 5,
+          "comment": "Just had my old ridge tiles replaced with dry ridge tiles. Really happy with the work carried out. From start to finish, communication was excellent and they kept me informed throughout. The team were friendly, polite, professional, and worked hard to get the job done to a high standard. My new dry ridge system looks great, and the price was very reasonable too. I wouldn't hesitate to recommend them to anyone looking for a reliable roofing company."
+        },
+        {
+          "name": "F Muggeridge",
+          "role": "Verified Client",
+          "rating": 5,
+          "comment": "Mac and his team were amazing from first contact to the job being done. We can’t believe how quick the process was and the customer service was fantastic."
+        }
+      ],
+      "faqs": [
+        {
+          "q": "Do you accept Roof inspection?",
+          "a": "A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem."
+        },
+        {
+          "q": "How quickly you do Roof repair ?",
+          "a": "Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently."
+        }
+      ]
+    },
+    "leicester-roof-repairs": {
+      "companyName": "Leicester Roof Repairs LTD",
+      "tagline": "Domestic & Commercial Roofing Services, based in Birstall, Leicester, operating throughout the UK",
+      "heroSubtext": "With more than 50 years of combined experience, Leicester Roof Repairs has built a reputation for reliability, transparency and delivering the highest quality work to excellent standards for commercial & residential clients.",
+      "agentName": "Arthur",
+      "gender": "male-uk",
+      "phone": "+44 116 4560001",
+      "location": "50 Brabazon Road, Oadby, Leicester, England, LE2 5HD",
+      "hours": "Mon-Sat: Open 24 Hours",
+      "theme": "teal",
+      "logoIcon": "hvac",
+      "maxCalls": 10,
+      "stats": {
+        "stat1Label": "Home Owner Satisfaction",
+        "stat1Val": "99.4%",
+        "stat2Label": "Emergency Slots",
+        "stat2Val": "Same-Day",
+        "stat3Label": "Home Owner Treated",
+        "stat3Val": "14,200+"
+      },
+      "services": [
+        {
+          "title": "Roof inspection",
+          "desc": "A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem.",
+          "price": "Custom",
+          "tag": "Urgent"
+        },
+        {
+          "title": "Roof repair",
+          "desc": "Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently.",
+          "price": "Custom",
+          "tag": "Most Popular"
+        }
+      ],
+      "reviews": [
+        {
+          "name": "Sam Frost",
+          "role": "Verified Client",
+          "rating": 5,
+          "comment": "Mac and his team did an outstanding job fixing my roof. From the very beginning, Mac communicated with me at every stage and was completely open and honest about the problems that needed fixing. He gave me options across different price brackets and never pressured me, instead giving me the time and space to decide what was best for me."
+        },
+        {
+          "name": "Caurtney Keating-Rogers",
+          "role": "Verified Client",
+          "rating": 5,
+          "comment": "Just had my old ridge tiles replaced with dry ridge tiles. Really happy with the work carried out. From start to finish, communication was excellent and they kept me informed throughout. The team were friendly, polite, professional, and worked hard to get the job done to a high standard. My new dry ridge system looks great, and the price was very reasonable too. I wouldn't hesitate to recommend them to anyone looking for a reliable roofing company."
+        },
+        {
+          "name": "F Muggeridge",
+          "role": "Verified Client",
+          "rating": 5,
+          "comment": "Mac and his team were amazing from first contact to the job being done. We can’t believe how quick the process was and the customer service was fantastic."
+        }
+      ],
+      "faqs": [
+        {
+          "q": "Do you accept Roof inspection?",
+          "a": "A thorough inspection of the integrity and condition of your roof, which can help identify potential issues before they become a problem."
+        },
+        {
+          "q": "How quickly you do Roof repair ?",
+          "a": "Working on residential properties throughout Leicestershire and surrounding areas, from small homes to large residences, we can help construct your new roof based on your spec, or repair any roofing issues - with emergency call outs available to ensure your repairs are carried out urgently."
+        }
+      ]
+    }
   }
 }

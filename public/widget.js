@@ -186,37 +186,50 @@
     }
   }
 
+  const BANNED_ROBOTIC_VOICES = [
+    'fred', 'albert', 'ralph', 'zarvox', 'trinoids', 'junior', 'princess',
+    'cellos', 'deranged', 'boing', 'bad news', 'bells', 'bubbles', 'hysterical',
+    'organ', 'whisper', 'bahh', 'good news', 'pipe organ', 'robot', 'synthetic',
+    'jester', 'wobble', 'vintage'
+  ];
+
   function getBestVoice(gender) {
     if (!('speechSynthesis' in window)) return { voice: null, pitch: 1 };
     const allVoices = window.speechSynthesis.getVoices() || [];
-    const englishVoices = allVoices.filter(v => {
+    const cleanVoices = allVoices.filter(v => {
       const l = (v.lang || '').toLowerCase().replace(/_/g, '-');
-      return l.startsWith('en-') || l === 'en' || l.startsWith('eng');
+      const isEng = l.startsWith('en-') || l === 'en' || l.startsWith('eng');
+      if (!isEng) return false;
+      const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+      return !BANNED_ROBOTIC_VOICES.some(bad => n.includes(bad));
     });
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
-    const pitch = isMobile ? 1.0 : (gender === 'female' ? 1.02 : 0.98);
+    const pitch = isMobile ? 1.0 : (gender === 'female' ? 1.0 : 0.98);
 
-    if (englishVoices.length === 0) {
+    if (cleanVoices.length === 0) {
       return { voice: null, pitch: pitch };
     }
 
     const isFemale = gender === 'female';
-    if (isFemale) {
-      const match = englishVoices.find(v => {
-        const n = v.name.toLowerCase();
-        const isMale = n.includes('david') || n.includes('mark') || n.includes('george') || n.includes('guy') || n.includes('daniel') || n.includes('male') || n.includes('arthur') || n.includes('oliver');
-        if (isMale) return false;
-        return (n.includes('female') || n.includes('samantha') || n.includes('victoria') || n.includes('zira') || n.includes('karen') || n.includes('google us english') || n.includes('moira') || n.includes('aria') || n.includes('jenny'));
-      }) || englishVoices[0];
-      return { voice: match || null, pitch: pitch };
-    } else {
-      const match = englishVoices.find(v => {
-        const n = v.name.toLowerCase();
-        return (n.includes('david') || n.includes('mark') || n.includes('george') || n.includes('guy') || n.includes('daniel') || n.includes('male') || n.includes('arthur') || n.includes('richard') || n.includes('oliver') || n.includes('google uk english male') || n.includes('google us english male'));
-      }) || englishVoices[0];
-      return { voice: match || null, pitch: pitch };
-    }
+    const scoreVoice = (v) => {
+      const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+      let score = 0;
+      if (n.includes('enhanced') || n.includes('premium') || n.includes('natural') || n.includes('neural')) score += 10;
+      if (n.includes('google')) score += 6;
+      if (n.includes('siri')) score += 8;
+      if (isFemale) {
+        if (n.includes('samantha') || n.includes('victoria') || n.includes('karen') || n.includes('aria') || n.includes('jenny') || n.includes('ava') || n.includes('serena')) score += 5;
+        if (n.includes('david') || n.includes('mark') || n.includes('daniel') || n.includes('alex') || n.includes('male') || n.includes('arthur')) score -= 20;
+      } else {
+        if (n.includes('oliver') || n.includes('daniel') || n.includes('alex') || n.includes('tom') || n.includes('arthur') || n.includes('david') || n.includes('guy')) score += 5;
+        if (n.includes('samantha') || n.includes('victoria') || n.includes('female') || n.includes('karen') || n.includes('zira')) score -= 20;
+      }
+      return score;
+    };
+
+    const sorted = [...cleanVoices].sort((a, b) => scoreVoice(b) - scoreVoice(a));
+    return { voice: sorted[0] || cleanVoices[0] || null, pitch: pitch };
   }
 
   function getClientVoiceProfile() {

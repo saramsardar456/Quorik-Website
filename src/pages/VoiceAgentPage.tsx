@@ -133,14 +133,6 @@ export function VoiceAgentPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const unlockAudio = () => {
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.resume();
-      } catch (e) {}
-    }
-  };
-
   // Speak AI Speech Response with Gemini Studio Neural Voice and instant cache
   const speakText = (text: string) => {
     if (recognitionRef.current) {

@@ -160,14 +160,6 @@ export function VoiceDemo({
     return () => clearTimeout(timer);
   }, []);
 
-  const unlockAudio = () => {
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.resume();
-      } catch (e) {}
-    }
-  };
-
   const speakText = (text: string) => {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e){}

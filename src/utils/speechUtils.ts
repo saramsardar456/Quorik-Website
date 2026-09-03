@@ -249,7 +249,7 @@ export async function speakSpeech(
 
   const cacheKey = `${rawGender}:${personaId}:${cleanText}`;
 
-  const playAudioData = (base64Audio: string) => {
+  const playAudioData = async (base64Audio: string) => {
     if (thisToken !== currentSpeechToken) return;
 
     try {
@@ -259,7 +259,49 @@ export async function speakSpeech(
       for (let i = 0; i < len; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      
+
+      // 1. Primary Engine: Web Audio API (100% immune to macOS Safari/Chrome autoplay blocks once AudioContext is unlocked)
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') {
+          await ctx.resume().catch(() => {});
+        }
+        if (ctx.state === 'running') {
+          const bufferCopy = bytes.buffer.slice(0);
+          const decoded = await new Promise<AudioBuffer>((resolve, reject) => {
+            const res = ctx.decodeAudioData(bufferCopy, resolve, reject);
+            if (res && typeof (res as any).then === 'function') {
+              (res as any).then(resolve).catch(reject);
+            }
+          });
+
+          if (thisToken !== currentSpeechToken) return;
+
+          const source = ctx.createBufferSource();
+          source.buffer = decoded;
+          source.connect(ctx.destination);
+          activeBufferSource = source;
+
+          source.onended = () => {
+            if (activeBufferSource === source) {
+              activeBufferSource = null;
+            }
+            if (thisToken === currentSpeechToken && options.onEnd) {
+              options.onEnd();
+            }
+          };
+
+          source.start(0);
+          if (options.onStart) options.onStart();
+          return;
+        }
+      } catch (webAudioErr) {
+        console.warn("[Neural Audio] Web Audio decode fallback to HTML5 Audio:", webAudioErr);
+      }
+
+      if (thisToken !== currentSpeechToken) return;
+
+      // 2. Secondary Engine: HTML5 Audio Object URL
       const blob = new Blob([bytes], { type: 'audio/mpeg' });
       const objectUrl = URL.createObjectURL(blob);
       const audio = new Audio(objectUrl);
@@ -293,7 +335,6 @@ export async function speakSpeech(
       audio.onerror = (e) => {
         console.warn("[Neural Audio] Blob playback notice:", e);
         cleanup();
-        // Try fallback to direct server stream URL
         if (thisToken === currentSpeechToken) {
           playDirectStreamUrl();
         }
@@ -429,21 +470,25 @@ export async function speakSpeech(
 // Emergency Offline Web Speech API Fallback Implementation
 // -------------------------------------------------------------
 
+// Strictly banned robotic, metallic, and novelty voices across macOS, iOS, and Windows
+const BANNED_ROBOTIC_VOICES = [
+  'fred', 'albert', 'ralph', 'zarvox', 'trinoids', 'junior', 'princess',
+  'cellos', 'deranged', 'boing', 'bad news', 'bells', 'bubbles', 'hysterical',
+  'organ', 'whisper', 'bahh', 'good news', 'pipe organ', 'robot', 'synthetic',
+  'jester', 'wobble', 'vintage'
+];
+
 const MALE_NAMES = [
-  'daniel', 'oliver', 'arthur', 'alex', 'fred', 'aaron', 'david', 'mark', 'george',
-  'rishi', 'gordon', 'lee', 'tom', 'guy', 'stefan', 'ryan', 'richard', 'bruce', 'ralph',
-  'albert', 'junior', 'male', 'man', 'baritone', '#male', 'male_1', 'male_2', 'male_3',
-  'male-1', 'male-2', 'iom', 'iob', 'iol', 'rjs', 'fis', 'aub', 'cce', 'm0', 'm1', 'm2', 'm3',
-  'voice 2', 'voice 4', 'voice 6', 'voice 8', 'voice_2', 'voice_4', 'voice_6', 'voice_8',
-  'en_us_male', 'en_gb_male', 'sm-m', 'male '
+  'oliver', 'daniel', 'arthur', 'alex', 'tom', 'david', 'mark', 'george',
+  'rishi', 'gordon', 'lee', 'guy', 'stefan', 'ryan', 'richard', 'bruce',
+  'aaron', 'en_gb_male', 'en_us_male', 'google uk english male', 'google us english'
 ];
 
 const FEMALE_NAMES = [
-  'female', 'woman', 'girl', 'samantha', 'karen', 'zira', 'victoria', 'hazel',
-  'susan', 'aria', 'jenny', 'sonia', 'catherine', 'eva', 'moira', 'veena',
-  'tessa', 'fiona', 'allison', 'ava', 'nora', 'serena', 'sara', 'sfg', 'tpd', 'tpc',
-  'fem', 'clara', 'zephyr', 'female ', 'voice 1', 'voice 3', 'voice 5', 'voice 7',
-  'voice_1', 'voice_3', 'voice_5', 'voice_7', 'gda', 'afh', 'ahp'
+  'samantha', 'karen', 'zira', 'victoria', 'hazel', 'susan', 'aria', 'jenny',
+  'sonia', 'catherine', 'eva', 'moira', 'veena', 'tessa', 'fiona', 'allison',
+  'ava', 'nora', 'serena', 'sara', 'clara', 'zephyr', 'google uk english female',
+  'google us english'
 ];
 
 let cachedVoices: SpeechSynthesisVoice[] = [];
@@ -469,72 +514,58 @@ export function getBestEnglishVoice(
   const gLower = (gender || '').toLowerCase();
   const isFemale = gLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
 
+  // Strictly filter out any macOS/system robotic joke voices
   const englishVoices = allVoices.filter(v => {
     const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
-    return lang.startsWith('en-') || lang === 'en' || lang.startsWith('eng');
+    const isEng = lang.startsWith('en-') || lang === 'en' || lang.startsWith('eng');
+    if (!isEng) return false;
+    const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+    return !BANNED_ROBOTIC_VOICES.some(bad => name.includes(bad));
   });
 
-  let defaultPitch = !isFemale ? (isMobile ? 0.78 : 0.88) : 1.05;
-  let defaultRate = !isFemale ? 0.96 : 0.98;
+  let defaultPitch = !isFemale ? (isMobile ? 0.82 : 0.92) : 1.0;
+  let defaultRate = !isFemale ? 0.98 : 1.0;
 
   if (englishVoices.length === 0) {
     const fallbackLang = !isFemale ? (isIOS ? 'en-GB' : (preferredLocale || 'en-US')) : 'en-US';
     return { voice: null, pitch: defaultPitch, rate: defaultRate, lang: fallbackLang };
   }
 
-  let selectedVoice: SpeechSynthesisVoice | null = null;
+  // Helper to rank enhanced/premium human voices highest
+  const scoreVoice = (v: SpeechSynthesisVoice, targetFemale: boolean): number => {
+    const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+    let score = 0;
+    if (name.includes('enhanced') || name.includes('premium') || name.includes('natural') || name.includes('neural')) score += 10;
+    if (name.includes('google')) score += 5;
+    if (name.includes('siri')) score += 8;
+
+    if (targetFemale) {
+      if (FEMALE_NAMES.some(k => name.includes(k))) score += 6;
+      if (MALE_NAMES.some(k => name.includes(k))) score -= 20;
+    } else {
+      if (MALE_NAMES.some(k => name.includes(k))) score += 6;
+      if (FEMALE_NAMES.some(k => name.includes(k))) score -= 20;
+    }
+    return score;
+  };
+
+  let sortedVoices = [...englishVoices].sort((a, b) => scoreVoice(b, isFemale) - scoreVoice(a, isFemale));
+  let selectedVoice: SpeechSynthesisVoice | null = sortedVoices[0] || null;
 
   if (isFemale) {
-    selectedVoice = englishVoices.find(v => {
+    selectedVoice = sortedVoices.find(v => {
       const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
       const isMale = MALE_NAMES.some(k => name.includes(k));
       if (isMale) return false;
-      return FEMALE_NAMES.some(k => name.includes(k));
-    }) || null;
-
-    if (!selectedVoice && isIOS) {
-      selectedVoice = englishVoices.find(v => {
-        const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
-        return lang.startsWith('en-us') || lang === 'en';
-      }) || null;
-    }
-
-    if (!selectedVoice) {
-      selectedVoice = englishVoices.find(v => {
-        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-        return !MALE_NAMES.some(k => name.includes(k));
-      }) || englishVoices[0];
-    }
+      return FEMALE_NAMES.some(k => name.includes(k)) || name.includes('female');
+    }) || sortedVoices[0];
   } else {
-    selectedVoice = englishVoices.find(v => {
+    selectedVoice = sortedVoices.find(v => {
       const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-      return MALE_NAMES.some(k => name.includes(k));
-    }) || null;
-
-    if (!selectedVoice && isIOS) {
-      selectedVoice = englishVoices.find(v => {
-        const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
-        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-        const isFemale = FEMALE_NAMES.some(k => name.includes(k)) || name.includes('samantha') || name.includes('united states');
-        return (lang.startsWith('en-gb') || lang.startsWith('en-uk') || lang.startsWith('en-au')) && !isFemale;
-      }) || null;
-    }
-
-    if (!selectedVoice && isAndroid) {
-      selectedVoice = englishVoices.find(v => {
-        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-        const isFemale = FEMALE_NAMES.some(k => name.includes(k));
-        return (name.includes('en-gb') || name.includes('en-au') || name.includes('male') || name.includes('google')) && !isFemale;
-      }) || null;
-    }
-
-    if (!selectedVoice) {
-      selectedVoice = englishVoices.find(v => {
-        const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-        const isFemale = FEMALE_NAMES.some(k => name.includes(k)) || (isIOS && (name.includes('samantha') || name.includes('united states')));
-        return !isFemale;
-      }) || englishVoices[0];
-    }
+      const isFem = FEMALE_NAMES.some(k => name.includes(k)) || name.includes('female');
+      if (isFem) return false;
+      return MALE_NAMES.some(k => name.includes(k)) || name.includes('male');
+    }) || sortedVoices[0];
   }
 
   const selectedLang = selectedVoice?.lang || (gender === 'male' && isIOS ? 'en-GB' : (preferredLocale || 'en-US'));

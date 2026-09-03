@@ -513,10 +513,16 @@ async function dispatchRealWhatsAppWithGreenApi(rawPhone: string, text: string):
     // If Pakistani local number starting with 03..., replace leading 0 with 92
     if (cleanPhone.startsWith('03') && cleanPhone.length === 11) {
       cleanPhone = '92' + cleanPhone.substring(1);
+    } else if (cleanPhone.startsWith('3') && cleanPhone.length === 10) {
+      cleanPhone = '92' + cleanPhone;
     }
     // If UK local number starting with 07..., replace leading 0 with 44
     if (cleanPhone.startsWith('07') && cleanPhone.length === 11) {
       cleanPhone = '44' + cleanPhone.substring(1);
+    }
+    // If standard 10-digit North American number without country code
+    if (cleanPhone.length === 10 && !cleanPhone.startsWith('0') && !cleanPhone.startsWith('3')) {
+      cleanPhone = '1' + cleanPhone;
     }
 
     if (cleanPhone.length < 9) {
@@ -1161,6 +1167,38 @@ async function startServer() {
     }
   });
 
+  app.post("/api/appointments", async (req, res) => {
+    try {
+      const { name, phone, date_time, email, service, notes } = req.body;
+      const newAppointment = {
+        id: Math.random().toString(36).substring(2, 9),
+        name: name || "Website Visitor",
+        phone: phone || "N/A",
+        email: email || "",
+        service: service || "Discovery Consultation",
+        notes: notes || "",
+        date_time: date_time || new Date().toISOString(),
+        status: "confirmed",
+        createdAt: new Date().toISOString()
+      };
+      appointments.push(newAppointment);
+
+      if (phone && phone !== "N/A") {
+        sendWhatsAppSMSNotification({
+          recipientName: name || "Valued Client",
+          phone,
+          channel: 'instant_confirmation',
+          dateTime: date_time,
+          messageText: `📲 [Appointment Confirmed] Hi ${name || 'there'}! Your appointment for "${service || 'Consultation'}" (${date_time || 'Priority Slot'}) is confirmed. Our team will contact you shortly!`
+        });
+      }
+      saveStore();
+      res.json({ success: true, appointment: newAppointment });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to create appointment" });
+    }
+  });
+
   app.put("/api/appointments/:id", authenticateToken, (req, res) => {
     const { id } = req.params;
     const index = appointments.findIndex(a => a.id === id);
@@ -1254,11 +1292,18 @@ ${message}
         await transporter.sendMail(mailOptions);
       }
 
+      saveStore();
       res.json({ success: true, contact: newContact });
     } catch (error: any) {
       console.error("Contact API error:", error);
       res.status(500).json({ error: error.message || "Failed to process contact form" });
     }
+  });
+
+  // Support /api/contacts POST as well (e.g. from embedded widgets on client websites)
+  app.post("/api/contacts", (req, res, next) => {
+    req.url = "/api/contact";
+    app._router.handle(req, res, next);
   });
 
   // --- Quorik Partner Program Application Endpoints ---
@@ -2265,7 +2310,9 @@ IMPORTANT CARD TRIGGER RULES:
         
         const extractedEmail = emailMatch ? emailMatch[1] : (visitorEmail || "");
         const extractedPhone = phoneMatch && phoneMatch[0].replace(/\D/g, '').length >= 7 ? phoneMatch[0] : (visitorPhone || "");
-        const extractedName = nameMatch ? nameMatch[1].trim() : (visitorName && visitorName !== "Website Visitor" && visitorName !== "Website Caller" ? visitorName : "");
+        const extractedName = nameMatch 
+          ? nameMatch[1].replace(/\b(and|or|my|phone|number|is|here|pls|please)\b/gi, '').trim() 
+          : (visitorName && visitorName !== "Website Visitor" && visitorName !== "Website Caller" ? visitorName : "");
         
         // A true captured lead strictly requires a verifiable contact method (valid Email or 7+ digit Phone number)
         const isLead = Boolean(extractedEmail || extractedPhone);
@@ -2372,7 +2419,36 @@ IMPORTANT CARD TRIGGER RULES:
             clientTarget.status = "limit_reached";
           }
         }
+
+        // Trigger instant WhatsApp to client's phone if phone number was provided during widget chat or voice
+        if (extractedPhone && extractedPhone.length >= 7) {
+          const businessName = clientTarget.businessName || "Quorik Client";
+          const clientName = extractedName || (extractedEmail ? extractedEmail.split('@')[0] : "there");
+          sendWhatsAppSMSNotification({
+            recipientName: clientName,
+            phone: extractedPhone,
+            channel: 'instant_confirmation',
+            messageText: `📲 [${businessName} Confirmation]\nHi ${clientName}! Thank you for reaching ${businessName}'s 24/7 AI Assistant. We received your contact inquiry regarding "${message.substring(0, 75)}". A representative will reach out to you shortly!`
+          });
+        }
+
         saveStore();
+      } else {
+        // Also capture phone if visitor provides it in chat directly on main platform
+        const phoneMatch = (message || "").match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
+        const nameMatch = (message || "").match(/(?:my name is|my full name is|call me|name:\s*)\s+([a-zA-Z]{2,}(?:\s+[a-zA-Z]{2,})?)/i);
+        const extractedPhone = phoneMatch && phoneMatch[0].replace(/\D/g, '').length >= 7 ? phoneMatch[0] : (visitorPhone || "");
+        const extractedName = nameMatch 
+          ? nameMatch[1].replace(/\b(and|or|my|phone|number|is|here|pls|please)\b/gi, '').trim() 
+          : (visitorName && visitorName !== "Website Visitor" && visitorName !== "Website Caller" ? visitorName : "");
+        if (extractedPhone && extractedPhone.length >= 7) {
+          sendWhatsAppSMSNotification({
+            recipientName: extractedName || "there",
+            phone: extractedPhone,
+            channel: 'instant_confirmation',
+            messageText: `📲 [Quorik Instant Confirmation]\nHi ${extractedName || 'there'}! Thank you for connecting with Quorik AI Assistant. We received your inquiry regarding "${message.substring(0, 75)}". Our engineering team will contact you shortly!`
+          });
+        }
       }
 
       res.json({ text: replyText });
@@ -2480,11 +2556,12 @@ Company Details:
 - ${customFounderText}
 ${faqsText ? `- ${faqsText}\n` : ''}${reviewsText ? `- ${reviewsText}\n` : ''}
 RULES:
-1. Speak concisely in natural spoken English (1-2 sentences max).
-2. When asked about pricing or services, quote the specific services and rates provided above.
-3. When asked about location or business hours, provide the location and hours clearly.
-4. When asked about the owner, founder, or leadership, state the leadership and ownership details clearly.
-5. When asked to schedule an appointment, ask for their preferred day/time and contact details politely.
+1. Speak concisely in natural, warm, human conversational English (1-2 sentences max).
+2. Avoid sounding robotic, repetitive, or synthetic. Use natural spoken cadence and friendly inflection.
+3. When asked about pricing or services, quote the specific services and rates provided above.
+4. When asked about location or business hours, provide the location and hours clearly.
+5. When asked about the owner, founder, or leadership, state the leadership and ownership details clearly.
+6. When asked to schedule an appointment, ask for their preferred day/time and contact details politely.
 ${consultationBookingRules}`;
       } else if (personaId === 'uk-refined') {
         personaName = gender === 'female' ? 'Clara' : 'Arthur';
@@ -2494,16 +2571,16 @@ Key Services: ${companyServices}.
 ${founderDetailInformation}
 ${pricingInformation}
 ${consultationBookingRules}
-Keep responses polite, articulate, and natural (2 to 3 concise spoken sentences).`;
+Keep responses warm, polite, articulate, and completely natural like a real human concierge (2 concise spoken sentences). Never sound robotic or generic.`;
       } else {
         personaName = gender === 'female' ? 'Zephyr' : 'Arthur';
         systemPersonaInstruction = `You are ${personaName}, a 24/7 AI Executive Assistant for Quorik (Web Development & AI Automation Agency).
-Language: Professional American English.
+Language: Warm Professional American English.
 Key Services: ${companyServices}.
 ${founderDetailInformation}
 ${pricingInformation}
 ${consultationBookingRules}
-Keep responses articulate, authoritative, and natural (2 to 3 concise spoken sentences).`;
+Keep responses warm, authoritative, friendly, and completely natural like a live executive receptionist (2 concise spoken sentences). Never sound robotic or generic.`;
       }
 
       const prompt = `${systemPersonaInstruction}

@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Mic, MicOff, Volume2, Zap, MessageSquare, Radio, Calendar, Check, Send, Loader2, Sparkles, Clock } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { speakSpeech, stopAllSpeech, sanitizeTextForSpeech, prefetchNeuralAudio, unlockAudio } from '../../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, sanitizeTextForSpeech, prefetchNeuralAudio, unlockAudio, playBackchannelVerbalNod, preloadBackchannels } from '../../utils/speechUtils';
 
 interface VoiceDemoProps {
   initialGender?: 'female' | 'male';
@@ -144,21 +144,18 @@ export function VoiceDemo({
     };
   }, [isAiSpeaking]);
 
-  // Pre-warm audio and prefetch greetings
+  // Pre-warm audio and prefetch greeting for the active persona
   useEffect(() => {
     const timer = setTimeout(() => {
-      const greetingArthur = "Hello and thank you for reaching Quorik! My name is Arthur. How can I assist you with custom website development, AI chatbots, or voice automation today?";
-      const greetingZephyr = "Hello and thank you for reaching Quorik! My name is Zephyr. How can I assist you with custom website development, AI chatbots, or voice automation today?";
-      const greetingOliver = "Good day and thank you for reaching Quorik. My name is Oliver. How can I assist you with your custom web development or AI automation project today?";
-      const greetingClara = "Good day and thank you for reaching Quorik. My name is Clara. How can I assist you with your custom web development or AI automation project today?";
+      const activeGreeting = selectedGender === 'female'
+        ? (activePersonaId === 'uk-refined' ? "Good day! Thank you for reaching Quorik. Clara here. Are you looking to discuss a custom web build or set up a 24/7 AI voice agent?" : "Hey! Thanks for reaching Quorik. I'm Zephyr. Are you looking to build a high-performance custom website, or plug in a 24/7 AI voice agent for your business?")
+        : (activePersonaId === 'uk-refined' ? "Good day! Thank you for reaching Quorik. Oliver here. Are you looking to discuss a custom web build or set up a 24/7 AI voice agent?" : "Hey! Thanks for reaching Quorik. I'm Arthur. Are you looking to build a high-performance custom website, or plug in a 24/7 AI voice agent for your business?");
 
-      prefetchNeuralAudio(greetingArthur, 'male', 'us-executive');
-      prefetchNeuralAudio(greetingZephyr, 'female', 'us-executive');
-      prefetchNeuralAudio(greetingOliver, 'male', 'uk-refined');
-      prefetchNeuralAudio(greetingClara, 'female', 'uk-refined');
-    }, 1200);
+      prefetchNeuralAudio(activeGreeting, selectedGender, activePersonaId);
+      preloadBackchannels(selectedGender, activePersonaId);
+    }, 600);
     return () => clearTimeout(timer);
-  }, []);
+  }, [selectedGender, activePersonaId]);
 
   const speakText = (text: string) => {
     if (recognitionRef.current) {
@@ -185,6 +182,7 @@ export function VoiceDemo({
     }
 
     unlockAudio();
+    preloadBackchannels(selectedGender, activePersonaId);
     setSimState('ringing');
     setSimMessages([]);
     setBookedCalendar(false);
@@ -193,11 +191,13 @@ export function VoiceDemo({
     callGreetingTimerRef.current = setTimeout(() => {
       setSimState('connected');
       
-      const greeting = `Hello and thank you for reaching Quorik! My name is ${activeVoiceName}. How can I assist you with custom website development, AI chatbots, or voice automation today?`;
+      const greeting = selectedGender === 'female'
+        ? (activePersonaId === 'uk-refined' ? "Good day! Thank you for reaching Quorik. Clara here. Are you looking to discuss a custom web build or set up a 24/7 AI voice agent?" : `Hey! Thanks for reaching Quorik. I'm ${activeVoiceName}. Are you looking to build a high-performance custom website, or plug in a 24/7 AI voice agent for your business?`)
+        : (activePersonaId === 'uk-refined' ? "Good day! Thank you for reaching Quorik. Oliver here. Are you looking to discuss a custom web build or set up a 24/7 AI voice agent?" : `Hey! Thanks for reaching Quorik. I'm ${activeVoiceName}. Are you looking to build a high-performance custom website, or plug in a 24/7 AI voice agent for your business?`);
 
       setSimMessages([{ sender: 'ai', text: greeting, time: '00:01' }]);
       speakText(greeting);
-    }, 400);
+    }, 350);
   };
 
   const handleSendCallerTurn = async (customMessage?: string) => {
@@ -255,6 +255,9 @@ export function VoiceDemo({
     ];
     setSimMessages(updatedMessages);
     setIsAiThinking(true);
+
+    // 0ms Conversational Backchannel: Play immediate natural verbal nod ("Right...", "Gotcha...", "Yeah...") in <25ms
+    playBackchannelVerbalNod(selectedGender, activePersonaId);
 
     const controller = new AbortController();
     simCallAbortControllerRef.current = controller;
@@ -343,7 +346,9 @@ export function VoiceDemo({
 
       const greeting = callerName ? `Hello ${callerName}!` : `Hello!`;
 
-      let fallbackAi = `${greeting} Thank you for reaching Quorik. I'm ${selectedGender === 'female' ? 'Zephyr' : 'Arthur'}. How can I assist you with web development or AI automation?`;
+      let fallbackAi = callerName
+        ? `Hey ${callerName}! Great to connect with you. What kind of project are you working on right now — are you looking for a custom web build, or a 24/7 AI voice receptionist?`
+        : `Hey there! Great to connect with you. What kind of project are you working on right now — are you looking for a custom web build, or a 24/7 AI voice receptionist?`;
 
       if (
         lowerQuery.includes('founder') || 
@@ -461,7 +466,9 @@ export function VoiceDemo({
           setUserCallerInput(accumulatedText);
         }
 
-        // Generous silence window so natural pauses between words are NOT truncated
+        // Adaptive low-latency silence window (350ms for short words like "hi", 550ms for sentences)
+        const wordCount = accumulatedText.trim().split(/\s+/).length;
+        const silenceDelay = wordCount <= 2 ? 350 : 550;
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
           if (accumulatedText && !hasSentMicRef.current) {
@@ -470,7 +477,7 @@ export function VoiceDemo({
             setIsRecordingMic(false);
             handleSendCallerTurn(accumulatedText);
           }
-        }, 1500);
+        }, silenceDelay);
       };
 
       recognition.onerror = (e: any) => {

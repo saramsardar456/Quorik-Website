@@ -2834,6 +2834,31 @@ Respond ONLY in valid JSON matching this schema:
           };
         }
 
+        // Inbound Greeting Check (e.g. "hi", "hello", "hey", "how are you")
+        const isSimpleGreeting = /^(hi|hello|hey|hey there|good morning|good afternoon|howdy|yo|greetings|how are you|how's it going)[\s.?!]*$/i.test(currentLower) ||
+          /^(hi|hello|hey)\s+(arthur|zephyr|oliver|clara|there|quorik)/i.test(currentLower);
+
+        if (isSimpleGreeting) {
+          const greetingMsg = customCompany?.name
+            ? (isRooferOrTrade
+                ? `Hey there! Great to have you on the line at ${cName}. Are you dealing with an active roof leak from recent weather, or do you just need a quick estimate on repairs?`
+                : `Hey there! Good to have you on the line at ${cName}. What service or project can we assist you with today?`)
+            : `Hey there! Great to connect with you. What kind of project are you working on right now — are you looking for a custom web build, or a 24/7 AI voice receptionist?`;
+
+          return {
+            aiSpeechText: greetingMsg,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'General Inbound Inquiry',
+            bookingStatus: 'inquiry_only',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `👋 GREETING: Connected with caller at ${cName}.`,
+            isInstant: true
+          };
+        }
+
         const generalMsg = customCompany?.name
           ? (isRooferOrTrade
               ? `Hey, thanks for reaching out to ${cName}! This is ${pName} on the digital line. Are you looking to fix an active leak from the recent storm, or do you just need a quick estimate on a roof repair?`
@@ -2864,6 +2889,15 @@ Respond ONLY in valid JSON matching this schema:
         bookingStatus: fallbackData.bookingStatus || "in_progress",
         whatsappMessage: fallbackData.whatsappMessage
       };
+
+      // Return instant response without LLM roundtrip for simple greetings
+      if ((fallbackData as any).isInstant) {
+        return res.json({
+          success: true,
+          aiSpeechText: fallbackData.aiSpeechText,
+          extractedLead
+        });
+      }
 
       try {
         const generatePromise = generateResilientContent(ai, {
@@ -3031,56 +3065,85 @@ Respond ONLY in valid JSON matching this schema:
     return Buffer.concat(audioBuffers);
   }
 
+  // ElevenLabs Concurrency Control: Free tier allows max 4 parallel requests.
+  // We limit concurrent outgoing ElevenLabs calls to 2 to prevent HTTP 429 rate limit spikes.
+  let activeElevenLabsRequests = 0;
+  const elevenLabsWaitQueue: (() => void)[] = [];
+
+  async function acquireElevenLabsTicket(): Promise<void> {
+    if (activeElevenLabsRequests < 2) {
+      activeElevenLabsRequests++;
+      return;
+    }
+    return new Promise((resolve) => {
+      elevenLabsWaitQueue.push(() => {
+        activeElevenLabsRequests++;
+        resolve();
+      });
+    });
+  }
+
+  function releaseElevenLabsTicket() {
+    activeElevenLabsRequests = Math.max(0, activeElevenLabsRequests - 1);
+    if (elevenLabsWaitQueue.length > 0 && activeElevenLabsRequests < 2) {
+      const next = elevenLabsWaitQueue.shift();
+      if (next) next();
+    }
+  }
+
   // Ultra-Low Latency ElevenLabs Voice Synthesis (<200ms) with dynamic stability control
   async function fetchElevenLabsAudio(text: string, voiceName: string, stability = 0.35): Promise<Buffer> {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
-    const isUK = voiceName.includes('GB') || voiceName.includes('Ryan') || voiceName.includes('Sonia') || voiceName.includes('oliver') || voiceName.includes('uk');
-    const isFemale = voiceName.includes('Female') || voiceName.includes('Sonia') || voiceName.includes('Jenny') || voiceName.includes('Aria') || voiceName.includes('clara');
+    const vLower = (voiceName || '').toLowerCase();
+    const isUK = vLower.includes('gb') || vLower.includes('ryan') || vLower.includes('sonia') || vLower.includes('oliver') || vLower.includes('uk') || vLower.includes('arthur');
+    const isFemale = vLower.includes('female') || vLower.includes('sonia') || vLower.includes('jenny') || vLower.includes('aria') || vLower.includes('clara') || vLower.includes('zephyr');
     
-    // Voice IDs: Custom ID if configured, or best-in-class conversational voices
+    // Voice IDs: Custom ID if configured, or premier verified non-library free conversational voices:
+    // EXAVITQu4vr4xnSDxMaL = Bella (Standard Free US Female); pFZP5JQG7iQjIQuC4Bku = Lily (Standard Free UK Female)
+    // onwK4e9ZLuTAKqWW03F9 = Daniel (Standard Free UK Male Baritone); ErXwobaYiN019PkySvjV = Antoni
     let voiceId = process.env.ELEVENLABS_VOICE_ID;
     if (!voiceId) {
-      if (isUK && isFemale) voiceId = 'pFZP5JQG7iQjIQuC4Bku'; // Lily (UK British Female)
-      else if (isUK && !isFemale) voiceId = 'onwK4e9ZLuTAKqWW03F9'; // Daniel (UK British Baritone Male)
-      else if (!isUK && isFemale) voiceId = '21m00Tcm4TlvDq8ikWAM'; // Rachel (US Female)
-      else voiceId = 'pNInz6obpgDQGcFmaJgB'; // Adam (US Male)
+      if (isFemale) {
+        voiceId = isUK ? 'pFZP5JQG7iQjIQuC4Bku' : 'EXAVITQu4vr4xnSDxMaL'; // Lily (UK) or Bella (US standard)
+      } else {
+        voiceId = 'onwK4e9ZLuTAKqWW03F9'; // Daniel (Premier Executive Baritone for Arthur & Oliver)
+      }
     }
 
-    // eleven_turbo_v2_5 + optimize_streaming_latency=4 + mp3_22050_32 cuts TTS latency from 1.5s down to ~180ms
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?optimize_streaming_latency=4&output_format=mp3_22050_32`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'xi-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        text,
-        model_id: 'eleven_turbo_v2_5',
-        voice_settings: {
-          stability: Math.max(0.1, Math.min(1.0, stability)),
-          similarity_boost: 0.75,
-          style: 0.25,
-          use_speaker_boost: true
-        }
-      })
-    });
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(`ElevenLabs TTS failed with HTTP ${response.status}: ${errText}`);
+    await acquireElevenLabsTicket();
+    try {
+      // eleven_turbo_v2_5 + optimize_streaming_latency=4 + mp3_22050_32 cuts TTS latency from 1.5s down to ~180ms
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?optimize_streaming_latency=4&output_format=mp3_22050_32`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_turbo_v2_5',
+          voice_settings: {
+            stability: Math.max(0.1, Math.min(1.0, stability)),
+            similarity_boost: 0.75,
+            style: 0.25,
+            use_speaker_boost: true
+          }
+        })
+      });
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`ElevenLabs TTS failed with HTTP ${response.status}: ${errText}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } finally {
+      releaseElevenLabsTicket();
     }
-    const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
   }
 
-  // Fast Studio Audio Synthesis (Strictly uses ElevenLabs when configured; removes fallback neural voice)
-  async function generateNeuralAudio(text: string, voiceName: string, stability = 0.35): Promise<Buffer> {
-    if (process.env.ELEVENLABS_API_KEY) {
-      // User explicitly requested to remove fallback neural voice when ElevenLabs is configured:
-      return await fetchElevenLabsAudio(text, voiceName, stability);
-    }
-
-    // Edge Neural engine is only used if ELEVENLABS_API_KEY is not provided:
+  // Microsoft Edge Studio Neural Voice (Reliable, high-fidelity fallback with 0 rate limits)
+  async function generateEdgeNeuralAudio(text: string, voiceName: string, stability = 0.35): Promise<Buffer> {
     const tts = new MsEdgeTTS();
     await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
     const rateOption = '+1%';
@@ -3132,6 +3195,19 @@ Respond ONLY in valid JSON matching this schema:
         reject(err);
       });
     });
+  }
+
+  // Fast Studio Audio Synthesis with Seamless Multi-Engine Fallback
+  async function generateNeuralAudio(text: string, voiceName: string, stability = 0.35): Promise<Buffer> {
+    if (process.env.ELEVENLABS_API_KEY) {
+      try {
+        return await fetchElevenLabsAudio(text, voiceName, stability);
+      } catch (err: any) {
+        console.warn(`[TTS Fallback] ElevenLabs notice (${err?.message || err}). Falling back to Microsoft Edge Studio Neural Voice.`);
+        return await generateEdgeNeuralAudio(text, voiceName, stability);
+      }
+    }
+    return await generateEdgeNeuralAudio(text, voiceName, stability);
   }
 
   // Helper function to resolve voice settings
@@ -3199,6 +3275,9 @@ Respond ONLY in valid JSON matching this schema:
       .trim();
   }
 
+  // In-memory cache for instant zero-latency backchannel verbal nods
+  const backchannelCache = new Map<string, Buffer>();
+
   // Instant Backchanneling Verbal Nods API (0ms acoustic response while waiting or listening)
   app.get("/api/voice-agent/backchannel", async (req: express.Request, res: express.Response) => {
     try {
@@ -3208,7 +3287,23 @@ Respond ONLY in valid JSON matching this schema:
       const verbalNods = ["Right...", "Mm-hmm...", "Yeah, gotcha...", "Got it...", "Well..."];
       const nod = verbalNods[Math.floor(Math.random() * verbalNods.length)];
       const { voiceName } = resolveVoiceSettings(gender, personaId, stability);
-      const audioBuffer = await generateNeuralAudio(nod, voiceName, stability);
+      const cacheKey = `${voiceName}:${nod}`;
+
+      if (backchannelCache.has(cacheKey)) {
+        const cached = backchannelCache.get(cacheKey)!;
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(cached);
+      }
+
+      let audioBuffer: Buffer;
+      try {
+        audioBuffer = await generateEdgeNeuralAudio(nod, voiceName, stability);
+      } catch (e) {
+        audioBuffer = await fetchGoogleTtsAudio(nod, voiceName.includes('GB') ? 'en-GB' : 'en-US');
+      }
+
+      backchannelCache.set(cacheKey, audioBuffer);
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('Cache-Control', 'public, max-age=86400');
       return res.send(audioBuffer);
@@ -3250,16 +3345,25 @@ Respond ONLY in valid JSON matching this schema:
 
       let audioBuffer: Buffer | null = null;
       if (process.env.ELEVENLABS_API_KEY) {
-        audioBuffer = await fetchElevenLabsAudio(cleanText, voiceName, stability);
+        try {
+          audioBuffer = await fetchElevenLabsAudio(cleanText, voiceName, stability);
+        } catch (elevenErr: any) {
+          console.warn(`[TTS Stream] ElevenLabs notice (${elevenErr?.message || elevenErr}). Seamlessly using Edge Neural.`);
+          try {
+            audioBuffer = await generateEdgeNeuralAudio(cleanText, voiceName, stability);
+          } catch (edgeErr: any) {
+            audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+          }
+        }
       } else {
         try {
-          audioBuffer = await generateNeuralAudio(cleanText, voiceName, stability);
+          audioBuffer = await generateEdgeNeuralAudio(cleanText, voiceName, stability);
         } catch (err: any) {
           try {
             audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
           } catch (err2: any) {
             try {
-              audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
+              audioBuffer = await generateEdgeNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
             } catch (err3) {}
           }
         }
@@ -3318,12 +3422,29 @@ Respond ONLY in valid JSON matching this schema:
       let usedEngine = 'edge-neural';
 
       if (process.env.ELEVENLABS_API_KEY) {
-        audioBuffer = await fetchElevenLabsAudio(cleanText, voiceName, stability);
-        usedEngine = 'elevenlabs-turbo-v2_5';
+        try {
+          audioBuffer = await fetchElevenLabsAudio(cleanText, voiceName, stability);
+          usedEngine = 'elevenlabs-turbo-v2_5';
+        } catch (elevenErr: any) {
+          console.warn(`[Neural TTS] ElevenLabs notice (${elevenErr?.message || elevenErr}). Activating Edge Neural studio voice.`);
+          try {
+            audioBuffer = await generateEdgeNeuralAudio(cleanText, voiceName, stability);
+            usedEngine = 'edge-neural-fallback';
+          } catch (edgeErr: any) {
+            console.warn(`[Neural TTS] Edge fallback notice:`, edgeErr?.message || edgeErr);
+            try {
+              audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+              usedEngine = 'google-stream-fallback';
+            } catch (retryErr: any) {
+              console.error(`[Neural TTS] Fallback error:`, retryErr);
+            }
+          }
+        }
       } else {
         // 1. Primary Engine: Edge Neural Studio Audio (only when no ElevenLabs API key is configured)
         try {
-          audioBuffer = await generateNeuralAudio(cleanText, voiceName, stability);
+          audioBuffer = await generateEdgeNeuralAudio(cleanText, voiceName, stability);
+          usedEngine = 'edge-neural';
         } catch (primaryErr: any) {
           console.warn(`[Neural TTS] Edge synthesis notice for ${voiceName}: ${primaryErr?.message || primaryErr}. Activating instant secondary audio stream.`);
           
@@ -3335,7 +3456,7 @@ Respond ONLY in valid JSON matching this schema:
             console.error(`[Neural TTS] Secondary audio stream also had notice:`, secondaryErr?.message || secondaryErr);
             // Try Edge one more time with default Guy / Jenny
             try {
-              audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
+              audioBuffer = await generateEdgeNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
             } catch (retryErr: any) {
               console.error(`[Neural TTS] Edge retry error:`, retryErr);
             }

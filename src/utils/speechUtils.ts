@@ -214,7 +214,8 @@ const backchannelAudioPool: HTMLAudioElement[] = [];
 
 export function preloadBackchannels(gender = 'male', personaId = 'uk-refined') {
   try {
-    const nods = ["Right...", "Yeah, gotcha...", "Got it...", "Mm-hmm..."];
+    if (backchannelAudioPool.length >= 2) return;
+    const nods = ["Right...", "Yeah, gotcha..."];
     nods.forEach(nod => {
       const a = new Audio(`/api/voice-agent/backchannel?gender=${encodeURIComponent(gender)}&personaId=${encodeURIComponent(personaId)}&stability=0.35&text=${encodeURIComponent(nod)}`);
       a.preload = 'auto';

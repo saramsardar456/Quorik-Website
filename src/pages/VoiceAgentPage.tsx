@@ -45,8 +45,8 @@ export function VoiceAgentPage() {
       flag: '🇺🇸',
       tone: 'Direct, Crisp & High-Efficiency',
       engLocale: 'en-US',
-      femaleTranscript: "Hello and thank you for reaching Quorik! My name is Zephyr. I can answer your questions about custom website development, AI chatbots, and voice automation, or book a 15-minute discovery consultation for you right now. Should I schedule morning or afternoon?",
-      maleTranscript: "Hello and thank you for reaching Quorik! My name is Arthur. I can answer your questions about custom website development, AI chatbots, and voice automation, or book a 15-minute discovery consultation for you right now. Should I schedule morning or afternoon?"
+      femaleTranscript: "Hey! Thanks for reaching Quorik. I'm Zephyr. We engineer high-performance custom web apps and 24/7 AI voice receptionists with zero missed calls. How can we help your team today?",
+      maleTranscript: "Hey! Thanks for reaching Quorik. I'm Arthur. We engineer high-performance custom web apps and 24/7 AI voice receptionists with zero missed calls. How can we help your team today?"
     },
     {
       id: 'uk-refined',
@@ -125,13 +125,11 @@ export function VoiceAgentPage() {
   // Pre-fetch sample persona audio in background for 0ms instant playback
   useEffect(() => {
     const timer = setTimeout(() => {
-      personas.forEach(p => {
-        prefetchNeuralAudio(p.maleTranscript, 'male', p.id);
-        prefetchNeuralAudio(p.femaleTranscript, 'female', p.id);
-      });
-    }, 1000);
+      const transcript = selectedGender === 'female' ? currentPersona.femaleTranscript : currentPersona.maleTranscript;
+      prefetchNeuralAudio(transcript, selectedGender, currentPersona.id);
+    }, 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [selectedGender, currentPersona.id]);
 
   // Speak AI Speech Response with Gemini Studio Neural Voice and instant cache
   const speakText = (text: string) => {

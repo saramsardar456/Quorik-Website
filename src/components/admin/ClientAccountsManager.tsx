@@ -1793,12 +1793,36 @@ export function QuorikVoiceWidget() {
               <span className="text-gray-400 text-[11px]">
                 Status: <strong className="text-emerald-400">Active & Ready to Connect</strong>
               </span>
-              <button
-                onClick={() => setEmbedModalClient(null)}
-                className="px-6 py-2 bg-brand-teal text-[#05060A] font-bold rounded-xl hover:bg-white transition-colors"
-              >
-                Done
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Remove existing if any
+                    const oldScript = document.getElementById('quorik-widget-script');
+                    if (oldScript) oldScript.remove();
+                    const oldRoot = document.getElementById('quorik-voice-widget-root');
+                    if (oldRoot) oldRoot.remove();
+
+                    const script = document.createElement('script');
+                    script.id = 'quorik-widget-script';
+                    script.src = `${window.location.origin}/widget.js?t=${Date.now()}`;
+                    script.setAttribute('data-client-id', embedModalClient.id);
+                    script.setAttribute('data-accent', '#00E5FF');
+                    document.body.appendChild(script);
+                    setEmbedModalClient(null);
+                  }}
+                  className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold rounded-xl transition-colors flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Test Widget in App</span>
+                </button>
+                <button
+                  onClick={() => setEmbedModalClient(null)}
+                  className="px-6 py-2 bg-brand-teal text-[#05060A] font-bold rounded-xl hover:bg-white transition-colors"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

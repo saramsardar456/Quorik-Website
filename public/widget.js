@@ -1,6 +1,6 @@
 /**
- * Quorik Systems - Multi-Tenant AI Real-Time Voice & Chatbot Embedded Widget
- * Lightweight, zero-dependency, bidirectional Voice-to-Voice and Chat with live kill-switch & granular 4-tier status
+ * Quorik Systems - Multi-Tenant AI Real-Time Voice & Chatbot Embedded Widget (v3.0 Executive Edition)
+ * Zero-dependency, bidirectional Voice-to-Voice and Intelligent Chat with Arthur AI Concierge
  */
 (function() {
   const currentScript = document.currentScript || document.querySelector('script[data-client-id]') || document.querySelector('script[src*="widget.js"]');
@@ -26,8 +26,9 @@
   }
 
   const primaryColor = (currentScript && currentScript.getAttribute('data-accent')) || '#00E5FF';
+  const STORAGE_KEY = 'quorik_arthur_widget_v3_' + clientId;
 
-  // Inject Audio & Animation CSS
+  // Inject Styles
   const styleEl = document.createElement('style');
   styleEl.innerHTML = `
     #quorik-voice-widget-root {
@@ -35,135 +36,221 @@
       bottom: 20px;
       right: 20px;
       z-index: 999999;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 10px;
+      gap: 12px;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
     }
     #quorik-callout-bubble {
-      display: flex;
+      display: none;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       background: #0D1322;
       border: 1px solid rgba(0, 229, 255, 0.35);
-      padding: 10px 14px;
-      border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 229, 255, 0.15);
+      padding: 12px 16px;
+      border-radius: 18px;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 25px rgba(0, 229, 255, 0.18);
       color: #fff;
       cursor: pointer;
-      max-width: 290px;
-      animation: q-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      max-width: 320px;
+      animation: q-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
       transition: transform 0.2s, box-shadow 0.2s;
     }
     #quorik-callout-bubble:hover {
       transform: translateY(-2px);
-      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 229, 255, 0.25);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75), 0 0 35px rgba(0, 229, 255, 0.28);
     }
     @keyframes q-slide-in {
-      from { opacity: 0; transform: translateY(12px) scale(0.95); }
+      from { opacity: 0; transform: translateY(14px) scale(0.95); }
       to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    #quorik-launcher-container {
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
     #quorik-launcher {
       position: relative;
-      height: 56px;
-      padding: 0 18px 0 14px;
-      border-radius: 28px;
-      background: linear-gradient(135deg, #0A0E1A, #161F38);
+      height: 54px;
+      padding: 0 18px 0 12px;
+      border-radius: 27px;
+      background: linear-gradient(135deg, #0A0E1A, #121A30);
       border: 2px solid ${primaryColor};
-      box-shadow: 0 8px 28px rgba(0, 229, 255, 0.3);
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 229, 255, 0.35);
       display: flex;
       align-items: center;
       gap: 10px;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: all 0.2s ease;
+      user-select: none;
     }
     #quorik-launcher:hover {
       transform: scale(1.04);
-      box-shadow: 0 12px 36px rgba(0, 229, 255, 0.45);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), 0 0 32px rgba(0, 229, 255, 0.5);
     }
     .quorik-online-beacon {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: #10B981;
-      box-shadow: 0 0 8px #10B981;
+      box-shadow: 0 0 10px #10B981;
       display: inline-block;
-      animation: q-beacon 1.5s infinite ease-in-out;
+      animation: q-beacon 1.8s infinite ease-in-out;
     }
     @keyframes q-beacon {
       0%, 100% { transform: scale(0.9); opacity: 0.8; }
-      50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 12px #10B981; }
+      50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 14px #10B981; }
     }
     #quorik-modal {
       display: none;
       position: fixed;
-      bottom: 84px;
-      right: 16px;
-      width: 380px;
+      bottom: 86px;
+      right: 20px;
+      width: 410px;
       max-width: calc(100vw - 32px);
-      height: 540px;
-      max-height: calc(100vh - 100px);
+      height: 620px;
+      max-height: calc(100vh - 105px);
       background: #0A0E1A;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 20px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      border-radius: 24px;
+      box-shadow: 0 25px 60px -10px rgba(0,0,0,0.85), 0 0 35px rgba(0, 229, 255, 0.15);
       overflow: hidden;
       flex-direction: column;
       color: #fff;
+      animation: q-slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      box-sizing: border-box;
     }
-    .quorik-pulse {
-      animation: q-pulse 1.2s infinite ease-in-out;
+    @media (max-width: 480px) {
+      #quorik-modal {
+        right: 12px;
+        bottom: 80px;
+        width: calc(100vw - 24px);
+        height: calc(100vh - 95px);
+        border-radius: 20px;
+      }
     }
-    .quorik-speaking-glow {
-      animation: q-glow 1.5s infinite alternate ease-in-out;
+    .q-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .q-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .q-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+    }
+    .q-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 229, 255, 0.4);
+    }
+    .q-pulse-wave {
+      animation: q-pulse 1.4s infinite ease-in-out;
     }
     @keyframes q-pulse {
       0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7); }
-      70% { transform: scale(1.04); box-shadow: 0 0 0 10px rgba(0, 229, 255, 0); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(0, 229, 255, 0); }
       100% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
     }
-    @keyframes q-glow {
-      0% { box-shadow: 0 0 10px ${primaryColor}66, inset 0 0 10px ${primaryColor}33; }
-      100% { box-shadow: 0 0 24px ${primaryColor}, inset 0 0 16px ${primaryColor}88; }
+    .q-chip-btn {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      font-size: 11px;
+      color: #CBD5E1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .q-chip-btn:hover {
+      background: rgba(0, 229, 255, 0.15);
+      border-color: rgba(0, 229, 255, 0.4);
+      color: #00E5FF;
+      transform: translateY(-1px);
+    }
+    .q-typing-dot {
+      width: 6px;
+      height: 6px;
+      background: #00E5FF;
+      border-radius: 50%;
+      display: inline-block;
+      animation: q-bounce 1.3s infinite ease-in-out;
+    }
+    @keyframes q-bounce {
+      0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
     }
   `;
   document.head.appendChild(styleEl);
 
-  // Create Root Element
+  // Root container
   const root = document.createElement('div');
   root.id = 'quorik-voice-widget-root';
   document.body.appendChild(root);
 
-  // Widget States
+  // State
   let clientData = null;
   let isOpen = false;
-  let isVoiceActive = false;
-  let chatHistory = [];
+  let activeMode = 'chat'; // 'chat' | 'voice-call'
+  let soundEnabled = false;
+  let isSpeaking = false;
+  let isThinking = false;
+  let isListening = false;
+  let isSupportViewOpen = false;
   let isPausedOrLimited = false;
   let isVoiceOnlyExhausted = false;
   let isChatOnlyExhausted = false;
-  let isSupportViewOpen = false;
   let recognition = null;
-  let isListening = false;
-  let isSpeaking = false;
-  let isThinking = false;
+  let callTimer = null;
+  let callSeconds = 0;
   let currentAudio = null;
-  let activeUtterances = [];
-  let voiceStartTime = 0;
   let widgetSpeechToken = 0;
-  let widgetTtsAbortController = null;
   let widgetSilenceTimer = null;
-
-  // In-memory audio cache for 0ms instant repeat playback in widget
   const widgetAudioCache = new Map();
 
-  // Unlock Audio on user gesture for iOS Safari & Android
+  // Load message history from localStorage
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function getInitialGreeting() {
+    const business = clientData?.businessName || 'Quorik Google Ads';
+    const agent = clientData?.voiceAgentName || 'Arthur (Executive Concierge)';
+    return [
+      {
+        id: 'msg-init-1',
+        sender: 'ai',
+        text: `Hello and welcome! 👋 I am **${agent}**, the 24/7 AI Voice & Strategy Concierge for **${business}**.\n\nYou can speak with me live voice-to-voice or type below to analyze performance, calculate your ROI, or schedule a strategy consultation!`,
+        time: 'Just now'
+      }
+    ];
+  }
+
+  let messages = loadHistory() || getInitialGreeting();
+
+  function saveHistory() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch (e) {}
+  }
+
+  function formatTime() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Audio helper
   function unlockAudio() {
     try {
       if ('speechSynthesis' in window) {
@@ -176,95 +263,135 @@
     } catch (e) {}
   }
 
-  // Pre-fetch speech voices
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.getVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
-      };
+  // Clean transcript
+  function cleanTranscript(raw) {
+    if (!raw) return '';
+    const trimmed = raw.replace(/\s+/g, ' ').trim();
+    if (/([a-zA-Z])\1{3,}/i.test(trimmed)) return '';
+    if (!trimmed.includes(' ') && trimmed.length > 6) {
+      const vowels = (trimmed.match(/[aeiouy]/gi) || []).length;
+      if (vowels / trimmed.length < 0.15) return '';
     }
+    return trimmed;
   }
 
-  const BANNED_ROBOTIC_VOICES = [
-    'fred', 'albert', 'ralph', 'zarvox', 'trinoids', 'junior', 'princess',
-    'cellos', 'deranged', 'boing', 'bad news', 'bells', 'bubbles', 'hysterical',
-    'organ', 'whisper', 'bahh', 'good news', 'pipe organ', 'robot', 'synthetic',
-    'jester', 'wobble', 'vintage'
-  ];
+  // Simple Markdown Parser
+  function parseMarkdown(text) {
+    if (!text) return '';
+    let escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
 
-  function getBestVoice(gender) {
-    if (!('speechSynthesis' in window)) return { voice: null, pitch: 1 };
-    const allVoices = window.speechSynthesis.getVoices() || [];
-    const cleanVoices = allVoices.filter(v => {
-      const l = (v.lang || '').toLowerCase().replace(/_/g, '-');
-      const isEng = l.startsWith('en-') || l === 'en' || l.startsWith('eng');
-      if (!isEng) return false;
-      const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-      return !BANNED_ROBOTIC_VOICES.some(bad => n.includes(bad));
-    });
+    // Bold
+    escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    // Code blocks / pills
+    escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:4px;font-size:11px;">$1</code>');
+    // Line breaks
+    escaped = escaped.replace(/\n\n/g, '<div style="height:6px;"></div>');
+    escaped = escaped.replace(/\n/g, '<br/>');
 
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
-    const pitch = isMobile ? 1.0 : (gender === 'female' ? 1.0 : 0.98);
-
-    if (cleanVoices.length === 0) {
-      return { voice: null, pitch: pitch };
-    }
-
-    const isFemale = gender === 'female';
-    const scoreVoice = (v) => {
-      const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-      let score = 0;
-      if (n.includes('enhanced') || n.includes('premium') || n.includes('natural') || n.includes('neural')) score += 10;
-      if (n.includes('google')) score += 6;
-      if (n.includes('siri')) score += 8;
-      if (isFemale) {
-        if (n.includes('samantha') || n.includes('victoria') || n.includes('karen') || n.includes('aria') || n.includes('jenny') || n.includes('ava') || n.includes('serena')) score += 5;
-        if (n.includes('david') || n.includes('mark') || n.includes('daniel') || n.includes('alex') || n.includes('male') || n.includes('arthur')) score -= 20;
-      } else {
-        if (n.includes('oliver') || n.includes('daniel') || n.includes('alex') || n.includes('tom') || n.includes('arthur') || n.includes('david') || n.includes('guy')) score += 5;
-        if (n.includes('samantha') || n.includes('victoria') || n.includes('female') || n.includes('karen') || n.includes('zira')) score -= 20;
-      }
-      return score;
-    };
-
-    const sorted = [...cleanVoices].sort((a, b) => scoreVoice(b) - scoreVoice(a));
-    return { voice: sorted[0] || cleanVoices[0] || null, pitch: pitch };
+    return escaped;
   }
 
-  function getClientVoiceProfile() {
-    let gender = 'male';
-    if (clientData?.voiceGender) {
-      gender = String(clientData.voiceGender).toLowerCase().includes('female') ? 'female' : 'male';
-    } else if (clientData?.gender) {
-      gender = String(clientData.gender).toLowerCase().includes('female') ? 'female' : 'male';
-    } else {
-      const agentName = (clientData?.voiceAgentName || '').toLowerCase();
-      if (agentName.includes('sarah') || agentName.includes('elena') || agentName.includes('zephyr') || agentName.includes('clara') || agentName.includes('emma') || agentName.includes('olivia') || agentName.includes('sophia') || agentName.includes('female')) {
-        gender = 'female';
-      } else {
-        gender = 'male';
-      }
+  // Detect card type from content
+  function detectCardType(text) {
+    const lower = (text || '').toLowerCase();
+    if (lower.includes('[card:roi]') || lower.includes('roi calculation') || lower.includes('return on ad spend')) {
+      return 'ROI';
     }
-
-    let personaId = 'us-executive';
-    const langStr = `${clientData?.voiceLanguage || ''} ${clientData?.voiceAccent || ''} ${clientData?.personaId || ''} ${clientData?.voiceAgentName || ''}`.toLowerCase();
-    if (langStr.includes('british') || langStr.includes('uk') || langStr.includes('oliver') || langStr.includes('clara') || langStr.includes('ryan') || langStr.includes('sonia')) {
-      personaId = 'uk-refined';
-    } else {
-      personaId = 'us-executive';
+    if (lower.includes('[card:pricing]') || lower.includes('pricing tiers') || lower.includes('package options') || (lower.includes('starter') && lower.includes('retainer'))) {
+      return 'PRICING';
     }
-
-    return { gender, personaId };
+    if (lower.includes('[card:booking]') || lower.includes('book a call') || lower.includes('discovery consultation') || lower.includes('calendly') || lower.includes('schedule a meeting')) {
+      return 'BOOKING';
+    }
+    return null;
   }
 
-  function speakText(text, autoListenAfter = false) {
-    if (!text || isVoiceOnlyExhausted) return;
-    
-    // Stop any ongoing speech and establish new sequence token
+  // Render Interactive Card inside message
+  function renderCardHTML(type) {
+    const business = clientData?.businessName || 'Quorik Google Ads';
+    const email = clientData?.email || 'saramsardar456@gmail.com';
+    const phone = clientData?.phone || '+92 370 0146156';
+
+    if (type === 'ROI') {
+      return `
+        <div style="margin-top:10px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.25);border-radius:12px;padding:12px;color:#fff;">
+          <div style="font-size:11px;font-weight:700;color:#00E5FF;display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span>📈</span> ROI & Conversion Projection
+          </div>
+          <div style="font-size:11px;color:#94A3B8;line-height:1.4;margin-bottom:10px;">
+            Targeting a <strong>3.8x - 5.5x ROAS</strong> on Google Ads with dedicated campaign optimization, high-converting landing pages, and AI voice follow-ups.
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="q-card-action-btn" data-query="Calculate my exact projected ROAS with $3,000 monthly spend" style="flex:1;background:#00E5FF;border:none;color:#000;font-weight:700;font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;">
+              Run $3k Spend Model
+            </button>
+            <button class="q-card-action-btn" data-query="What ad strategies do you use to lower CPC?" style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;">
+              How to Lower CPC
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    if (type === 'PRICING') {
+      return `
+        <div style="margin-top:10px;background:rgba(147,51,234,0.08);border:1px solid rgba(147,51,234,0.3);border-radius:12px;padding:12px;color:#fff;">
+          <div style="font-size:11px;font-weight:700;color:#C084FC;display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            <span>💼</span> Available Retainers & Tiers
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+            <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px;">
+              <div style="font-size:10px;color:#94A3B8;">Starter Ads</div>
+              <div style="font-size:13px;font-weight:700;color:#fff;">$990<span style="font-size:9px;color:#64748B;">/mo</span></div>
+              <div style="font-size:9px;color:#10B981;margin-top:2px;">Campaign Setup + Weekly QA</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(0,229,255,0.3);border-radius:8px;padding:8px;">
+              <div style="font-size:10px;color:#00E5FF;">Performance Scale</div>
+              <div style="font-size:13px;font-weight:700;color:#fff;">$1,890<span style="font-size:9px;color:#64748B;">/mo</span></div>
+              <div style="font-size:9px;color:#00E5FF;margin-top:2px;">Ads + Arthur AI Voice Line</div>
+            </div>
+          </div>
+          <button class="q-card-action-btn" data-query="Book a call to discuss the Performance Scale package" style="width:100%;background:#C084FC;color:#000;border:none;font-weight:700;font-size:10px;padding:7px;border-radius:6px;cursor:pointer;">
+            Inquire About Packages ➤
+          </button>
+        </div>
+      `;
+    }
+
+    if (type === 'BOOKING') {
+      return `
+        <div style="margin-top:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:12px;color:#fff;">
+          <div style="font-size:11px;font-weight:700;color:#34D399;display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span>📅</span> Executive Discovery Consultation
+          </div>
+          <div style="font-size:11px;color:#94A3B8;line-height:1.4;margin-bottom:10px;">
+            Schedule a 1-on-1 strategy call with the leadership team for a full campaign audit.
+          </div>
+          <div style="display:flex;gap:6px;">
+            <a href="https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(business)}%2C%20I%20would%20like%20to%20schedule%20a%20strategy%20consultation." target="_blank" rel="noopener noreferrer" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:#25D366;color:#000;font-weight:700;font-size:10px;padding:7px 8px;border-radius:6px;text-decoration:none;">
+              <span>💬 WhatsApp</span>
+            </a>
+            <a href="mailto:${email}?subject=Strategy%20Consultation%20Inquiry%20from%20${encodeURIComponent(business)}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;padding:7px 8px;border-radius:6px;text-decoration:none;">
+              <span>✉️ Send Email</span>
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    return '';
+  }
+
+  // Voice Speech Player (Arthur's Voice)
+  function speakWithArthur(text, onStartCb, onEndCb) {
     stopSpeaking();
     unlockAudio();
-    const token = widgetSpeechToken;
+    const token = ++widgetSpeechToken;
 
     const clean = text
       .replace(/\[CARD:[A-Z_]+\]/gi, '')
@@ -275,363 +402,215 @@
       .replace(/\bQuorik\b/gi, 'Korik')
       .replace(/\bAI\b/g, 'A.I.')
       .replace(/\bROI\b/g, 'R.O.I.')
-      .replace(/\bCRM\b/g, 'C.R.M.')
+      .replace(/\bROAS\b/g, 'R.O.A.S.')
+      .replace(/\bCPC\b/g, 'C.P.C.')
       .replace(/\s+/g, ' ')
       .trim();
 
-    if (!clean) return;
-
-    updateUIStatus('speaking');
-    const { gender, personaId } = getClientVoiceProfile();
-    const cacheKey = `${gender}:${personaId}:${clean}`;
-
-    const playBase64Mp3 = (base64Audio, mimeType = 'audio/mp3') => {
-      if (token !== widgetSpeechToken) return;
-
-      const playAudioPipeline = async () => {
-        // 1. Try Web Audio Context buffer decoding (highest reliability in cross-origin & iframes)
-        try {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (AudioContextClass) {
-            if (!window._quorikAudioCtx || window._quorikAudioCtx.state === 'closed') {
-              window._quorikAudioCtx = new AudioContextClass();
-            }
-            const actx = window._quorikAudioCtx;
-            if (actx.state === 'suspended') {
-              await actx.resume().catch(() => {});
-            }
-            const binaryString = atob(base64Audio);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const buffer = await actx.decodeAudioData(bytes.buffer.slice(0));
-            if (token !== widgetSpeechToken) return;
-
-            const source = actx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(actx.destination);
-
-            isSpeaking = true;
-            updateUIStatus('speaking');
-
-            source.onended = () => {
-              isSpeaking = false;
-              if (token === widgetSpeechToken) {
-                updateUIStatus('idle');
-              }
-              if (autoListenAfter && isVoiceActive && token === widgetSpeechToken) {
-                setTimeout(() => {
-                  if (isVoiceActive && !isSpeaking && !isThinking && token === widgetSpeechToken) {
-                    startListening();
-                  }
-                }, 400);
-              }
-            };
-
-            source.start(0);
-            return;
-          }
-        } catch (webaudioErr) {
-          // Continue to HTML5 Audio
-        }
-
-        // 2. HTML5 Audio element fallback
-        try {
-          const audioSrc = `data:${mimeType};base64,${base64Audio}`;
-          const audio = new Audio(audioSrc);
-          currentAudio = audio;
-          audio.preload = 'auto';
-
-          let finished = false;
-          const handleEnd = () => {
-            if (finished) return;
-            finished = true;
-            if (currentAudio === audio) currentAudio = null;
-            isSpeaking = false;
-            if (token === widgetSpeechToken) {
-              updateUIStatus('idle');
-            }
-            if (autoListenAfter && isVoiceActive && token === widgetSpeechToken) {
-              setTimeout(() => {
-                if (isVoiceActive && !isSpeaking && !isThinking && token === widgetSpeechToken) {
-                  startListening();
-                }
-              }, 400);
-            }
-          };
-
-          audio.onplay = () => {
-            if (token !== widgetSpeechToken) {
-              audio.pause();
-              audio.currentTime = 0;
-              return;
-            }
-            isSpeaking = true;
-            updateUIStatus('speaking');
-          };
-          audio.onended = handleEnd;
-          audio.onerror = () => {
-            if (currentAudio === audio) currentAudio = null;
-            if (token === widgetSpeechToken) {
-              fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-            }
-          };
-
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(() => {
-              if (token === widgetSpeechToken) {
-                fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-              }
-            });
-          }
-        } catch (err) {
-          if (token === widgetSpeechToken) {
-            fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-          }
-        }
-      };
-
-      playAudioPipeline();
-    };
-
-    // 1. Instant cache check (<5ms playback)
-    if (widgetAudioCache.has(cacheKey)) {
-      const cached = widgetAudioCache.get(cacheKey);
-      playBase64Mp3(cached.audioData, cached.mimeType);
+    if (!clean) {
+      if (onEndCb) onEndCb();
       return;
     }
 
-    // 2. Fetch server-side Neural Audio (/api/tts) for 100% genuine studio voice on all devices
-    const requestTts = (isRetry = false) => {
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      widgetTtsAbortController = controller;
-      const timeoutId = setTimeout(() => {
-        if (controller) controller.abort();
-      }, 8000);
+    isSpeaking = true;
+    updateStatusVisuals();
+    if (onStartCb) onStartCb();
 
-      fetch(`${serverOrigin}/api/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller ? controller.signal : undefined,
-        body: JSON.stringify({ text: clean, gender, personaId })
-      })
-      .then(r => r.json())
-      .then(data => {
-        clearTimeout(timeoutId);
-        if (widgetTtsAbortController === controller) {
-          widgetTtsAbortController = null;
-        }
-        if (token !== widgetSpeechToken) return;
+    const cacheKey = `arthur:${clean}`;
+    if (widgetAudioCache.has(cacheKey)) {
+      const cached = widgetAudioCache.get(cacheKey);
+      playBase64Mp3(cached.audioData, cached.mimeType, token, onEndCb);
+      return;
+    }
 
-        if (data && data.audioData) {
-          widgetAudioCache.set(cacheKey, {
-            audioData: data.audioData,
-            mimeType: data.mimeType || 'audio/mp3'
-          });
-          playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3');
-          return;
-        }
-        if (!isRetry) {
-          requestTts(true);
-        } else {
-          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-        }
-      })
-      .catch((err) => {
-        clearTimeout(timeoutId);
-        if (widgetTtsAbortController === controller) {
-          widgetTtsAbortController = null;
-        }
-        if (token !== widgetSpeechToken) return;
-        if (!isRetry) {
-          requestTts(true);
-        } else {
-          fallbackSpeechSynthesis(clean, gender, autoListenAfter);
-        }
-      });
-    };
-
-    requestTts(false);
+    // Call server TTS
+    fetch(`${serverOrigin}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean, gender: 'male', personaId: 'arthur' })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (token !== widgetSpeechToken) return;
+      if (data && data.audioData) {
+        widgetAudioCache.set(cacheKey, { audioData: data.audioData, mimeType: data.mimeType || 'audio/mp3' });
+        playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3', token, onEndCb);
+      } else {
+        fallbackBrowserSpeech(clean, token, onEndCb);
+      }
+    })
+    .catch(() => {
+      if (token === widgetSpeechToken) {
+        fallbackBrowserSpeech(clean, token, onEndCb);
+      }
+    });
   }
 
-  function fallbackSpeechSynthesis(clean, gender, autoListenAfter) {
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.resume();
-        const utterance = new SpeechSynthesisUtterance(clean);
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
-        utterance.rate = isMobile ? 1.0 : 0.98;
-        utterance.lang = 'en-US';
+  function playBase64Mp3(base64Audio, mimeType, token, onEndCb) {
+    try {
+      const audioSrc = `data:${mimeType};base64,${base64Audio}`;
+      const audio = new Audio(audioSrc);
+      currentAudio = audio;
+      audio.preload = 'auto';
 
-        const bestVoiceObj = getBestVoice(gender);
-        if (bestVoiceObj.voice) {
-          utterance.voice = bestVoiceObj.voice;
-        }
-        utterance.pitch = bestVoiceObj.pitch;
-
-        utterance.onstart = () => {
-          isSpeaking = true;
-          updateUIStatus('speaking');
-        };
-
-        utterance.onend = () => {
-          isSpeaking = false;
-          activeUtterances = [];
-          updateUIStatus('idle');
-          if (autoListenAfter && isVoiceActive) {
-            setTimeout(() => {
-              if (isVoiceActive && !isSpeaking && !isThinking) {
-                startListening();
-              }
-            }, 400);
-          }
-        };
-
-        utterance.onerror = () => {
-          isSpeaking = false;
-          activeUtterances = [];
-          updateUIStatus('idle');
-        };
-
-        activeUtterances.push(utterance);
-        window.speechSynthesis.speak(utterance);
-        return;
-      } catch (err) {
-        console.warn('[Quorik Voice Widget] SpeechSynthesis failed:', err);
-      }
+      audio.onended = () => {
+        if (currentAudio === audio) currentAudio = null;
+        isSpeaking = false;
+        updateStatusVisuals();
+        if (onEndCb) onEndCb();
+      };
+      audio.onerror = () => {
+        if (currentAudio === audio) currentAudio = null;
+        isSpeaking = false;
+        updateStatusVisuals();
+        if (onEndCb) onEndCb();
+      };
+      audio.play().catch(() => {
+        fallbackBrowserSpeech('', token, onEndCb);
+      });
+    } catch (e) {
+      fallbackBrowserSpeech('', token, onEndCb);
     }
-    isSpeaking = false;
-    updateUIStatus('idle');
+  }
+
+  function fallbackBrowserSpeech(clean, token, onEndCb) {
+    if (!('speechSynthesis' in window) || !clean) {
+      isSpeaking = false;
+      updateStatusVisuals();
+      if (onEndCb) onEndCb();
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.rate = 1.0;
+      utterance.pitch = 0.96;
+      utterance.lang = 'en-US';
+
+      const voices = window.speechSynthesis.getVoices() || [];
+      const maleVoice = voices.find(v => {
+        const n = v.name.toLowerCase();
+        return (n.includes('male') || n.includes('david') || n.includes('arthur') || n.includes('daniel') || n.includes('guy') || n.includes('google us english')) && !n.includes('female');
+      });
+      if (maleVoice) utterance.voice = maleVoice;
+
+      utterance.onend = () => {
+        isSpeaking = false;
+        updateStatusVisuals();
+        if (onEndCb) onEndCb();
+      };
+      utterance.onerror = () => {
+        isSpeaking = false;
+        updateStatusVisuals();
+        if (onEndCb) onEndCb();
+      };
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      isSpeaking = false;
+      updateStatusVisuals();
+      if (onEndCb) onEndCb();
+    }
   }
 
   function stopSpeaking() {
     widgetSpeechToken++;
-    if (widgetTtsAbortController) {
-      try {
-        widgetTtsAbortController.abort();
-      } catch (e) {}
-      widgetTtsAbortController = null;
-    }
     isSpeaking = false;
-    activeUtterances = [];
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch (e) {}
-    }
     if (currentAudio) {
       try {
         currentAudio.pause();
         currentAudio.currentTime = 0;
-        currentAudio.src = '';
       } catch (e) {}
       currentAudio = null;
     }
-    updateUIStatus('idle');
+    if ('speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
+    updateStatusVisuals();
   }
 
-  function updateUIStatus(state) {
-    const vBtn = modal?.querySelector('#q-voice-toggle-btn');
-    const statusText = modal?.querySelector('#q-voice-status-text');
-    const banner = modal?.querySelector('#q-voice-active-banner');
-    if (!vBtn) return;
+  // Update Status & Waveforms
+  function updateStatusVisuals() {
+    const statusText = modal.querySelector('#q-voice-status-text');
+    const callStatusText = modal.querySelector('#q-call-status-heading');
+    const waveContainer = modal.querySelector('#q-call-waveform');
 
-    if (isVoiceOnlyExhausted) {
-      vBtn.classList.remove('quorik-pulse', 'quorik-speaking-glow');
-      vBtn.style.background = 'rgba(239,68,68,0.12)';
-      vBtn.style.borderColor = 'rgba(239,68,68,0.4)';
-      vBtn.style.color = '#F87171';
-      vBtn.title = 'Voice calling paused • 24/7 AI Text Chat is active.';
-      if (statusText) statusText.innerText = '🎙️ Voice calling paused • 24/7 Text Chat is active';
-      return;
-    }
-
-    if (state === 'listening') {
-      vBtn.classList.add('quorik-pulse');
-      vBtn.classList.remove('quorik-speaking-glow');
-      vBtn.style.background = '#EF4444';
-      vBtn.style.borderColor = '#EF4444';
-      vBtn.style.color = '#fff';
-      if (statusText) statusText.innerText = 'Listening to your voice... (Speak now)';
-      if (banner) {
-        banner.style.display = 'flex';
-        banner.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#EF4444;display:inline-block;" class="quorik-pulse"></span> <span style="color:#EF4444;font-weight:600;font-size:11px;">Listening... Speak now</span>';
+    if (activeMode === 'voice-call') {
+      if (callStatusText) {
+        if (isSpeaking) {
+          callStatusText.innerText = 'Arthur is Speaking...';
+        } else if (isThinking) {
+          callStatusText.innerText = 'Arthur is Thinking...';
+        } else if (isListening) {
+          callStatusText.innerText = 'Listening to you... (Speak freely)';
+        } else {
+          callStatusText.innerText = 'Arthur is Ready';
+        }
       }
-    } else if (state === 'speaking') {
-      vBtn.classList.remove('quorik-pulse');
-      vBtn.classList.add('quorik-speaking-glow');
-      vBtn.style.background = primaryColor;
-      vBtn.style.borderColor = primaryColor;
-      vBtn.style.color = '#000';
-      if (statusText) statusText.innerText = 'AI Agent is speaking...';
-      if (banner) {
-        banner.style.display = 'flex';
-        banner.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${primaryColor};display:inline-block;"></span> <span style="color:${primaryColor};font-weight:600;font-size:11px;">AI Speaking...</span>`;
-      }
-    } else if (state === 'thinking') {
-      vBtn.classList.remove('quorik-pulse', 'quorik-speaking-glow');
-      vBtn.style.background = 'rgba(255,255,255,0.1)';
-      vBtn.style.borderColor = 'rgba(255,255,255,0.2)';
-      vBtn.style.color = '#94A3B8';
-      if (statusText) statusText.innerText = 'Processing response...';
-      if (banner) {
-        banner.style.display = 'flex';
-        banner.innerHTML = '<span style="color:#94A3B8;font-size:11px;">Processing...</span>';
+      if (waveContainer) {
+        waveContainer.querySelectorAll('.q-wave-bar').forEach((bar, idx) => {
+          if (isSpeaking) {
+            const h = 20 + Math.sin(Date.now() / 150 + idx) * 15 + Math.random() * 15;
+            bar.style.height = `${Math.min(45, Math.max(8, h))}px`;
+            bar.style.background = 'linear-gradient(to top, #00E5FF, #3B82F6)';
+          } else if (isListening) {
+            const h = 12 + Math.random() * 20;
+            bar.style.height = `${h}px`;
+            bar.style.background = 'linear-gradient(to top, #10B981, #34D399)';
+          } else {
+            bar.style.height = '6px';
+            bar.style.background = 'rgba(255,255,255,0.2)';
+          }
+        });
       }
     } else {
-      vBtn.classList.remove('quorik-pulse', 'quorik-speaking-glow');
-      vBtn.style.background = isVoiceActive ? `${primaryColor}22` : 'rgba(255,255,255,0.06)';
-      vBtn.style.borderColor = isVoiceActive ? primaryColor : 'rgba(255,255,255,0.15)';
-      vBtn.style.color = isVoiceActive ? primaryColor : '#94A3B8';
-      if (isChatOnlyExhausted) {
-        if (statusText) statusText.innerText = '💬 Text chat paused • Tap microphone to speak voice-to-voice';
-      } else {
-        if (statusText) statusText.innerText = isVoiceActive ? 'Voice Mode Active • Tap mic to speak' : 'Type message or tap mic to speak';
-      }
-      if (banner && !isVoiceActive) {
-        banner.style.display = 'none';
+      if (statusText) {
+        if (isSpeaking) {
+          statusText.innerHTML = '<span style="color:#00E5FF;font-weight:600;">🔊 Arthur is speaking...</span>';
+        } else if (isThinking) {
+          statusText.innerHTML = '<span style="color:#94A3B8;">⚡ Arthur is thinking...</span>';
+        } else if (isListening) {
+          statusText.innerHTML = '<span style="color:#10B981;font-weight:600;">🎙️ Listening to your voice...</span>';
+        } else {
+          statusText.innerHTML = 'Type message or tap mic to speak';
+        }
       }
     }
   }
 
-  // Render Launcher Button & Proactive Greeting Callout
+  // Build Shell
   root.innerHTML = `
-    <div id="quorik-callout-bubble" style="display:none;">
-      <div style="width:32px;height:32px;border-radius:50%;background:${primaryColor}22;border:1px solid ${primaryColor}66;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">
+    <div id="quorik-callout-bubble">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg, #1D4ED8, #06B6D4);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 0 12px rgba(0,229,255,0.4);">
         🤖
       </div>
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
           <span class="quorik-online-beacon"></span>
-          <span id="q-callout-agent-name" style="font-size:11px;font-weight:700;color:${primaryColor};">AI Concierge</span>
+          <span id="q-callout-agent-name" style="font-size:11px;font-weight:700;color:${primaryColor};">Arthur (Executive AI)</span>
           <span style="font-size:9px;background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;color:#94A3B8;">24/7 Live</span>
         </div>
         <div id="q-callout-text" style="font-size:11px;color:#E2E8F0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          👋 Have questions? Tap to talk live or ask AI!
+          👋 Tap to talk live or ask about Google Ads!
         </div>
       </div>
-      <button id="q-callout-close-btn" style="background:transparent;border:none;color:#64748B;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;line-height:1;" title="Dismiss">✕</button>
+      <button id="q-callout-close-btn" style="background:transparent;border:none;color:#64748B;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px;line-height:1;" title="Dismiss">✕</button>
     </div>
 
-    <div id="quorik-launcher-container">
-      <div id="quorik-launcher" title="24/7 AI Voice & Chat Assistant">
-        <div style="width:32px;height:32px;border-radius:50%;background:${primaryColor}18;display:flex;align-items:center;justify-content:center;position:relative;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${primaryColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" x2="12" y1="19" y2="22"/>
-          </svg>
-          <span class="quorik-online-beacon" style="position:absolute;top:-1px;right:-1px;"></span>
-        </div>
-        <div style="display:flex;flex-direction:column;line-height:1.1;">
-          <span style="font-size:12px;font-weight:700;color:#fff;letter-spacing:0.2px;">Talk with AI</span>
-          <span style="font-size:9px;color:${primaryColor};font-weight:600;">24/7 Live Assistant</span>
-        </div>
+    <div id="quorik-launcher" title="24/7 AI Voice & Strategy Assistant">
+      <div style="width:32px;height:32px;border-radius:50%;background:${primaryColor}20;border:1px solid ${primaryColor}55;display:flex;align-items:center;justify-content:center;position:relative;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${primaryColor}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" x2="12" y1="19" y2="22"/>
+        </svg>
+        <span class="quorik-online-beacon" style="position:absolute;top:-1px;right:-1px;"></span>
+      </div>
+      <div style="display:flex;flex-direction:column;line-height:1.15;">
+        <span style="font-size:12px;font-weight:700;color:#fff;letter-spacing:0.2px;">Talk with AI</span>
+        <span style="font-size:9px;color:${primaryColor};font-weight:600;">24/7 Live Assistant</span>
       </div>
     </div>
+
     <div id="quorik-modal"></div>
   `;
 
@@ -644,6 +623,7 @@
     calloutCloseBtn.onclick = (e) => {
       e.stopPropagation();
       calloutBubble.style.display = 'none';
+      sessionStorage.setItem('q_callout_dismissed', 'true');
     };
   }
 
@@ -651,571 +631,787 @@
     calloutBubble.onclick = async () => {
       calloutBubble.style.display = 'none';
       unlockAudio();
-      isOpen = true;
-      modal.style.display = 'flex';
-      await fetchClientStatus();
+      openModal();
     };
   }
 
-  // Show proactive callout after 1.8s delay
+  launcher.onclick = () => {
+    if (calloutBubble) calloutBubble.style.display = 'none';
+    unlockAudio();
+    if (isOpen) {
+      closeModal();
+    } else {
+      openModal();
+    }
+  };
+
+  function openModal() {
+    isOpen = true;
+    modal.style.display = 'flex';
+    renderModalLayout();
+    fetchClientStatus();
+  }
+
+  function closeModal() {
+    isOpen = false;
+    modal.style.display = 'none';
+    stopSpeaking();
+    if (activeMode === 'voice-call') {
+      endVoiceCall();
+    }
+    if (recognition && isListening) {
+      try { recognition.stop(); } catch (e) {}
+    }
+  }
+
+  // Show proactive callout after 2 seconds
   setTimeout(() => {
-    if (!isOpen && calloutBubble && (!sessionStorage.getItem('q_callout_dismissed'))) {
+    if (!isOpen && calloutBubble && !sessionStorage.getItem('q_callout_dismissed')) {
       calloutBubble.style.display = 'flex';
     }
-  }, 1800);
+  }, 2000);
 
-  // Verify Client Status Live from Quorik Backend
+  // Fetch Client Data without wiping messages
   async function fetchClientStatus() {
     try {
       const res = await fetch(`${serverOrigin}/api/clients/${clientId}`);
-      if (!res.ok) {
-        isPausedOrLimited = true;
-        isVoiceOnlyExhausted = false;
-        isChatOnlyExhausted = false;
-        renderModal();
-        return null;
-      }
+      if (!res.ok) return;
       clientData = await res.json();
-      
-      // Update proactive callout bubble with client information
+
+      // Update proactive bubble texts
       const agentEl = root.querySelector('#q-callout-agent-name');
       const textEl = root.querySelector('#q-callout-text');
       if (agentEl && clientData.voiceAgentName) {
-        agentEl.innerText = clientData.voiceAgentName.split(' ')[0] + ' (AI)';
+        agentEl.innerText = clientData.voiceAgentName;
       }
       if (textEl && clientData.businessName) {
         textEl.innerText = `👋 Welcome to ${clientData.businessName}! Tap to speak or ask AI.`;
       }
-      
+
+      // Check quotas
       const vLimit = clientData.monthlyVoiceMinutesLimit || 300;
       const vUsed = clientData.voiceMinutesUsed || 0;
       const tLimit = clientData.monthlyTextChatLimit || 1000;
       const tUsed = clientData.textChatsUsed || 0;
 
-      const vExhausted = (vUsed >= vLimit) || (clientData.status === 'voice_paused');
-      const tExhausted = (tUsed >= tLimit) || (clientData.status === 'chat_paused');
+      isVoiceOnlyExhausted = (vUsed >= vLimit) || (clientData.status === 'voice_paused');
+      isChatOnlyExhausted = (tUsed >= tLimit) || (clientData.status === 'chat_paused');
+      isPausedOrLimited = clientData.status === 'paused' || clientData.status === 'limit_reached' || (isVoiceOnlyExhausted && isChatOnlyExhausted);
 
-      if (clientData.status === 'paused' || clientData.status === 'limit_reached' || (vExhausted && tExhausted)) {
-        isPausedOrLimited = true;
-        isVoiceOnlyExhausted = false;
-        isChatOnlyExhausted = false;
-      } else if (vExhausted && !tExhausted) {
-        // Voice Off, Chat Active
-        isPausedOrLimited = false;
-        isVoiceOnlyExhausted = true;
-        isChatOnlyExhausted = false;
-      } else if (!vExhausted && tExhausted) {
-        // Chat Off, Voice Active
-        isPausedOrLimited = false;
-        isVoiceOnlyExhausted = false;
-        isChatOnlyExhausted = true;
-      } else {
-        // All On
-        isPausedOrLimited = false;
-        isVoiceOnlyExhausted = false;
-        isChatOnlyExhausted = false;
-      }
-
-      renderModal();
-      return clientData;
+      // Update titles in current view safely
+      const headerTitle = modal.querySelector('#q-header-business');
+      const headerSub = modal.querySelector('#q-header-agent');
+      if (headerTitle) headerTitle.innerText = clientData.businessName || 'Quorik Google Ads';
+      if (headerSub) headerSub.innerText = clientData.voiceAgentName || 'Arthur (Executive Concierge)';
     } catch (e) {
-      console.warn('[Quorik AI] Status check failed:', e);
-      return null;
+      console.warn('[Quorik AI] Status fetch error:', e);
     }
   }
 
-  function renderModal() {
-    const business = clientData?.businessName || 'Business Concierge';
-    const agent = clientData?.voiceAgentName || 'Arthur (AI Concierge)';
+  // Renders Main Shell Layout
+  function renderModalLayout() {
+    const business = clientData?.businessName || 'Quorik Google Ads';
+    const agent = clientData?.voiceAgentName || 'Arthur (Executive Concierge)';
 
-    // Support View Mode
-    if (isSupportViewOpen) {
-      modal.innerHTML = `
-        <div style="padding:16px;height:100%;display:flex;flex-direction:column;background:#0A0E1A;box-sizing:border-box;overflow-y:auto;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div style="width:28px;height:28px;border-radius:50%;background:${primaryColor}22;border:1px solid ${primaryColor}66;display:flex;align-items:center;justify-content:center;color:${primaryColor};font-size:13px;">
-                ⚙️
-              </div>
-              <div>
-                <div style="font-size:13px;font-weight:700;color:#fff;">Quorik Priority Support</div>
-                <div style="font-size:10px;color:#94A3B8;">${business} Portal Assistance</div>
-              </div>
-            </div>
-            <button id="q-support-back-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#94A3B8;cursor:pointer;font-size:11px;padding:5px 10px;border-radius:8px;transition:all 0.2s;">
-              ✕ Close
-            </button>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-            <a href="https://wa.me/923700146156?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#000;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:700;font-size:11px;box-shadow:0 4px 14px rgba(37,211,102,0.25);">
-              <span>💬 WhatsApp</span>
-            </a>
-            <a href="tel:+923700146156" style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:11px;">
-              <span>📞 Call Admin</span>
-            </a>
-          </div>
-
-          <form id="q-support-form" style="display:flex;flex-direction:column;gap:10px;flex:1;">
-            <div style="font-size:11px;color:#94A3B8;">Or submit an urgent ticket directly to Quorik Engineering:</div>
-            <input id="q-sup-name" type="text" placeholder="Your Name" required style="background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;outline:none;" />
-            <input id="q-sup-contact" type="text" placeholder="Your WhatsApp / Phone or Email" required style="background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;outline:none;" />
-            <textarea id="q-sup-message" placeholder="Describe your request (e.g. quota recharge, custom integration, or resume assistant)..." rows="3" required style="background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;outline:none;resize:none;font-family:inherit;line-height:1.4;"></textarea>
-            
-            <button type="submit" id="q-sup-submit-btn" style="background:${primaryColor};border:none;color:#000;font-weight:700;padding:10px;border-radius:8px;cursor:pointer;font-size:12px;margin-top:2px;transition:opacity 0.2s;">
-              Send Priority Ticket ➤
-            </button>
-            <div id="q-sup-feedback" style="font-size:11px;text-align:center;min-height:16px;"></div>
-          </form>
-
-          <div style="font-size:10px;color:#64748B;text-align:center;margin-top:8px;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">
-            Support: <a href="mailto:saramsardar456@gmail.com" style="color:${primaryColor};text-decoration:none;">saramsardar456@gmail.com</a>
-          </div>
-        </div>
-      `;
-
-      modal.querySelector('#q-support-back-btn').onclick = () => {
-        isSupportViewOpen = false;
-        renderModal();
-      };
-
-      const form = modal.querySelector('#q-support-form');
-      if (form) {
-        form.onsubmit = async (e) => {
-          e.preventDefault();
-          const btn = modal.querySelector('#q-sup-submit-btn');
-          const feedback = modal.querySelector('#q-sup-feedback');
-          const name = modal.querySelector('#q-sup-name')?.value || '';
-          const contact = modal.querySelector('#q-sup-contact')?.value || '';
-          const message = modal.querySelector('#q-sup-message')?.value || '';
-          
-          if (btn) {
-            btn.innerText = 'Submitting Ticket...';
-            btn.style.opacity = '0.7';
-          }
-          if (feedback) feedback.innerHTML = '';
-
-          try {
-            const res = await fetch(`${serverOrigin}/api/contacts`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: name,
-                email: contact.includes('@') ? contact : `support-${clientId}@quoriksystems.com`,
-                phone: contact.replace(/[^\d+]/g, '') || contact,
-                service: 'AI Voice Widget Quota & Activation Support',
-                message: `[Priority Support Ticket from Client: ${clientId} (${business})]\nContact: ${contact}\nUser: ${name}\n\nMessage:\n${message}`
-              })
-            });
-
-            if (res.ok) {
-              if (feedback) feedback.innerHTML = '<span style="color:#10B981;font-weight:600;">✅ Ticket submitted! Our support team will contact you shortly.</span>';
-              if (btn) btn.innerText = '✓ Ticket Submitted';
-              setTimeout(() => {
-                isSupportViewOpen = false;
-                renderModal();
-              }, 2500);
-            } else {
-              if (feedback) feedback.innerHTML = '<span style="color:#EF4444;">Could not submit ticket. Please click WhatsApp button above.</span>';
-              if (btn) {
-                btn.innerText = 'Send Priority Ticket ➤';
-                btn.style.opacity = '1';
-              }
-            }
-          } catch (err) {
-            if (feedback) feedback.innerHTML = '<span style="color:#EF4444;">Network error. Please click WhatsApp button above.</span>';
-            if (btn) {
-              btn.innerText = 'Send Priority Ticket ➤';
-              btn.style.opacity = '1';
-            }
-          }
-        };
-      }
-      return;
-    }
-
-    // Fully Paused or Both Quotas Reached Screen (All Off)
-    if (isPausedOrLimited) {
-      modal.innerHTML = `
-        <div style="padding:24px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#06080E;box-sizing:border-box;">
-          <div style="width:56px;height:56px;border-radius:50%;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
-          </div>
-          <h4 style="margin:0 0 8px;font-size:16px;font-weight:700;color:#fff;">Assistant Currently Paused</h4>
-          <p style="margin:0 0 20px;font-size:12px;color:#94A3B8;line-height:1.5;max-width:280px;">
-            This voice and chat portal is currently paused by admin or has completed the monthly usage allowance.
-          </p>
-          <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:260px;">
-            <button id="q-contact-support-btn" style="padding:11px 16px;background:${primaryColor};color:#000;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 14px rgba(0,229,255,0.25);">
-              <span>🛠️ Contact Support & Upgrade</span>
-            </button>
-            <a href="https://wa.me/923700146156?text=Hello%20Quorik%20AI%20Support%2C%20I%20need%20assistance%20with%20our%20AI%20Voice%20Widget%20quota%20and%20activation%20for%20${encodeURIComponent(business)}." target="_blank" rel="noopener noreferrer" style="padding:10px 16px;background:#25D366;color:#000;border-radius:10px;text-decoration:none;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
-              <span>💬 WhatsApp Priority Desk</span>
-            </a>
-          </div>
-          <button id="q-close-paused-btn" style="margin-top:16px;background:none;border:none;color:#64748B;font-size:11px;cursor:pointer;padding:4px 8px;">
-            Close Window ✕
-          </button>
-        </div>
-      `;
-
-      modal.querySelector('#q-contact-support-btn').onclick = () => {
-        isSupportViewOpen = true;
-        renderModal();
-      };
-      modal.querySelector('#q-close-paused-btn').onclick = () => {
-        isOpen = false;
-        modal.style.display = 'none';
-      };
-      return;
-    }
-
-    // Active Chat Interface (All On / Voice Off / Chat Off)
     modal.innerHTML = `
-      <div style="background:#0F1424;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
+      <!-- Header -->
+      <div style="background:#0D1322;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;user-select:none;flex-shrink:0;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:${primaryColor}22;border:1px solid ${primaryColor}66;display:flex;align-items:center;justify-content:center;color:${primaryColor};font-weight:bold;font-size:13px;">
-            ${business.charAt(0)}
+          <div style="position:relative;">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg, #1E3A8A, #06B6D4);border:1px solid rgba(0,229,255,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:14px;box-shadow:0 0 12px rgba(0,229,255,0.25);">
+              🤖
+            </div>
+            <span class="quorik-online-beacon" style="position:absolute;bottom:0;right:0;border:2px solid #0D1322;"></span>
           </div>
           <div>
-            <div style="font-size:13px;font-weight:bold;color:#fff;">${business}</div>
-            <div style="font-size:11px;color:${primaryColor};display:flex;align-items:center;gap:4px;">
-              <span style="width:6px;height:6px;border-radius:50%;background:#10B981;display:inline-block;"></span> ${agent}
+            <div id="q-header-business" style="font-size:13px;font-weight:700;color:#fff;line-height:1.2;">${business}</div>
+            <div style="font-size:10px;color:#94A3B8;display:flex;align-items:center;gap:4px;margin-top:2px;">
+              <span id="q-header-agent" style="color:${primaryColor};font-weight:600;">${agent}</span>
+              <span>•</span>
+              <span style="color:#10B981;">Online 24/7</span>
             </div>
           </div>
         </div>
+
+        <!-- Action buttons -->
         <div style="display:flex;align-items:center;gap:6px;">
-          <button id="q-header-support-btn" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;cursor:pointer;font-size:10px;padding:4px 8px;border-radius:6px;" title="Support & Quota Help">
-            🛠️ Support
+          <button id="q-mode-call-btn" style="background:${activeMode === 'voice-call' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.15)'};border:1px solid ${activeMode === 'voice-call' ? 'rgba(239,68,68,0.5)' : 'rgba(16,185,129,0.4)'};color:${activeMode === 'voice-call' ? '#FCA5A5' : '#6EE7B7'};padding:5px 9px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;" title="Switch between Voice Call & Text Chat">
+            ${activeMode === 'voice-call' ? '<span>📞 End Call</span>' : '<span>🎙️ Call Arthur</span>'}
           </button>
-          <button id="q-close-btn" style="background:none;border:none;color:#94A3B8;cursor:pointer;font-size:18px;padding:4px;" title="Close">✕</button>
+
+          <button id="q-sound-toggle-btn" style="width:28px;height:28px;border-radius:8px;background:${soundEnabled ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.06)'};border:1px solid ${soundEnabled ? primaryColor : 'rgba(255,255,255,0.1)'};color:${soundEnabled ? primaryColor : '#94A3B8'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;" title="${soundEnabled ? 'Mute AI Auto-speech' : 'Enable AI Read-Aloud Voice'}">
+            ${soundEnabled ? '🔊' : '🔇'}
+          </button>
+
+          <button id="q-reset-chat-btn" style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;" title="Reset Conversation">
+            ↺
+          </button>
+
+          <button id="q-header-close-btn" style="width:28px;height:28px;border-radius:8px;background:none;border:none;color:#94A3B8;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;" title="Close Window">
+            ✕
+          </button>
         </div>
       </div>
 
-      ${isVoiceOnlyExhausted ? `
-        <div style="background:rgba(245,158,11,0.12);border-bottom:1px solid rgba(245,158,11,0.25);padding:7px 14px;font-size:11px;color:#FCD34D;display:flex;align-items:center;gap:6px;justify-content:center;">
-          <span>🎙️</span> <span>Voice calling is paused • <strong>24/7 AI Text Chat is active!</strong></span>
-        </div>
-      ` : ''}
+      <!-- Main Body: Voice Mode OR Chat Mode -->
+      <div id="q-mode-container" style="flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;">
+        <!-- Injected via renderModeView() -->
+      </div>
+    `;
 
-      ${isChatOnlyExhausted ? `
-        <div style="background:rgba(59,130,246,0.12);border-bottom:1px solid rgba(59,130,246,0.25);padding:7px 14px;font-size:11px;color:#93C5FD;display:flex;align-items:center;gap:6px;justify-content:center;">
-          <span>💬</span> <span>AI Text Chat is paused • <strong>Tap the mic for Voice-to-Voice Call!</strong></span>
-        </div>
-      ` : ''}
+    // Bind Header Controls
+    modal.querySelector('#q-header-close-btn').onclick = closeModal;
 
-      <div id="q-voice-active-banner" style="display:none;background:rgba(0,229,255,0.08);border-bottom:1px solid rgba(0,229,255,0.15);padding:6px 14px;align-items:center;gap:8px;justify-content:center;">
+    modal.querySelector('#q-mode-call-btn').onclick = () => {
+      unlockAudio();
+      if (activeMode === 'chat') {
+        startVoiceCall();
+      } else {
+        endVoiceCall();
+      }
+    };
+
+    modal.querySelector('#q-sound-toggle-btn').onclick = () => {
+      soundEnabled = !soundEnabled;
+      if (!soundEnabled) stopSpeaking();
+      renderModalLayout();
+    };
+
+    modal.querySelector('#q-reset-chat-btn').onclick = () => {
+      if (confirm("Start a new conversation with Arthur? (This will clear chat history)")) {
+        stopSpeaking();
+        messages = getInitialGreeting();
+        saveHistory();
+        renderModeView();
+      }
+    };
+
+    renderModeView();
+  }
+
+  function renderModeView() {
+    const container = modal.querySelector('#q-mode-container');
+    if (!container) return;
+
+    if (activeMode === 'voice-call') {
+      renderVoiceCallView(container);
+    } else {
+      renderChatView(container);
+    }
+  }
+
+  // --- VIEW: LIVE VOICE CALL MODE ---
+  function renderVoiceCallView(container) {
+    container.innerHTML = `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:24px 20px;background:radial-gradient(circle at 50% 30%, #101B36 0%, #070B14 100%);box-sizing:border-box;">
+        
+        <!-- Live Call Status Pill -->
+        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);padding:6px 14px;border-radius:20px;">
+          <span class="quorik-online-beacon"></span>
+          <span style="font-size:11px;color:#E2E8F0;font-weight:600;">Live Line Active</span>
+          <span id="q-call-timer" style="font-size:11px;color:#00E5FF;font-family:monospace;font-weight:700;">00:00</span>
+        </div>
+
+        <!-- Center Orb & Animated Waves -->
+        <div style="display:flex;flex-direction:column;align-items:center;margin:auto 0;">
+          <div style="position:relative;width:110px;height:110px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
+            <div id="q-call-orb-glow" class="q-pulse-wave" style="position:absolute;inset:0;border-radius:50%;background:rgba(0,229,255,0.15);border:2px solid rgba(0,229,255,0.4);"></div>
+            <div style="position:relative;width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg, #1E40AF, #0284C7);display:flex;align-items:center;justify-content:center;font-size:42px;box-shadow:0 0 35px rgba(0,229,255,0.5);border:2px solid #fff;">
+              🤖
+            </div>
+          </div>
+
+          <div id="q-call-status-heading" style="font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;text-align:center;">
+            Arthur is Speaking...
+          </div>
+          <div style="font-size:11px;color:#94A3B8;text-align:center;max-width:260px;line-height:1.4;">
+            High-fidelity neural voice stream. Speak naturally into your microphone.
+          </div>
+
+          <!-- Equalizer Frequency Visualizer Bars -->
+          <div id="q-call-waveform" style="display:flex;align-items:center;gap:4px;height:45px;margin-top:20px;">
+            ${[...Array(12)].map(() => `
+              <div class="q-wave-bar" style="width:4px;height:8px;background:#00E5FF;border-radius:4px;transition:height 0.1s ease, background 0.2s ease;"></div>
+            `).join('')}
+          </div>
+
+          <!-- Realtime Speech Preview -->
+          <div id="q-call-interim-text" style="margin-top:14px;min-height:22px;font-size:11px;color:#34D399;font-style:italic;text-align:center;padding:0 10px;"></div>
+        </div>
+
+        <!-- Voice Call Bottom Controls -->
+        <div style="display:flex;align-items:center;gap:16px;width:100%;justify-content:center;">
+          <button id="q-call-mic-btn" style="width:48px;height:48px;border-radius:50%;background:${isListening ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.08)'};border:2px solid ${isListening ? '#10B981' : 'rgba(255,255,255,0.15)'};color:${isListening ? '#10B981' : '#fff'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;" title="Toggle Mic">
+            ${isListening ? '🎙️' : '🔇'}
+          </button>
+          
+          <button id="q-call-hangup-btn" style="padding:12px 24px;border-radius:24px;background:#DC2626;border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(220,38,38,0.4);" title="End Call">
+            <span>📞 End Voice Call</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    container.querySelector('#q-call-hangup-btn').onclick = endVoiceCall;
+    container.querySelector('#q-call-mic-btn').onclick = () => {
+      if (isListening) {
+        if (recognition) try { recognition.stop(); } catch (e) {}
+        isListening = false;
+        updateStatusVisuals();
+      } else {
+        startRecognitionLoop();
+      }
+    };
+  }
+
+  function startVoiceCall() {
+    activeMode = 'voice-call';
+    callSeconds = 0;
+    renderModalLayout();
+
+    if (callTimer) clearInterval(callTimer);
+    callTimer = setInterval(() => {
+      callSeconds++;
+      const timerEl = modal.querySelector('#q-call-timer');
+      if (timerEl) {
+        const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const s = String(callSeconds % 60).padStart(2, '0');
+        timerEl.innerText = `${m}:${s}`;
+      }
+      if (isSpeaking || isListening) {
+        updateStatusVisuals();
+      }
+    }, 1000);
+
+    // Initial greeting aloud
+    const greeting = "Hello! Arthur here, your executive concierge. How can we assist your business or Google Ads strategy today?";
+    speakWithArthur(greeting, () => updateStatusVisuals(), () => {
+      startRecognitionLoop();
+    });
+  }
+
+  function endVoiceCall() {
+    activeMode = 'chat';
+    if (callTimer) clearInterval(callTimer);
+    callTimer = null;
+    if (recognition) {
+      try { recognition.stop(); } catch (e) {}
+    }
+    isListening = false;
+    stopSpeaking();
+    renderModalLayout();
+  }
+
+  // --- VIEW: STANDARD CHAT MODE ---
+  function renderChatView(container) {
+    container.innerHTML = `
+      <!-- Messages Feed -->
+      <div id="q-chat-feed" class="q-scrollbar" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:#0A0E1A;">
+        <!-- Injected via renderAllMessages() -->
       </div>
 
-      <div id="q-chat-feed" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:13px;background:#070A12;">
-        <div style="align-self:flex-start;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:14px;border-top-left-radius:2px;max-width:85%;line-height:1.4;">
-          Hello! I am the 24/7 AI Concierge for <strong>${business}</strong>. ${
-            isChatOnlyExhausted 
-              ? 'Please tap the microphone button below to speak directly with our AI assistant.' 
-              : isVoiceOnlyExhausted 
-              ? 'Please type below to chat or request an appointment.' 
-              : 'You can speak to me or type below to book an appointment or ask about our services!'
-          }
-        </div>
-      </div>
-
-      <div style="padding:6px 16px;background:#0A0E1A;border-top:1px solid rgba(255,255,255,0.05);font-size:10px;color:#64748B;" id="q-voice-status-text">
-        ${
-          isChatOnlyExhausted 
-            ? '💬 Text chat paused • Tap microphone button to speak' 
-            : isVoiceOnlyExhausted 
-            ? '🎙️ Voice paused • Type below for instant AI assistance' 
-            : 'Tap microphone to speak voice-to-voice or type below'
-        }
-      </div>
-
-      <div style="padding:12px;background:#0F1424;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:8px;">
-        <button id="q-voice-toggle-btn" style="width:42px;height:42px;border-radius:50%;background:${isVoiceOnlyExhausted ? 'rgba(239,68,68,0.12)' : primaryColor + '22'};border:1px solid ${isVoiceOnlyExhausted ? 'rgba(239,68,68,0.4)' : primaryColor};color:${isVoiceOnlyExhausted ? '#F87171' : primaryColor};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;" title="${isVoiceOnlyExhausted ? 'Voice calling paused. Text chat is active.' : 'Start Voice-to-Voice Call'}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+      <!-- Quick Action Chips -->
+      <div style="padding:8px 12px;background:#0D1322;border-top:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:6px;overflow-x:auto;user-select:none;" class="q-scrollbar">
+        <button class="q-chip-btn" data-query="Can you run a free Google Ads campaign audit for my business?">
+          <span>⚡ Free Ads Audit</span>
         </button>
+        <button class="q-chip-btn" data-query="Calculate my projected ROI with Google Ads and AI voice">
+          <span>📊 Calculate ROI</span>
+        </button>
+        <button class="q-chip-btn" data-query="What are your service packages and monthly retainers?">
+          <span>💼 Retainers & Pricing</span>
+        </button>
+        <button class="q-chip-btn" data-query="I would like to schedule an executive discovery call">
+          <span>📅 Book Consultation</span>
+        </button>
+      </div>
+
+      <!-- Live Typing & Audio Status Banner -->
+      <div id="q-voice-status-text" style="padding:4px 14px;background:#0A0E1A;font-size:10px;color:#64748B;border-top:1px solid rgba(255,255,255,0.03);">
+        Type message or tap mic to speak
+      </div>
+
+      <!-- Input Bar -->
+      <div style="padding:10px 12px;background:#0D1322;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:8px;">
+        <button id="q-input-mic-btn" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94A3B8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;" title="Speak with Microphone">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        </button>
+
         <input 
           id="q-text-input" 
           type="text" 
-          placeholder="${isChatOnlyExhausted ? 'AI Text Chat paused • Tap mic button to speak' : 'Ask a question or request booking...'}" 
-          ${isChatOnlyExhausted ? 'disabled style="flex:1;background:#05060A;border:1px solid rgba(255,255,255,0.06);color:#64748B;padding:10px 14px;border-radius:20px;font-size:12px;outline:none;cursor:not-allowed;opacity:0.6;"' : 'style="flex:1;background:#05060A;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:10px 14px;border-radius:20px;font-size:12px;outline:none;"'} 
+          placeholder="Ask Arthur a question or request booking..."
+          style="flex:1;background:#070A12;border:1px solid rgba(255,255,255,0.14);color:#fff;padding:9px 14px;border-radius:20px;font-size:12px;outline:none;transition:border-color 0.2s;"
         />
-        <button 
-          id="q-send-btn" 
-          ${isChatOnlyExhausted ? 'disabled style="background:rgba(255,255,255,0.1);border:none;color:#64748B;font-weight:bold;width:34px;height:34px;border-radius:50%;cursor:not-allowed;display:flex;align-items:center;justify-content:center;flex-shrink:0;"' : `style="background:${primaryColor};border:none;color:#000;font-weight:bold;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"`}
-        >
+
+        <button id="q-send-btn" style="width:34px;height:34px;border-radius:50%;background:${primaryColor};border:none;color:#000;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 10px rgba(0,229,255,0.3);" title="Send Message">
           ➤
         </button>
       </div>
     `;
 
-    // Event listeners
-    modal.querySelector('#q-close-btn').onclick = () => {
-      isOpen = false;
-      isVoiceActive = false;
-      stopSpeaking();
-      if (isListening) recognition?.stop();
-      modal.style.display = 'none';
-    };
+    const input = container.querySelector('#q-text-input');
+    const sendBtn = container.querySelector('#q-send-btn');
+    const micBtn = container.querySelector('#q-input-mic-btn');
 
-    const headerSupportBtn = modal.querySelector('#q-header-support-btn');
-    if (headerSupportBtn) {
-      headerSupportBtn.onclick = () => {
-        isSupportViewOpen = true;
-        renderModal();
-      };
-    }
-
-    const textInput = modal.querySelector('#q-text-input');
-    const sendBtn = modal.querySelector('#q-send-btn');
-    const voiceBtn = modal.querySelector('#q-voice-toggle-btn');
-
-    if (!isChatOnlyExhausted) {
-      sendBtn.onclick = () => {
-        unlockAudio();
-        handleSendChat(textInput.value, false);
-      };
-      textInput.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-          unlockAudio();
-          handleSendChat(textInput.value, false);
-        }
-      };
-    }
-
-    voiceBtn.onclick = () => {
-      if (isVoiceOnlyExhausted) {
-        const statusText = modal.querySelector('#q-voice-status-text');
-        if (statusText) {
-          statusText.innerHTML = '<span style="color:#FCA5A5;">🎙️ Voice calling is paused. Please type below!</span>';
-        }
-        textInput.focus();
-        return;
-      }
+    sendBtn.onclick = () => {
       unlockAudio();
-      toggleVoiceCall();
+      handleSend(input.value);
     };
+
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        unlockAudio();
+        handleSend(input.value);
+      }
+    };
+
+    micBtn.onclick = () => {
+      unlockAudio();
+      toggleInputMic();
+    };
+
+    // Bind Quick Chips
+    container.querySelectorAll('.q-chip-btn').forEach(btn => {
+      btn.onclick = () => {
+        const query = btn.getAttribute('data-query');
+        if (query) {
+          unlockAudio();
+          handleSend(query);
+        }
+      };
+    });
+
+    renderAllMessages();
   }
 
-  async function handleSendChat(text, isVoiceMode = false) {
-    if (!text || !text.trim() || isThinking) return;
+  // Render all messages into feed safely
+  function renderAllMessages() {
+    const feed = modal.querySelector('#q-chat-feed');
+    if (!feed) return;
+    feed.innerHTML = '';
+
+    messages.forEach(msg => {
+      feed.appendChild(createMessageDOM(msg));
+    });
+
+    bindCardButtons();
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  // Append Single Message to Feed DOM
+  function appendSingleMessageDOM(msg) {
+    const feed = modal.querySelector('#q-chat-feed');
+    if (!feed) return;
+    const el = createMessageDOM(msg);
+    feed.appendChild(el);
+    bindCardButtons();
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  function createMessageDOM(msg) {
+    const isUser = msg.sender === 'user';
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;flex-direction:column;align-items:${isUser ? 'flex-end' : 'flex-start'};gap:3px;`;
+
+    const bubbleWrapper = document.createElement('div');
+    bubbleWrapper.style.cssText = `display:flex;align-items:flex-end;gap:6px;max-width:88%;flex-direction:${isUser ? 'row-reverse' : 'row'};`;
+
+    const avatar = document.createElement('div');
+    avatar.style.cssText = `width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;background:${isUser ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #1E40AF, #06B6D4)'};border:1px solid ${isUser ? 'rgba(255,255,255,0.2)' : 'rgba(0,229,255,0.4)'};`;
+    avatar.innerText = isUser ? '👤' : '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.style.cssText = `padding:10px 14px;border-radius:18px;font-size:12.5px;line-height:1.45;color:${isUser ? '#000' : '#E2E8F0'};background:${isUser ? primaryColor : '#121829'};border:${isUser ? 'none' : '1px solid rgba(255,255,255,0.1)'};border-bottom-${isUser ? 'right' : 'left'}-radius:4px;box-shadow:0 4px 14px rgba(0,0,0,0.3);position:relative;`;
+    
+    // Markdown text
+    const cleanText = msg.text.replace(/\[CARD:[A-Z_]+\]/g, '').trim();
+    bubble.innerHTML = parseMarkdown(cleanText);
+
+    // Render interactive cards if any
+    const detected = msg.cardType || detectCardType(msg.text);
+    if (detected) {
+      bubble.innerHTML += renderCardHTML(detected);
+    }
+
+    bubbleWrapper.appendChild(avatar);
+    bubbleWrapper.appendChild(bubble);
+
+    // Audio Speaker Icon for Arthur's message
+    if (!isUser) {
+      const speakerBtn = document.createElement('button');
+      speakerBtn.style.cssText = 'background:none;border:none;color:#64748B;cursor:pointer;font-size:12px;padding:2px 4px;margin-bottom:2px;';
+      speakerBtn.title = 'Listen in Arthur voice';
+      speakerBtn.innerText = '🔊';
+      speakerBtn.onclick = () => {
+        speakWithArthur(msg.text);
+      };
+      bubbleWrapper.appendChild(speakerBtn);
+    }
+
+    row.appendChild(bubbleWrapper);
+
+    if (msg.time) {
+      const timeEl = document.createElement('div');
+      timeEl.style.cssText = 'font-size:9px;color:#64748B;margin:0 34px;';
+      timeEl.innerText = msg.time;
+      row.appendChild(timeEl);
+    }
+
+    return row;
+  }
+
+  // Bind buttons inside rich cards
+  function bindCardButtons() {
+    const feed = modal.querySelector('#q-chat-feed');
+    if (!feed) return;
+    feed.querySelectorAll('.q-card-action-btn').forEach(btn => {
+      btn.onclick = () => {
+        const query = btn.getAttribute('data-query');
+        if (query) {
+          unlockAudio();
+          handleSend(query);
+        }
+      };
+    });
+  }
+
+  // Show / Hide Typing Indicator
+  function showTypingIndicator() {
+    const feed = modal.querySelector('#q-chat-feed');
+    if (!feed || feed.querySelector('#q-typing-row')) return;
+
+    const row = document.createElement('div');
+    row.id = 'q-typing-row';
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;align-self:flex-start;margin-left:4px;';
+    row.innerHTML = `
+      <div style="width:24px;height:24px;border-radius:50%;background:#121829;border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:11px;">🤖</div>
+      <div style="background:#121829;border:1px solid rgba(255,255,255,0.1);padding:8px 12px;border-radius:14px;display:flex;align-items:center;gap:4px;">
+        <span class="q-typing-dot" style="animation-delay:0s;"></span>
+        <span class="q-typing-dot" style="animation-delay:0.2s;"></span>
+        <span class="q-typing-dot" style="animation-delay:0.4s;"></span>
+      </div>
+    `;
+    feed.appendChild(row);
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  function hideTypingIndicator() {
+    const row = modal.querySelector('#q-typing-row');
+    if (row) row.remove();
+  }
+
+  // Handle Send Message (GUARANTEED NO DISAPPEARING)
+  async function handleSend(textToSend) {
+    const text = (textToSend || '').trim();
+    if (!text || isThinking) return;
+
     const input = modal.querySelector('#q-text-input');
     if (input) input.value = '';
 
-    if (isPausedOrLimited) return;
-    // Refresh status asynchronously in background without blocking current message
-    fetchClientStatus().catch(() => {});
+    // 1. Immediately create and append User Message
+    const userMsg = {
+      id: 'msg-' + Date.now(),
+      sender: 'user',
+      text: text,
+      time: formatTime()
+    };
+    messages.push(userMsg);
+    saveHistory();
+    appendSingleMessageDOM(userMsg);
 
-    appendMessage('user', text);
-    appendMessage('ai', 'Thinking...');
+    // 2. Set thinking state & indicator
     isThinking = true;
-    updateUIStatus('thinking');
-
-    const isVoiceCall = Boolean((isVoiceMode || isVoiceActive) && !isVoiceOnlyExhausted);
-    let measuredSeconds = 0;
-    if (isVoiceCall && voiceStartTime > 0) {
-      measuredSeconds = Math.max(8, Math.round((Date.now() - voiceStartTime) / 1000));
-    }
+    updateStatusVisuals();
+    showTypingIndicator();
 
     try {
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timeoutId = setTimeout(() => controller?.abort(), 18000);
+      const historyPayload = messages
+        .filter(m => m.id !== 'msg-init-1')
+        .slice(-10)
+        .map(m => ({
+          role: m.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: m.text }]
+        }));
 
       const res = await fetch(`${serverOrigin}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: controller ? controller.signal : undefined,
         body: JSON.stringify({
           message: text,
-          history: chatHistory,
+          history: historyPayload,
           clientId: clientId,
-          isVoice: isVoiceCall,
-          isVoiceMode: isVoiceCall,
-          durationSeconds: measuredSeconds > 0 ? measuredSeconds : undefined
+          accent: 'arthur'
         })
       });
 
-      clearTimeout(timeoutId);
-      removeLastThinking();
+      hideTypingIndicator();
       isThinking = false;
+      updateStatusVisuals();
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        if (errorData.voiceQuotaExhausted) {
-          isVoiceOnlyExhausted = true;
-          appendMessage('ai', 'Voice calling is paused. I am happy to continue assisting you right here in text chat!');
-          updateUIStatus('idle');
-          return;
-        }
-        if (errorData.chatPaused) {
-          isChatOnlyExhausted = true;
-          appendMessage('ai', 'AI Text Chat is currently paused. Please tap the microphone button to start a voice call!');
-          updateUIStatus('idle');
-          return;
-        }
-        appendMessage('ai', 'Service is temporarily busy. Please try again or tap Support.');
-        updateUIStatus('idle');
+        const errorMsg = {
+          id: 'msg-err-' + Date.now(),
+          sender: 'ai',
+          text: "I am having a brief connection delay. Please feel free to email saramsardar456@gmail.com or tap Support above!",
+          time: formatTime()
+        };
+        messages.push(errorMsg);
+        saveHistory();
+        appendSingleMessageDOM(errorMsg);
         return;
       }
 
       const data = await res.json();
+      const aiReply = data.text || "I'd be glad to assist you with Google Ads campaign scaling and performance optimization.";
+      
+      const aiMsg = {
+        id: 'msg-ai-' + Date.now(),
+        sender: 'ai',
+        text: aiReply,
+        time: formatTime(),
+        cardType: detectCardType(aiReply)
+      };
 
-      if (data.text) {
-        appendMessage('ai', data.text);
-        
-        // Save conversation history
-        chatHistory.push({ role: 'user', parts: [{ text }] });
-        chatHistory.push({ role: 'model', parts: [{ text: data.text }] });
+      messages.push(aiMsg);
+      saveHistory();
+      appendSingleMessageDOM(aiMsg);
 
-        // Increment chat log count in background
-        if (!isVoiceCall) {
-          fetch(`${serverOrigin}/api/clients/${clientId}/log-text-chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text })
-          }).catch(() => {});
-        }
-
-        // Only speak aloud if visitor used Voice mode AND voice is not exhausted
-        if (isVoiceCall && !isVoiceOnlyExhausted) {
-          speakText(data.text, true);
-        } else {
-          stopSpeaking();
-          updateUIStatus('idle');
-        }
+      // Speak aloud if sound enabled
+      if (soundEnabled) {
+        speakWithArthur(aiReply);
       }
-    } catch (e) {
-      removeLastThinking();
+    } catch (err) {
+      hideTypingIndicator();
       isThinking = false;
-      appendMessage('ai', 'Connection error. Please try again.');
-      updateUIStatus('idle');
+      updateStatusVisuals();
+
+      const failMsg = {
+        id: 'msg-fail-' + Date.now(),
+        sender: 'ai',
+        text: "Network momentarily interrupted. Please try again or book a direct strategy call.",
+        time: formatTime()
+      };
+      messages.push(failMsg);
+      saveHistory();
+      appendSingleMessageDOM(failMsg);
     }
   }
 
-  function appendMessage(sender, text) {
-    const feed = modal.querySelector('#q-chat-feed');
-    if (!feed) return;
-    const div = document.createElement('div');
-    if (sender === 'user') {
-      div.style.cssText = `align-self:flex-end;background:${primaryColor};color:#000;font-weight:500;padding:10px 14px;border-radius:14px;border-top-right-radius:2px;max-width:85%;line-height:1.4;`;
-      div.innerText = text;
-    } else {
-      div.className = text === 'Thinking...' ? 'q-thinking' : '';
-      div.style.cssText = 'align-self:flex-start;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:14px;border-top-left-radius:2px;max-width:85%;line-height:1.4;color:#fff;';
-      div.innerText = text;
-    }
-    feed.appendChild(div);
-    feed.scrollTop = feed.scrollHeight;
-  }
-
-  function removeLastThinking() {
-    const thinking = modal?.querySelector('.q-thinking');
-    if (thinking) thinking.remove();
-  }
-
-  function startListening() {
-    if (isVoiceOnlyExhausted) return;
+  // Microphone toggle in chat mode
+  function toggleInputMic() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      alert('Speech Recognition is not supported in this browser. Please use Google Chrome, Edge, or Safari.');
+      alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
       return;
     }
 
+    const inputMicBtn = modal.querySelector('#q-input-mic-btn');
+    const input = modal.querySelector('#q-text-input');
+
     if (isListening) {
-      try { recognition?.stop(); } catch (e) {}
+      if (recognition) try { recognition.stop(); } catch (e) {}
+      isListening = false;
+      if (inputMicBtn) {
+        inputMicBtn.style.background = 'rgba(255,255,255,0.06)';
+        inputMicBtn.style.color = '#94A3B8';
+        inputMicBtn.style.borderColor = 'rgba(255,255,255,0.12)';
+      }
+      return;
     }
 
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRec();
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = clientData?.voiceLanguage?.includes('Spanish') ? 'es-ES' : 
-                     clientData?.voiceLanguage?.includes('German') ? 'de-DE' : 
-                     clientData?.voiceLanguage?.includes('French') ? 'fr-FR' : 'en-US';
-
-    let accumulatedText = '';
+    recognition.lang = 'en-US';
 
     recognition.onstart = () => {
       isListening = true;
-      voiceStartTime = Date.now();
-      updateUIStatus('listening');
+      if (inputMicBtn) {
+        inputMicBtn.style.background = 'rgba(16,185,129,0.2)';
+        inputMicBtn.style.color = '#10B981';
+        inputMicBtn.style.borderColor = '#10B981';
+      }
+      if (input) input.placeholder = 'Listening to your voice...';
     };
 
     recognition.onresult = (event) => {
-      let currentText = '';
+      let interim = '';
       for (let i = 0; i < event.results.length; ++i) {
-        currentText += event.results[i][0].transcript + ' ';
+        interim += event.results[i][0].transcript;
       }
-      accumulatedText = currentText.trim();
-      
-      const statusText = modal?.querySelector('#q-voice-status-text');
-      if (statusText && accumulatedText) {
-        statusText.innerText = `"${accumulatedText}"`;
+      const cleaned = cleanTranscript(interim);
+      if (cleaned && input) {
+        input.value = cleaned;
       }
-
-      if (widgetSilenceTimer) clearTimeout(widgetSilenceTimer);
-      widgetSilenceTimer = setTimeout(() => {
-        if (accumulatedText) {
-          try { recognition.stop(); } catch (e) {}
-          isListening = false;
-          updateUIStatus('idle');
-          handleSendChat(accumulatedText, true);
-        }
-      }, 750);
-    };
-
-    recognition.onerror = (e) => {
-      console.warn('[Quorik Voice Widget] Recognition error:', e);
-      isListening = false;
-      updateUIStatus('idle');
     };
 
     recognition.onend = () => {
       isListening = false;
-      if (!isThinking && !isSpeaking) {
-        updateUIStatus('idle');
+      if (inputMicBtn) {
+        inputMicBtn.style.background = 'rgba(255,255,255,0.06)';
+        inputMicBtn.style.color = '#94A3B8';
+        inputMicBtn.style.borderColor = 'rgba(255,255,255,0.12)';
+      }
+      if (input) {
+        input.placeholder = 'Ask Arthur a question or request booking...';
+        if (input.value.trim()) {
+          handleSend(input.value);
+        }
+      }
+    };
+
+    recognition.onerror = () => {
+      isListening = false;
+      if (inputMicBtn) {
+        inputMicBtn.style.background = 'rgba(255,255,255,0.06)';
+        inputMicBtn.style.color = '#94A3B8';
+        inputMicBtn.style.borderColor = 'rgba(255,255,255,0.12)';
       }
     };
 
     try {
       recognition.start();
     } catch (e) {
-      console.warn('[Quorik Voice Widget] Could not start recognition:', e);
-    }
-  }
-
-  function toggleVoiceCall() {
-    if (isVoiceOnlyExhausted) return;
-
-    if (isSpeaking) {
-      stopSpeaking();
-      return;
-    }
-
-    if (isListening) {
-      try { recognition?.stop(); } catch (e) {}
       isListening = false;
-      isVoiceActive = false;
-      updateUIStatus('idle');
-      return;
     }
-
-    isVoiceActive = true;
-    startListening();
   }
 
-  launcher.onclick = async () => {
-    if (calloutBubble) calloutBubble.style.display = 'none';
-    unlockAudio();
-    isOpen = !isOpen;
-    if (isOpen) {
-      modal.style.display = 'flex';
-      await fetchClientStatus();
-    } else {
-      modal.style.display = 'none';
-      stopSpeaking();
-      if (isListening) recognition?.stop();
-    }
-  };
+  // Voice recognition loop for Live Voice Call Mode
+  function startRecognitionLoop() {
+    if (activeMode !== 'voice-call') return;
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
 
-  // Initial check
-  fetchClientStatus();
+    if (recognition) {
+      try { recognition.stop(); } catch (e) {}
+    }
+
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    let finalSpoken = '';
+
+    recognition.onstart = () => {
+      isListening = true;
+      updateStatusVisuals();
+    };
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalSpoken += event.results[i][0].transcript + ' ';
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      const raw = (finalSpoken + interim).trim();
+      const cleaned = cleanTranscript(raw);
+
+      const previewEl = modal.querySelector('#q-call-interim-text');
+      if (previewEl && cleaned) {
+        previewEl.innerText = `"${cleaned}..."`;
+      }
+
+      if (widgetSilenceTimer) clearTimeout(widgetSilenceTimer);
+      widgetSilenceTimer = setTimeout(() => {
+        const toSend = cleanTranscript(raw || finalSpoken);
+        if (toSend && toSend.length > 2) {
+          try { recognition.stop(); } catch (e) {}
+          isListening = false;
+          if (previewEl) previewEl.innerText = '';
+          sendCallTurn(toSend);
+        }
+      }, 750);
+    };
+
+    recognition.onerror = () => {
+      isListening = false;
+      updateStatusVisuals();
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      updateStatusVisuals();
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      isListening = false;
+    }
+  }
+
+  async function sendCallTurn(userText) {
+    if (!userText.trim()) return;
+
+    const userMsg = {
+      id: 'call-user-' + Date.now(),
+      sender: 'user',
+      text: userText,
+      time: formatTime()
+    };
+    messages.push(userMsg);
+    saveHistory();
+
+    isThinking = true;
+    updateStatusVisuals();
+
+    try {
+      const history = messages.map(m => ({
+        sender: m.sender === 'user' ? 'customer' : 'ai',
+        text: m.text
+      }));
+
+      const res = await fetch(`${serverOrigin}/api/voice-agent/simulate-call`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personaId: 'arthur',
+          gender: 'male',
+          userQuery: userText,
+          conversationHistory: history
+        })
+      });
+
+      const data = await res.json();
+      isThinking = false;
+
+      const aiReply = data.aiSpeechText || "Understood. We can definitely tailor our Google Ads strategies to maximize your conversions and lower cost per acquisition.";
+      
+      const botMsg = {
+        id: 'call-ai-' + Date.now(),
+        sender: 'ai',
+        text: aiReply,
+        time: formatTime()
+      };
+      messages.push(botMsg);
+      saveHistory();
+
+      speakWithArthur(aiReply, () => updateStatusVisuals(), () => {
+        if (activeMode === 'voice-call') {
+          startRecognitionLoop();
+        }
+      });
+    } catch (e) {
+      isThinking = false;
+      const fallbackReply = "We can certainly assist you with campaign audits and performance marketing. Would you like to schedule a quick consultation?";
+      messages.push({
+        id: 'call-ai-' + Date.now(),
+        sender: 'ai',
+        text: fallbackReply,
+        time: formatTime()
+      });
+      saveHistory();
+      speakWithArthur(fallbackReply, () => updateStatusVisuals(), () => {
+        if (activeMode === 'voice-call') {
+          startRecognitionLoop();
+        }
+      });
+    }
+  }
+
 })();

@@ -3406,7 +3406,15 @@ Respond ONLY in valid JSON matching this schema:
       try {
         audioBuffer = await generateEdgeNeuralAudio(nod, voiceName, stability);
       } catch (e) {
-        audioBuffer = await fetchGoogleTtsAudio(nod, voiceName.includes('GB') ? 'en-GB' : 'en-US');
+        if (voiceName.toLowerCase().includes('jenny') || voiceName.toLowerCase().includes('sonia') || voiceName.toLowerCase().includes('aria')) {
+          audioBuffer = await fetchGoogleTtsAudio(nod, voiceName.includes('GB') ? 'en-GB' : 'en-US');
+        } else {
+          try {
+            audioBuffer = await generateEdgeNeuralAudio(nod, 'en-US-ChristopherNeural', stability);
+          } catch (e2) {
+            audioBuffer = await generateEdgeNeuralAudio(nod, 'en-GB-RyanNeural', stability);
+          }
+        }
       }
 
       backchannelCache.set(cacheKey, audioBuffer);
@@ -3458,19 +3466,41 @@ Respond ONLY in valid JSON matching this schema:
           try {
             audioBuffer = await generateEdgeNeuralAudio(cleanText, voiceName, stability);
           } catch (edgeErr: any) {
-            audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+            if (isFemale) {
+              try {
+                audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+              } catch (e) {}
+            } else {
+              try {
+                audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-ChristopherNeural', stability);
+              } catch (e) {
+                try {
+                  audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-GB-RyanNeural', stability);
+                } catch (e2) {}
+              }
+            }
           }
         }
       } else {
         try {
           audioBuffer = await generateEdgeNeuralAudio(cleanText, voiceName, stability);
         } catch (err: any) {
-          try {
-            audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
-          } catch (err2: any) {
+          if (isFemale) {
             try {
-              audioBuffer = await generateEdgeNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
-            } catch (err3) {}
+              audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+            } catch (err2: any) {
+              try {
+                audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-JennyNeural', stability);
+              } catch (err3) {}
+            }
+          } else {
+            try {
+              audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-ChristopherNeural', stability);
+            } catch (err2: any) {
+              try {
+                audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-GB-RyanNeural', stability);
+              } catch (err3) {}
+            }
           }
         }
       }
@@ -3538,11 +3568,25 @@ Respond ONLY in valid JSON matching this schema:
             usedEngine = 'edge-neural-fallback';
           } catch (edgeErr: any) {
             console.warn(`[Neural TTS] Edge fallback notice:`, edgeErr?.message || edgeErr);
-            try {
-              audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
-              usedEngine = 'google-stream-fallback';
-            } catch (retryErr: any) {
-              console.error(`[Neural TTS] Fallback error:`, retryErr);
+            if (isFemale) {
+              try {
+                audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+                usedEngine = 'google-stream-fallback';
+              } catch (retryErr: any) {
+                console.error(`[Neural TTS] Fallback error:`, retryErr);
+              }
+            } else {
+              try {
+                audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-ChristopherNeural', stability);
+                usedEngine = 'edge-neural-male-alt';
+              } catch (e) {
+                try {
+                  audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-GB-RyanNeural', stability);
+                  usedEngine = 'edge-neural-male-uk';
+                } catch (retryErr: any) {
+                  console.error(`[Neural TTS] Male fallback error:`, retryErr);
+                }
+              }
             }
           }
         }
@@ -3554,17 +3598,24 @@ Respond ONLY in valid JSON matching this schema:
         } catch (primaryErr: any) {
           console.warn(`[Neural TTS] Edge synthesis notice for ${voiceName}: ${primaryErr?.message || primaryErr}. Activating instant secondary audio stream.`);
           
-          // 2. Secondary High-Speed Engine: Direct Neural Audio Stream
-          try {
-            audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
-            usedEngine = 'google-stream';
-          } catch (secondaryErr: any) {
-            console.error(`[Neural TTS] Secondary audio stream also had notice:`, secondaryErr?.message || secondaryErr);
-            // Try Edge one more time with default Guy / Jenny
+          if (isFemale) {
             try {
-              audioBuffer = await generateEdgeNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
-            } catch (retryErr: any) {
-              console.error(`[Neural TTS] Edge retry error:`, retryErr);
+              audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+              usedEngine = 'google-stream';
+            } catch (secondaryErr: any) {
+              try {
+                audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-JennyNeural', stability);
+              } catch (retryErr: any) {}
+            }
+          } else {
+            try {
+              audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-ChristopherNeural', stability);
+              usedEngine = 'edge-neural-male-alt';
+            } catch (secondaryErr: any) {
+              try {
+                audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-GB-RyanNeural', stability);
+                usedEngine = 'edge-neural-male-uk';
+              } catch (retryErr: any) {}
             }
           }
         }

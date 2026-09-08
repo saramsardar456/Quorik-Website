@@ -250,7 +250,22 @@
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  // Audio helper
+  // Audio helper & pre-warming
+  let audioUnlocked = false;
+  let cachedVoices = [];
+
+  function populateVoices() {
+    try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        cachedVoices = window.speechSynthesis.getVoices() || [];
+      }
+    } catch (e) {}
+  }
+  populateVoices();
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+  }
+
   function unlockAudio() {
     try {
       if ('speechSynthesis' in window) {
@@ -259,6 +274,17 @@
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') {
         audioCtx.resume().catch(() => {});
+      }
+      if (!audioUnlocked) {
+        const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        silentAudio.volume = 0.01;
+        const p = silentAudio.play();
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            silentAudio.pause();
+            audioUnlocked = true;
+          }).catch(() => {});
+        }
       }
     } catch (e) {}
   }
@@ -419,7 +445,7 @@
     const cacheKey = `arthur:${clean}`;
     if (widgetAudioCache.has(cacheKey)) {
       const cached = widgetAudioCache.get(cacheKey);
-      playBase64Mp3(cached.audioData, cached.mimeType, token, onEndCb);
+      playBase64Mp3(cached.audioData, cached.mimeType, token, clean, onEndCb);
       return;
     }
 
@@ -434,7 +460,7 @@
       if (token !== widgetSpeechToken) return;
       if (data && data.audioData) {
         widgetAudioCache.set(cacheKey, { audioData: data.audioData, mimeType: data.mimeType || 'audio/mp3' });
-        playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3', token, onEndCb);
+        playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3', token, clean, onEndCb);
       } else {
         fallbackBrowserSpeech(clean, token, onEndCb);
       }
@@ -446,7 +472,7 @@
     });
   }
 
-  function playBase64Mp3(base64Audio, mimeType, token, onEndCb) {
+  function playBase64Mp3(base64Audio, mimeType, token, cleanText, onEndCb) {
     try {
       const audioSrc = `data:${mimeType};base64,${base64Audio}`;
       const audio = new Audio(audioSrc);
@@ -466,10 +492,10 @@
         if (onEndCb) onEndCb();
       };
       audio.play().catch(() => {
-        fallbackBrowserSpeech('', token, onEndCb);
+        fallbackBrowserSpeech(cleanText, token, onEndCb);
       });
     } catch (e) {
-      fallbackBrowserSpeech('', token, onEndCb);
+      fallbackBrowserSpeech(cleanText, token, onEndCb);
     }
   }
 
@@ -484,15 +510,34 @@
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.rate = 1.0;
-      utterance.pitch = 0.96;
+      // Lower pitch (0.88) provides authoritative male baritone timbre
+      utterance.pitch = 0.88;
       utterance.lang = 'en-US';
 
-      const voices = window.speechSynthesis.getVoices() || [];
+      const voices = (cachedVoices && cachedVoices.length > 0) ? cachedVoices : (window.speechSynthesis.getVoices() || []);
+      
+      // Strict exclusion of female voices (including Google US English in Chrome which is female, Zira, Jenny, Aria, etc.)
+      const femalePattern = /female|woman|girl|zira|jenny|aria|samantha|victoria|karen|susan|hazel|catherine|linda|heather|helena|eva|fiona|moira|tessa|veena|stephanie|google us english\b/i;
+
+      // Select explicit male voices across Chrome, Windows, macOS, Android
       const maleVoice = voices.find(v => {
-        const n = v.name.toLowerCase();
-        return (n.includes('male') || n.includes('david') || n.includes('arthur') || n.includes('daniel') || n.includes('guy') || n.includes('google us english')) && !n.includes('female');
+        const n = (v.name || '').toLowerCase();
+        if (femalePattern.test(n)) return false;
+        return n.includes('male') || n.includes('david') || n.includes('mark') || n.includes('george') || 
+               n.includes('alex') || n.includes('daniel') || n.includes('oliver') || n.includes('guy') || 
+               n.includes('arthur') || n.includes('google uk english male') || n.includes('en-us-x-sfg#male');
       });
-      if (maleVoice) utterance.voice = maleVoice;
+
+      if (maleVoice) {
+        utterance.voice = maleVoice;
+      } else {
+        // Fallback: pick any English voice that is not identified as female
+        const nonFemale = voices.find(v => {
+          const n = (v.name || '').toLowerCase();
+          return !femalePattern.test(n) && (v.lang || '').toLowerCase().startsWith('en');
+        });
+        if (nonFemale) utterance.voice = nonFemale;
+      }
 
       utterance.onend = () => {
         isSpeaking = false;
@@ -1036,18 +1081,6 @@
 
     bubbleWrapper.appendChild(avatar);
     bubbleWrapper.appendChild(bubble);
-
-    // Audio Speaker Icon for Arthur's message
-    if (!isUser) {
-      const speakerBtn = document.createElement('button');
-      speakerBtn.style.cssText = 'background:none;border:none;color:#64748B;cursor:pointer;font-size:12px;padding:2px 4px;margin-bottom:2px;';
-      speakerBtn.title = 'Listen in Arthur voice';
-      speakerBtn.innerText = '🔊';
-      speakerBtn.onclick = () => {
-        speakWithArthur(msg.text);
-      };
-      bubbleWrapper.appendChild(speakerBtn);
-    }
 
     row.appendChild(bubbleWrapper);
 

@@ -199,7 +199,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
         : `Right, so... thanks for reaching out to ${data.companyName}! This is ${data.agentName} on the line. Are you looking to get an appointment booked, or did you need a quick quote today?`;
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
-      setSimMessages([{ sender: 'ai', text: greeting, time: timeStr }]);
+      setSimMessages(prev => {
+        if (prev.length > 0) return prev;
+        return [{ sender: 'ai', text: greeting, time: timeStr }];
+      });
       speakText(greeting);
     }
   };
@@ -418,18 +421,34 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
         for (let i = 0; i < event.results.length; ++i) {
           currentText += event.results[i][0].transcript + ' ';
         }
-        accumulatedTranscript = currentText.trim();
-        if (accumulatedTranscript) {
-          setUserQueryInput(accumulatedTranscript);
+        const raw = currentText.trim();
+
+        // Sanitize keyboard mashing or random noise characters
+        const cleanSpeech = (text: string) => {
+          if (!text) return '';
+          const trimmed = text.replace(/\s+/g, ' ').trim();
+          if (/([a-zA-Z])\1{3,}/i.test(trimmed)) return '';
+          if (!trimmed.includes(' ') && trimmed.length > 6) {
+            const vowels = (trimmed.match(/[aeiouy]/gi) || []).length;
+            if (vowels / trimmed.length < 0.15) return '';
+          }
+          return trimmed;
+        };
+
+        const validated = cleanSpeech(raw);
+        if (validated) {
+          accumulatedTranscript = validated;
+          setUserQueryInput(validated);
         }
 
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          if (accumulatedTranscript && !hasSentMicTranscriptRef.current) {
+          const toSend = cleanSpeech(accumulatedTranscript || raw);
+          if (toSend && !hasSentMicTranscriptRef.current) {
             hasSentMicTranscriptRef.current = true;
             try { recognition.stop(); } catch(e){}
             setIsRecordingMic(false);
-            handleSendQuery(accumulatedTranscript);
+            handleSendQuery(toSend);
           }
         }, 650);
       };

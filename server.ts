@@ -1914,9 +1914,7 @@ ${message}
     const modelsToTry = [
       options.primaryModel || "gemini-3.5-flash-lite",
       "gemini-3.5-flash-lite",
-      "gemini-3.1-flash-lite",
-      "gemini-3.6-flash",
-      "gemini-3.7-flash"
+      "gemini-3.6-flash"
     ];
     const uniqueModels = Array.from(new Set(modelsToTry));
 
@@ -2085,6 +2083,20 @@ Respond ONLY in valid JSON format matching this exact schema:
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ error: "GEMINI_API_KEY is not set on the server." });
+      }
+
+      // Detect unintelligible random keyboard mashing or mic garble
+      const rawMsg = String(message || '').trim().toLowerCase();
+      const vowelsCount = (rawMsg.match(/[aeiou]/g) || []).length;
+      const isGarbled = (rawMsg.length >= 7 && (vowelsCount / rawMsg.length < 0.12) && !rawMsg.includes(' ')) ||
+        /^[bcdfghjklmnpqrstvwxyz]{6,}$/i.test(rawMsg) ||
+        /^(.)\1{4,}$/.test(rawMsg) ||
+        /[hjky]{6,}/i.test(rawMsg);
+
+      if (isGarbled) {
+        return res.json({
+          text: "I didn't quite understand that. Could you please clarify what you need — such as custom website development, a 24/7 AI Voice Agent, or scheduling a consultation?"
+        });
       }
 
       // Check if this chat request comes from an embedded client portal
@@ -2605,14 +2617,15 @@ ${founderDetailInformation}
 ${pricingInformation}
 ${consultationBookingRules}`;
       } else {
-        personaName = gender === 'female' ? 'Zephyr' : 'Arthur';
-        systemPersonaInstruction = `You are ${personaName}, answering the phone line for Quorik (Web Engineering & 24/7 AI Voice Receptionists).
-Language: Warm Conversational American English.
-RULES:
-1. Speak in warm, conversational, clear spoken English (1-2 sentences max). Use contractions ("I'm", "we've", "you're", "that'd").
-2. Start naturally with verbal nods: "Right...", "Yeah, absolutely...", "Gotcha...", "Well...".
-3. Use ellipses (...) for natural human breath pauses.
-4. Banned: "How may I assist you today?", "I would be delighted", "As an AI".
+        personaName = 'Arthur';
+        systemPersonaInstruction = `You are Arthur, the executive 24/7 AI Voice Concierge answering the direct phone line for Quorik (Custom Web Engineering & Zero-Latency AI Voice Receptionists, founded by Shehram Meellu).
+Language: Warm, highly articulate, professional Executive American English.
+CRITICAL RULES:
+1. Speak in warm, conversational, articulate spoken English (1-2 sentences max).
+2. DO NOT repeat or echo the caller's question or statement back to them. Answer directly and take action.
+3. Start naturally with subtle verbal nods: "Right...", "Yeah, absolutely...", "Gotcha...", "Well...".
+4. Use ellipses (...) for natural human breath pauses.
+5. Banned: "How may I assist you today?", "I would be delighted", "As an AI". If the user input is gibberish, unreadable, or incoherent typing/speech, politely ask them to repeat or clarify what service they are looking for.
 Key Services: ${companyServices}.
 ${founderDetailInformation}
 ${pricingInformation}
@@ -2627,12 +2640,12 @@ Previous Conversation History:
 ${JSON.stringify(conversationHistory || [])}
 
 Perform 2 tasks:
-1. Generate the natural spoken phone response for ${personaName} representing ${companyName} following the booking protocol.
+1. Generate the natural spoken phone response for ${personaName} representing ${companyName} following the booking protocol. DO NOT echo or parrot back the user's input. Provide a distinct, helpful answer.
 2. Extract all available lead details (accumulating from both conversation history and current query).
 
 Respond ONLY in valid JSON matching this schema:
 {
-  "aiSpeechText": "The exact spoken phone response for the AI Receptionist in clear English (1-2 sentences max)",
+  "aiSpeechText": "The AI Receptionist's direct conversational spoken response to the caller (do NOT repeat what the caller said, give an articulate, helpful 1-2 sentence spoken reply)",
   "callerName": "Extracted caller name or empty string if not provided",
   "callerEmail": "Extracted email address or empty string if not provided",
   "callerPhone": "Extracted phone number or empty string if not provided",
@@ -2646,7 +2659,7 @@ Respond ONLY in valid JSON matching this schema:
       // Smart rule-based extraction helper for fallback
       const extractFallbackResponse = (query: string, pName: string, cName: string, history: any[] = []) => {
         const fullText = (history.map(m => m.text).join(" ") + " " + query).toLowerCase();
-        const currentLower = (query || "").toLowerCase();
+        const currentLower = (query || "").toLowerCase().trim();
 
         // Extract name
         const nameMatch = (query + " " + history.map(m => m.text).join(" ")).match(/(?:my name is|i am|i'm|this is|name:\s*)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/i);
@@ -2665,6 +2678,62 @@ Respond ONLY in valid JSON matching this schema:
         if (fullText.includes('tomorrow') || fullText.includes('pm') || fullText.includes('am') || fullText.includes('monday') || fullText.includes('tuesday') || fullText.includes('wednesday') || fullText.includes('thursday') || fullText.includes('friday')) {
           const timeMatch = (query + " " + history.map(m => m.text).join(" ")).match(/(?:tomorrow|next week|monday|tuesday|wednesday|thursday|friday|today)?\s*(?:at|@)?\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?/i);
           requestedSlot = timeMatch ? timeMatch[0].trim() : 'Tomorrow @ 11:00 AM EST';
+        }
+
+        // Determine if query is unintelligible gibberish or random typing (e.g., "hyjyhjuhghjjhjy")
+        const isGibberish = (q: string) => {
+          const clean = q.trim().toLowerCase();
+          if (!clean || clean.length < 4) return false;
+          if (/^[bcdfghjklmnpqrstvwxyz]{6,}$/i.test(clean)) return true;
+          if (/^(.)\1{4,}$/.test(clean)) return true;
+          const vowels = (clean.match(/[aeiou]/g) || []).length;
+          if (clean.length >= 7 && (vowels / clean.length < 0.12) && !clean.includes(' ')) return true;
+          if (/[hjky]{6,}/i.test(clean)) return true;
+          return false;
+        };
+
+        if (isGibberish(currentLower)) {
+          return {
+            aiSpeechText: `I didn't quite catch that. Could you please repeat your question, or let me know if you'd like to book a consultation or build a website?`,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'Clarification Needed',
+            bookingStatus: 'inquiry_only',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `❓ INCOHERENT QUERY: Visitor speech/typing was unintelligible at ${cName}.`
+          };
+        }
+
+        // Specific Website intent
+        if (currentLower.includes('website') || currentLower.includes('web build') || currentLower.includes('custom site') || currentLower.includes('landing page')) {
+          return {
+            aiSpeechText: `Right... we specialize in custom high-speed web platforms at ${cName}. Are you looking to launch a brand new site or revamp your existing presence?`,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'Custom Website Engineering',
+            bookingStatus: 'in_progress',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `🌐 WEBSITE INQUIRY: Visitor inquired about website development at ${cName}.`
+          };
+        }
+
+        // Specific AI Voice Agent intent
+        if (currentLower.includes('voice') || currentLower.includes('agent') || currentLower.includes('receptionist') || currentLower.includes('phone line')) {
+          return {
+            aiSpeechText: `Right, so... our 24/7 AI Voice Agents handle customer inquiries and lock in calendar appointments with zero hold time. Would you like me to schedule a priority consultation to walk through a custom demo?`,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'AI Voice Agent Setup',
+            bookingStatus: 'in_progress',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `🎙️ VOICE AGENT INQUIRY: Visitor inquired about AI Voice Agent setup at ${cName}.`
+          };
         }
 
         // Determine Topic
@@ -2879,6 +2948,34 @@ Respond ONLY in valid JSON matching this schema:
       };
 
       const fallbackData = extractFallbackResponse(userQuery, personaName, companyName, conversationHistory || []);
+
+      const isGibberishQuery = (q: string) => {
+        const clean = q.trim().toLowerCase();
+        if (!clean || clean.length < 3) return false;
+        if (/^[bcdfghjklmnpqrstvwxyz]{5,}$/i.test(clean)) return true;
+        if (/([a-zA-Z])\1{3,}/i.test(clean)) return true;
+        const vowels = (clean.match(/[aeiou]/g) || []).length;
+        if (clean.length >= 6 && (vowels / clean.length < 0.15) && !clean.includes(' ')) return true;
+        if (/[hjky]{5,}/i.test(clean)) return true;
+        return false;
+      };
+
+      if (isGibberishQuery(normalizedUserQuery)) {
+        return res.json({
+          success: true,
+          aiSpeechText: `Right... I didn't quite catch that over the line. Could you repeat your question, or let me know if you'd like to book an appointment or check our pricing?`,
+          extractedLead: {
+            callerName: "Valued Caller",
+            callerEmail: "",
+            callerPhone: "",
+            topic: "Inquiry Clarification",
+            requestedSlot: "Tomorrow @ 11:00 AM EST",
+            bookingStatus: "inquiry_only",
+            whatsappMessage: `❓ INCOHERENT QUERY: Visitor speech/typing was unintelligible at ${companyName}.`
+          }
+        });
+      }
+
       let aiSpeechText = "";
       let extractedLead = {
         callerName: fallbackData.callerName || "Valued Caller",
@@ -2905,7 +3002,7 @@ Respond ONLY in valid JSON matching this schema:
           contents: prompt,
           config: {
             responseMimeType: "application/json",
-            maxOutputTokens: 110,
+            maxOutputTokens: 600,
             temperature: 0.2,
           }
         });
@@ -2925,6 +3022,15 @@ Respond ONLY in valid JSON matching this schema:
 
         const data = JSON.parse(rawText || "{}");
         if (data.aiSpeechText) aiSpeechText = data.aiSpeechText;
+
+        // Anti-echo guard: ensure AI never parrots the caller's query back
+        if (aiSpeechText && normalizedUserQuery.length > 5) {
+          const cleanQ = normalizedUserQuery.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cleanA = aiSpeechText.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (cleanA === cleanQ || cleanA.startsWith(cleanQ)) {
+            aiSpeechText = `Right, so... thanks for asking about that! We can definitely help you with that at ${companyName}. Would you like to check our pricing packages or book a quick consultation?`;
+          }
+        }
         if (data.callerName) extractedLead.callerName = data.callerName;
         if (data.callerEmail) extractedLead.callerEmail = data.callerEmail;
         if (data.callerPhone) extractedLead.callerPhone = data.callerPhone;

@@ -31,68 +31,11 @@ interface Persona {
 }
 
 export function VoiceAgentPage() {
-  const [activePersonaId, setActivePersonaId] = useState<string>('us-executive');
-  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('male');
   const [isPlayingSample, setIsPlayingSample] = useState(false);
-
-  const personas: Persona[] = [
-    {
-      id: 'us-executive',
-      femaleName: 'Zephyr',
-      maleName: 'Arthur',
-      region: 'North America & Global Enterprise',
-      accent: 'US Corporate Executive',
-      flag: '🇺🇸',
-      tone: 'Direct, Crisp & High-Efficiency',
-      engLocale: 'en-US',
-      femaleTranscript: "Hey! Thanks for reaching Quorik. I'm Zephyr. We engineer high-performance custom web apps and 24/7 AI voice receptionists with zero missed calls. How can we help your team today?",
-      maleTranscript: "Hey! Thanks for reaching Quorik. I'm Arthur. We engineer high-performance custom web apps and 24/7 AI voice receptionists with zero missed calls. How can we help your team today?"
-    },
-    {
-      id: 'uk-refined',
-      femaleName: 'Clara',
-      maleName: 'Oliver',
-      region: 'United Kingdom & Europe',
-      accent: 'UK Refined Received Pronunciation',
-      flag: '🇬🇧',
-      tone: 'Courteous, Calm & Elegant',
-      engLocale: 'en-GB',
-      femaleTranscript: "Good day and thank you for reaching Quorik. My name is Clara. I can assist you with your custom web development or AI automation project and secure a consultation with our project director for tomorrow. May I have your full name, please?",
-      maleTranscript: "Good day and thank you for reaching Quorik. My name is Oliver. I can assist you with your custom web development or AI automation project and secure a consultation with our project director for tomorrow. May I have your full name, please?"
-    },
-    {
-      id: 'us-sales',
-      femaleName: 'Aria',
-      maleName: 'Brian',
-      region: 'North America & High-Conversion Sales',
-      accent: 'US Dynamic & Sales Closer',
-      flag: '🇺🇸',
-      tone: 'High-Energy, Direct & Persuasive',
-      engLocale: 'en-US',
-      femaleTranscript: "Hi there! I'm Aria with Quorik AI. Whether you need an autonomous voice receptionist or a custom website build, we ensure zero missed leads and maximum ROI. What's the main goal for your business right now?",
-      maleTranscript: "Hey there! Brian here from Quorik AI. Whether you need a 24/7 autonomous voice receptionist or a high-converting website build, we guarantee zero missed leads and instant booking. What is your team looking to launch?"
-    },
-    {
-      id: 'au-friendly',
-      femaleName: 'Natasha',
-      maleName: 'William',
-      region: 'Australia, Asia-Pacific & Modern Conversational',
-      accent: 'Australian Warm & Approachable',
-      flag: '🇦🇺',
-      tone: 'Warm, Clear & Modern',
-      engLocale: 'en-AU',
-      femaleTranscript: "Hello and welcome to Quorik! My name is Natasha. I can guide you through our autonomous voice agents, custom web apps, and live integrations. Would you like to check our available times for a quick discovery call?",
-      maleTranscript: "G'day and thanks for calling Quorik! William here. I'm ready to walk you through our custom web engineering and 24/7 AI voice receptionist setups. Would you like to lock in a time for tomorrow?"
-    }
-  ];
-
-  const currentPersona = personas.find(p => p.id === activePersonaId) || personas[0];
-  const activeVoiceName = selectedGender === 'female' ? currentPersona.femaleName : currentPersona.maleName;
-  const activeTranscript = selectedGender === 'female' ? currentPersona.femaleTranscript : currentPersona.maleTranscript;
-
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
-  const silenceTimerRef = useRef<any>(null);
+
+  const arthurTranscript = "Hey there! Thanks for reaching Quorik. I'm Arthur, your 24/7 Executive AI Voice Concierge. We engineer high-performance custom web applications and autonomous AI voice receptionists with zero missed calls and instant calendar booking. How can we help your business accelerate today?";
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -122,26 +65,25 @@ export function VoiceAgentPage() {
     };
   }, [isAiSpeaking]);
 
-  // Pre-fetch sample persona audio in background for 0ms instant playback
+  // Pre-fetch sample Arthur audio in background for 0ms instant playback
   useEffect(() => {
     const timer = setTimeout(() => {
-      const transcript = selectedGender === 'female' ? currentPersona.femaleTranscript : currentPersona.maleTranscript;
-      prefetchNeuralAudio(transcript, selectedGender, currentPersona.id);
+      prefetchNeuralAudio(arthurTranscript, 'male', 'us-executive');
     }, 800);
     return () => clearTimeout(timer);
-  }, [selectedGender, currentPersona.id]);
+  }, []);
 
-  // Speak AI Speech Response with Gemini Studio Neural Voice and instant cache
+  // Speak AI Speech Response with Arthur Voice
   const speakText = (text: string) => {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e){}
     }
 
     speakSpeech(text, {
-      gender: selectedGender,
-      personaId: currentPersona.id,
+      gender: 'male',
+      personaId: 'us-executive',
       stability: 0.35,
-      preferredLocale: (currentPersona.engLocale as any) || 'en-US',
+      preferredLocale: 'en-US',
       onStart: () => {
         setIsAiSpeaking(true);
         setIsPlayingSample(true);
@@ -166,7 +108,7 @@ export function VoiceAgentPage() {
       return;
     }
     setIsPlayingSample(true);
-    speakText(activeTranscript);
+    speakText(arthurTranscript);
   };
 
   return (
@@ -264,160 +206,95 @@ export function VoiceAgentPage() {
         </div>
       </section>
 
-      {/* DYNAMIC REAL-TIME VOICE DEMO (SAME AS HOMEPAGE) */}
+      {/* DYNAMIC REAL-TIME VOICE DEMO (ARTHUR) */}
       <VoiceDemo
-        initialGender={selectedGender}
-        initialPersonaId={activePersonaId}
-        onGenderChange={setSelectedGender}
-        onPersonaChange={setActivePersonaId}
+        initialGender="male"
+        initialPersonaId="us-executive"
       />
 
-      {/* Interactive Personas & Gender Voice Switcher */}
-      <section id="personas" className="py-24 bg-[#05060A] border-b border-white/5 relative">
+      {/* Arthur Executive Concierge Showcase */}
+      <section id="arthur-showcase" className="py-24 bg-[#05060A] border-b border-white/5 relative">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="text-[11px] font-bold text-brand-teal uppercase tracking-[0.2em] font-mono font-bold">Accent & Gender Voice Switcher</span>
+            <span className="text-[11px] font-bold text-brand-teal uppercase tracking-[0.2em] font-mono">Autonomous Voice Concierge</span>
             <h2 className="text-3xl sm:text-5xl font-bold tracking-tight uppercase text-white mt-2">
-              Female & Male Voice Personas
+              Meet Arthur: Your 24/7 Voice Executive
             </h2>
             <p className="text-gray-400 text-sm mt-3">
-              Switch seamlessly between Female (Zephyr, Clara) and Male (Arthur, Oliver) neural voice profiles.
+              Sub-second conversational intelligence engineered to answer every inbound call, qualify enterprise leads, and book calendar appointments autonomously.
             </p>
-
-            {/* Gender Toggle Control */}
-            <div className="inline-flex items-center gap-2 bg-[#0A0E1A] border border-white/15 p-1.5 mt-8">
-              <button
-                onClick={() => {
-                  stopAllSpeech();
-                  setIsPlayingSample(false);
-                  setSelectedGender('female');
-                }}
-                className={`px-5 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${
-                  selectedGender === 'female'
-                    ? 'bg-brand-teal text-[#05060A]'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" /> Female Voices (Zephyr / Clara)
-              </button>
-              <button
-                onClick={() => {
-                  stopAllSpeech();
-                  setIsPlayingSample(false);
-                  setSelectedGender('male');
-                }}
-                className={`px-5 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${
-                  selectedGender === 'male'
-                    ? 'bg-brand-teal text-[#05060A]'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" /> Male Voices (Arthur / Oliver)
-              </button>
-            </div>
           </div>
 
-          <div className="grid lg:grid-cols-12 gap-8 items-stretch">
-            {/* Persona Selector Buttons */}
-            <div className="lg:col-span-5 space-y-4">
-              {personas.map((persona) => {
-                const isActive = persona.id === activePersonaId;
-                const displayName = selectedGender === 'female' ? persona.femaleName : persona.maleName;
-                return (
+          <div className="max-w-4xl mx-auto bg-[#0A0E1A] border border-white/10 p-8 sm:p-10 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-teal/10 blur-[90px] rounded-full pointer-events-none" />
+
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-6 mb-6 gap-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🇺🇸</span>
+                    <h3 className="text-2xl font-bold text-white uppercase tracking-tight">Arthur</h3>
+                    <span className="px-2.5 py-0.5 bg-brand-teal/10 border border-brand-teal/30 text-brand-teal text-[10px] font-mono font-bold uppercase tracking-wider">
+                      Executive Concierge
+                    </span>
+                  </div>
+                  <p className="text-xs text-brand-teal font-mono uppercase tracking-wider mt-1.5">
+                    Quorik Flagship Voice Profile • Sub-350ms Neural Latency
+                  </p>
+                </div>
+
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-mono font-bold uppercase self-start sm:self-auto">
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /> Neural Ready
+                </span>
+              </div>
+
+              <div className="mb-8">
+                <span className="text-[10px] font-mono uppercase text-gray-400 tracking-wider block mb-2">Speech Script Preview</span>
+                <div className="bg-[#05060A] border border-white/10 p-5 font-sans text-sm text-gray-200 leading-relaxed relative">
+                  "{arthurTranscript}"
+                </div>
+              </div>
+
+              {/* Audio Waveform Animation & Play Control */}
+              <div className="bg-[#05060A] border border-white/10 p-6 flex flex-col sm:flex-row items-center gap-6 justify-between">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
                   <button
-                    key={persona.id}
-                    onClick={() => {
-                      stopAllSpeech();
-                      setIsPlayingSample(false);
-                      setActivePersonaId(persona.id);
-                    }}
-                    className={`w-full text-left p-6 transition-all border ${
-                      isActive 
-                        ? 'bg-[#0A0E1A] border-brand-teal shadow-[0_0_20px_rgba(6,182,212,0.15)]' 
-                        : 'bg-[#05060A] border-white/10 hover:border-white/30'
-                    }`}
+                    onClick={handlePlaySample}
+                    className="w-14 h-14 rounded-full bg-brand-teal text-[#05060A] flex items-center justify-center hover:bg-white transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] shrink-0 cursor-pointer"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xl">{persona.flag}</span>
-                      <span className="text-[10px] font-mono text-brand-teal font-bold uppercase tracking-wider px-2 py-0.5 bg-brand-teal/10 border border-brand-teal/30">
-                        {displayName} ({selectedGender.toUpperCase()})
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-bold text-white mb-1">{displayName}</h3>
-                    <p className="text-xs text-brand-teal font-mono uppercase font-semibold mb-2">{persona.region}</p>
-                    <p className="text-xs text-gray-400 font-sans">{persona.accent} • {persona.tone}</p>
+                    {isPlayingSample ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
                   </button>
-                );
-              })}
+                  <div>
+                    <p className="text-xs font-bold text-white font-mono uppercase">
+                      {isPlayingSample ? "Speaking with Arthur..." : "Click To Hear Arthur"}
+                    </p>
+                    <p className="text-[11px] text-gray-500 font-mono">Neural Voice Engine • Executive Baritone</p>
+                  </div>
+                </div>
+
+                {/* Visual Waveform Bars */}
+                <div className="flex items-center gap-1.5 h-10 w-full sm:w-48 justify-center">
+                  {[30, 70, 45, 90, 60, 100, 40, 80, 50, 95, 30, 65, 85, 40, 75, 50].map((h, i) => (
+                    <div
+                      key={i}
+                      className={`w-1 rounded-full transition-all duration-150 ${
+                        isPlayingSample ? 'bg-brand-teal animate-pulse' : 'bg-white/20'
+                      }`}
+                      style={{ height: isPlayingSample ? `${Math.max(15, (h * Math.random()) % 100)}%` : '20%' }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Selected Persona Showcase & Audio Player */}
-            <div className="lg:col-span-7 bg-[#0A0E1A] border border-white/10 p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-brand-teal/10 blur-[90px] rounded-full pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between border-b border-white/10 pb-6 mb-6">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{currentPersona.flag}</span>
-                      <h3 className="text-2xl font-bold text-white uppercase tracking-tight">{activeVoiceName}</h3>
-                    </div>
-                    <p className="text-xs text-brand-teal font-mono uppercase tracking-wider mt-1">{currentPersona.region} Voice Profile ({selectedGender.toUpperCase()})</p>
-                  </div>
-
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-mono font-bold uppercase">
-                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /> Neural Ready
-                  </span>
-                </div>
-
-                <div className="mb-8">
-                  <span className="text-[10px] font-mono uppercase text-gray-400 tracking-wider block mb-2">Speech Script Preview</span>
-                  <div className="bg-[#05060A] border border-white/10 p-5 font-sans text-sm text-gray-200 leading-relaxed relative">
-                    "{activeTranscript}"
-                  </div>
-                </div>
-
-                {/* Audio Waveform Animation & Play Control */}
-                <div className="bg-[#05060A] border border-white/10 p-6 flex flex-col sm:flex-row items-center gap-6 justify-between">
-                  <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <button
-                      onClick={handlePlaySample}
-                      className="w-14 h-14 rounded-full bg-brand-teal text-[#05060A] flex items-center justify-center hover:bg-white transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] shrink-0"
-                    >
-                      {isPlayingSample ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
-                    </button>
-                    <div>
-                      <p className="text-xs font-bold text-white font-mono uppercase">
-                        {isPlayingSample ? `Speaking with ${activeVoiceName}...` : `Click To Hear ${activeVoiceName}`}
-                      </p>
-                      <p className="text-[11px] text-gray-500 font-mono">Web Speech Synthesis ({selectedGender})</p>
-                    </div>
-                  </div>
-
-                  {/* Visual Waveform Bars */}
-                  <div className="flex items-center gap-1.5 h-10 w-full sm:w-48 justify-center">
-                    {[30, 70, 45, 90, 60, 100, 40, 80, 50, 95, 30, 65, 85, 40, 75, 50].map((h, i) => (
-                      <div
-                        key={i}
-                        className={`w-1 rounded-full transition-all duration-150 ${
-                          isPlayingSample ? 'bg-brand-teal animate-pulse' : 'bg-white/20'
-                        }`}
-                        style={{ height: isPlayingSample ? `${Math.max(15, (h * Math.random()) % 100)}%` : '20%' }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-white/10 mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <span className="text-xs text-gray-400 font-mono">Want custom vocabulary or branch Q&A scripts?</span>
-                <Link
-                  to="/contact"
-                  className="inline-flex items-center gap-2 text-xs font-mono font-bold text-brand-teal uppercase tracking-wider hover:text-white"
-                >
-                  <Mic className="w-3.5 h-3.5" /> Book Custom Voice Training Demo
-                </Link>
-              </div>
+            <div className="pt-6 border-t border-white/10 mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <span className="text-xs text-gray-400 font-mono">Ready to deploy Arthur on your website or phone line?</span>
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2 text-xs font-mono font-bold text-brand-teal uppercase tracking-wider hover:text-white"
+              >
+                <Mic className="w-3.5 h-3.5" /> Book Custom Setup Call
+              </Link>
             </div>
           </div>
         </div>

@@ -209,6 +209,42 @@ export async function prefetchNeuralAudio(
   } catch (e) {}
 }
 
+// Preloaded audio element pool for 0ms instant verbal backchannels
+const backchannelAudioPool: HTMLAudioElement[] = [];
+
+export function preloadBackchannels(gender = 'male', personaId = 'uk-refined') {
+  try {
+    const nods = ["Right...", "Yeah, gotcha...", "Got it...", "Mm-hmm..."];
+    nods.forEach(nod => {
+      const a = new Audio(`/api/voice-agent/backchannel?gender=${encodeURIComponent(gender)}&personaId=${encodeURIComponent(personaId)}&stability=0.35&text=${encodeURIComponent(nod)}`);
+      a.preload = 'auto';
+      backchannelAudioPool.push(a);
+    });
+  } catch (e) {}
+}
+
+export async function playBackchannelVerbalNod(gender = 'male', personaId = 'uk-refined'): Promise<void> {
+  try {
+    let audio: HTMLAudioElement | undefined;
+    if (backchannelAudioPool.length > 0) {
+      audio = backchannelAudioPool.shift();
+      // Replenish in background
+      setTimeout(() => {
+        const next = new Audio(`/api/voice-agent/backchannel?gender=${encodeURIComponent(gender)}&personaId=${encodeURIComponent(personaId)}&stability=0.35`);
+        next.preload = 'auto';
+        backchannelAudioPool.push(next);
+      }, 800);
+    } else {
+      audio = new Audio(`/api/voice-agent/backchannel?gender=${encodeURIComponent(gender)}&personaId=${encodeURIComponent(personaId)}&stability=0.35`);
+      audio.preload = 'auto';
+    }
+    if (audio) {
+      audio.currentTime = 0;
+      await audio.play().catch(() => {});
+    }
+  } catch (e) {}
+}
+
 /**
  * Primary Voice Synthesizer:
  * Uses Studio Neural Voice with HTML5 hardware MP3 playback, 0ms cache, and high resilience.
@@ -218,6 +254,7 @@ export async function speakSpeech(
   options: {
     gender?: 'female' | 'male' | 'male-uk' | 'female-uk' | 'male-sales' | 'female-vibrant' | 'male-au' | 'female-au' | string;
     personaId?: string;
+    stability?: number;
     preferredLocale?: 'en-US' | 'en-GB' | 'en-AU' | string;
     onStart?: () => void;
     onEnd?: () => void;
@@ -247,7 +284,8 @@ export async function speakSpeech(
     else personaId = isFemale ? 'us-warm' : 'us-executive';
   }
 
-  const cacheKey = `${rawGender}:${personaId}:${cleanText}`;
+  const stability = typeof options.stability === 'number' ? options.stability : 0.35;
+  const cacheKey = `${rawGender}:${personaId}:${stability}:${cleanText}`;
 
   const playAudioData = async (base64Audio: string) => {
     if (thisToken !== currentSpeechToken) return;
@@ -361,7 +399,7 @@ export async function speakSpeech(
   const playDirectStreamUrl = () => {
     if (thisToken !== currentSpeechToken) return;
     try {
-      const streamUrl = `/api/tts/stream?text=${encodeURIComponent(cleanText)}&gender=${encodeURIComponent(rawGender)}&personaId=${encodeURIComponent(personaId)}`;
+      const streamUrl = `/api/tts/stream?text=${encodeURIComponent(cleanText)}&gender=${encodeURIComponent(rawGender)}&personaId=${encodeURIComponent(personaId)}&stability=${stability}`;
       const streamAudio = new Audio(streamUrl);
       activeHtmlAudio = streamAudio;
 
@@ -419,7 +457,8 @@ export async function speakSpeech(
         body: JSON.stringify({
           text: cleanText,
           gender: rawGender,
-          personaId
+          personaId,
+          stability
         })
       });
 

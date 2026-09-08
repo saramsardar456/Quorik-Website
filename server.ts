@@ -287,6 +287,8 @@ function loadStore() {
   // Seed Leicester Roof Repairs LTD demo if not already stored
   const leicesterData = {
     companyName: 'Leicester Roof Repairs LTD',
+    founder: 'Mac',
+    industry: 'Roofing Services',
     tagline: 'Domestic & Commercial Roofing Services, based in Birstall, Leicester, operating throughout the UK',
     heroSubtext: 'With more than 50 years of combined experience, Leicester Roof Repairs has built a reputation for reliability, transparency and delivering the highest quality work to excellent standards for commercial & residential clients.',
     agentName: 'Arthur',
@@ -2532,10 +2534,12 @@ PRICING & PACKAGES KNOWLEDGE:
 - Enterprise Ultra Plan: $3,999 One-Time Setup + $799/month (or $639/month billed annually). Includes bespoke enterprise web platform, unlimited custom AI Voice Agents with custom cloned voice, 4,000+ voice minutes, and full ERP integration.
 When the caller asks about pricing or costs, provide these transparent package prices clearly and concisely, and offer to schedule a discovery consultation.`;
 
+      const isRooferOrTrade = /roof|trade|plumb|electr|construct|builder|gutter|chimney/i.test(`${companyName} ${companyServices}`);
+
       if (customCompany?.name) {
-        personaName = customCompany?.agentName || (gender === 'female' ? 'Zephyr' : 'Arthur');
+        personaName = customCompany?.agentName || (gender === 'female' ? 'Clara' : 'Arthur');
         const customFounderText = customCompany?.founder
-          ? `Founder, Owner & Leadership: ${customCompany.name} is founded and led by ${customCompany.founder}, who heads our specialist team.`
+          ? `Founder & Leadership: ${customCompany.name} is led by ${customCompany.founder}, who heads our specialist team.`
           : `Leadership & Ownership: ${customCompany.name} is proudly owned and operated by our experienced local specialist management team.`;
         const locationText = customCompany?.location ? `Location: ${customCompany.location}` : '';
         const hoursText = customCompany?.hours ? `Hours: ${customCompany.hours}` : '';
@@ -2546,41 +2550,73 @@ When the caller asks about pricing or costs, provide these transparent package p
           ? `Customer Reviews & Social Proof:\n${customCompany.reviews.join('\n')}`
           : '';
 
-        systemPersonaInstruction = `You are ${personaName}, the 24/7 AI Voice Concierge & Receptionist for "${companyName}".
-Tone: Professional, warm, articulate, and welcoming.
-Company Details:
-- Business: ${companyName}
-- Services & Pricing: ${companyServices}
-- ${locationText}
-- ${hoursText}
-- ${customFounderText}
+        if (isRooferOrTrade) {
+          systemPersonaInstruction = `You are ${personaName}, answering the live phone line for "${companyName}".
+PERSONA: Experienced, friendly, direct trade & roofing office receptionist.
+STYLE & CONVERSATIONAL BLUEPRINT RULES:
+1. Speak in warm, conversational, authentic English (1-2 short sentences max). Never sound scripted.
+2. ALWAYS USE INFORMAL CONTRACTIONS: "I'm", "we've", "we'll", "you're", "let's", "that'd", "haven't".
+3. START RESPONSES WITH NATURAL VERBAL NODS / FILLERS:
+   - "Right...", "Yeah, gotcha...", "Makes total sense...", "Well...", "Ah right...", "Got it..."
+   - Transitions: "Right, so...", "No worries at all...", "We can definitely get that looked at."
+4. STRICTLY BANNED ROBOTIC CLICHÉS (NEVER USE):
+   - FORBIDDEN: "Hello, thank you for contacting... How may I assist you with your roofing inquiry today?"
+   - FORBIDDEN: "I would be delighted to assist you"
+   - FORBIDDEN: "Kindly provide"
+   - FORBIDDEN: "As an AI..."
+5. NATURAL HUMAN BREATH PAUSES:
+   - Use ellipses (...) strategically for 200-300ms realistic breath pauses and commas (,) between thoughts.
+   - Example: "Right... yeah, we can definitely help with that. For storm leaks... we usually get a van out to inspect it today."
+6. ROOFING ACCURACY & LOCAL CONTEXT:
+   - Active storm leaks or emergency issues get prioritized. Ask for their Leicester postcode and leak details.
+   - Quote: ${companyServices}.
+   - ${customFounderText}
+   - ${locationText}
+   - ${hoursText}
 ${faqsText ? `- ${faqsText}\n` : ''}${reviewsText ? `- ${reviewsText}\n` : ''}
-RULES:
-1. Speak concisely in natural, warm, human conversational English (1-2 sentences max).
-2. Avoid sounding robotic, repetitive, or synthetic. Use natural spoken cadence and friendly inflection.
-3. When asked about pricing or services, quote the specific services and rates provided above.
-4. When asked about location or business hours, provide the location and hours clearly.
-5. When asked about the owner, founder, or leadership, state the leadership and ownership details clearly.
-6. When asked to schedule an appointment, ask for their preferred day/time and contact details politely.
 ${consultationBookingRules}`;
+        } else {
+          systemPersonaInstruction = `You are ${personaName}, answering the live phone line for "${companyName}".
+PERSONA: Warm, direct, natural human receptionist.
+RULES:
+1. Speak in warm, natural conversational English (1-2 sentences max). Use contractions ("I'm", "we've", "let's").
+2. Start naturally with verbal nods ("Right...", "Gotcha...", "Yeah, absolutely...").
+3. Use ellipses (...) strategically for realistic breath pauses, and commas between short thoughts.
+4. Banned: "How may I assist you today?", "I would be delighted to assist", "Kindly provide", "As an AI".
+5. Business Info:
+   - Services: ${companyServices}
+   - ${locationText}
+   - ${hoursText}
+   - ${customFounderText}
+${faqsText ? `- ${faqsText}\n` : ''}${reviewsText ? `- ${reviewsText}\n` : ''}
+${consultationBookingRules}`;
+        }
       } else if (personaId === 'uk-refined') {
         personaName = gender === 'female' ? 'Clara' : 'Arthur';
-        systemPersonaInstruction = `You are ${personaName}, a 24/7 AI Assistant for Quorik (Web Development & AI Automation Agency).
-Language: Courteous Refined British English.
+        systemPersonaInstruction = `You are ${personaName}, answering the phone line for Quorik (Web Engineering & 24/7 AI Voice Receptionists).
+Language: Warm Conversational British English.
+RULES:
+1. Speak in warm, conversational, articulate spoken English (1-2 sentences max). Use contractions ("I'm", "we've", "you're", "that'd").
+2. Start naturally with verbal nods: "Right...", "Yeah, absolutely...", "Gotcha...", "Well...".
+3. Use ellipses (...) for natural human breath pauses.
+4. Banned: "How may I assist you today?", "I would be delighted", "As an AI".
 Key Services: ${companyServices}.
 ${founderDetailInformation}
 ${pricingInformation}
-${consultationBookingRules}
-Keep responses warm, polite, articulate, and completely natural like a real human concierge (2 concise spoken sentences). Never sound robotic or generic.`;
+${consultationBookingRules}`;
       } else {
         personaName = gender === 'female' ? 'Zephyr' : 'Arthur';
-        systemPersonaInstruction = `You are ${personaName}, a 24/7 AI Executive Assistant for Quorik (Web Development & AI Automation Agency).
-Language: Warm Professional American English.
+        systemPersonaInstruction = `You are ${personaName}, answering the phone line for Quorik (Web Engineering & 24/7 AI Voice Receptionists).
+Language: Warm Conversational American English.
+RULES:
+1. Speak in warm, conversational, clear spoken English (1-2 sentences max). Use contractions ("I'm", "we've", "you're", "that'd").
+2. Start naturally with verbal nods: "Right...", "Yeah, absolutely...", "Gotcha...", "Well...".
+3. Use ellipses (...) for natural human breath pauses.
+4. Banned: "How may I assist you today?", "I would be delighted", "As an AI".
 Key Services: ${companyServices}.
 ${founderDetailInformation}
 ${pricingInformation}
-${consultationBookingRules}
-Keep responses warm, authoritative, friendly, and completely natural like a live executive receptionist (2 concise spoken sentences). Never sound robotic or generic.`;
+${consultationBookingRules}`;
       }
 
       const prompt = `${systemPersonaInstruction}
@@ -2731,8 +2767,11 @@ Respond ONLY in valid JSON matching this schema:
           if (!callerPhone) missing.push('phone');
 
           if (!callerName && !requestedSlot) {
+            const promptBookingMsg = isRooferOrTrade
+              ? `Right... I can definitely get someone out to inspect that for you! What's your name, and what day or time works best?`
+              : `Right... I'd be happy to get that scheduled for you! May I have your name and preferred day or time?`;
             return {
-              aiSpeechText: `I would be delighted to book your appointment at ${cName}! May I have your name and preferred day and time?`,
+              aiSpeechText: promptBookingMsg,
               callerName: '',
               callerEmail: '',
               callerPhone: '',
@@ -2745,7 +2784,7 @@ Respond ONLY in valid JSON matching this schema:
           } else if (!callerEmail || !callerPhone) {
             const missingText = !callerEmail && !callerPhone ? "your email address and phone number" : (!callerEmail ? "your email address" : "your phone number");
             return {
-              aiSpeechText: `Great ${callerName || ''}! Could you please share ${missingText} so I can send the confirmation and calendar invite?`,
+              aiSpeechText: `Great, got it ${callerName || ''}! Could you share ${missingText} so we can confirm the slot and send you the details?`,
               callerName: callerName || 'Valued Caller',
               callerEmail,
               callerPhone,
@@ -2757,7 +2796,7 @@ Respond ONLY in valid JSON matching this schema:
             };
           } else {
             return {
-              aiSpeechText: `Perfect ${callerName}! I have confirmed your appointment at ${cName} for ${requestedSlot}. A confirmation has been logged for your contact details.`,
+              aiSpeechText: `Perfect ${callerName}! I've confirmed your slot with ${cName} for ${requestedSlot}. We've sent a quick confirmation over to your contact details.`,
               callerName,
               callerEmail,
               callerPhone,
@@ -2775,9 +2814,11 @@ Respond ONLY in valid JSON matching this schema:
           let priceMsg = "";
           if (customCompany?.services && Array.isArray(customCompany.services) && customCompany.services.length > 0) {
             const sampleServices = customCompany.services.slice(0, 3).join(", ");
-            priceMsg = `At ${cName}, our transparent services include: ${sampleServices}. Would you like me to reserve a priority appointment for you?`;
+            priceMsg = isRooferOrTrade
+              ? `Right... so for ${cName}, our core services include: ${sampleServices}. We usually do a quick inspection to give you an exact price. Would you like me to book a free inspection?`
+              : `Right... at ${cName}, our transparent services include: ${sampleServices}. Would you like me to reserve a priority consultation for you?`;
           } else {
-            priceMsg = `Quorik offers transparent packages starting at $999 setup and $199 per month for our Starter AI plan with a custom website and 300 voice minutes, or $1,999 setup and $399 per month for our popular Growth Suite. Would you like me to book a 15-minute consultation to discuss your project?`;
+            priceMsg = `Right, so... Quorik packages start at $999 setup and $199 a month for our Starter AI plan with a custom site and voice agent, or $1,999 setup and $399 a month for our Growth Suite. Would you like to lock in a quick 15-minute consultation to chat through your project?`;
           }
 
           return {
@@ -2794,8 +2835,10 @@ Respond ONLY in valid JSON matching this schema:
         }
 
         const generalMsg = customCompany?.name
-          ? `${greeting} Thank you for calling ${cName}! I'm ${pName}. I can answer any questions about our services, pricing, or book an appointment for you today. How may I assist you?`
-          : `${greeting} Thank you for reaching ${cName}! I'm ${pName}. How can I assist you with custom web development, AI chatbots, or voice automation today?`;
+          ? (isRooferOrTrade
+              ? `Hey, thanks for reaching out to ${cName}! This is ${pName} on the digital line. Are you looking to fix an active leak from the recent storm, or do you just need a quick estimate on a roof repair?`
+              : `Hey, thanks for reaching out to ${cName}! This is ${pName} on the line. Are you looking for a quick estimate, or did you want to schedule an appointment today?`)
+          : `Hey, thanks for reaching out to ${cName}! This is ${pName} on the line. Are you looking to build a custom high-performance website, or plug in a 24/7 AI voice agent for your business?`;
 
         return {
           aiSpeechText: generalMsg,
@@ -2828,8 +2871,8 @@ Respond ONLY in valid JSON matching this schema:
           contents: prompt,
           config: {
             responseMimeType: "application/json",
-            maxOutputTokens: 220,
-            temperature: 0.3,
+            maxOutputTokens: 110,
+            temperature: 0.2,
           }
         });
 
@@ -2871,18 +2914,45 @@ Respond ONLY in valid JSON matching this schema:
         aiSpeechText = fallbackData.aiSpeechText;
       }
 
+      // Humanization & Natural Cadence Post-Processing
+      let finalSpeechText = (aiSpeechText || fallbackData.aiSpeechText || "").trim();
+
+      // Eliminate any robotic phrases that might slip through
+      finalSpeechText = finalSpeechText
+        .replace(/How may I assist you with your roofing inquiry today\?/gi, "Are you looking to fix an active leak from the recent storm, or do you just need a quick estimate on some roof repairs?")
+        .replace(/How may I assist you today\?/gi, "Are you looking for a quick estimate, or did you want to schedule a visit?")
+        .replace(/I would be delighted to assist you/gi, "We can definitely help with that")
+        .replace(/Thank you for contacting ([^.!]+)[.!]/gi, "Hey, thanks for reaching out!")
+        .replace(/As an AI[^,.!]*[,.!]/gi, "")
+        .replace(/\bAI\b/g, "A.I.")
+        .trim();
+
+      // Ensure natural breath pauses
+      finalSpeechText = finalSpeechText.replace(/\.{2,}/g, '... ');
+
+      // If text doesn't start with a natural conversational vocal nod, inject one
+      const startsWithVocalNod = /^(right|yeah|gotcha|well|ah right|hey|hi|makes sense|no worries|perfect|sure|absolutely|great)/i.test(finalSpeechText);
+      if (!startsWithVocalNod && finalSpeechText.length > 0) {
+        const nod = isRooferOrTrade ? "Right... " : "Right, so... ";
+        finalSpeechText = nod + finalSpeechText;
+      }
+
       res.json({
         success: true,
-        aiSpeechText: aiSpeechText || fallbackData.aiSpeechText,
+        aiSpeechText: finalSpeechText,
         extractedLead
       });
     } catch (error: any) {
       console.error("Voice Agent Simulator API error:", error);
-      const personaName = req.body?.gender === 'female' ? 'Zephyr' : 'Arthur';
+      const isTrade = /roof|trade|plumb|electr|construct|builder/i.test(req.body?.customCompany?.name || "");
+      const personaName = req.body?.gender === 'female' ? 'Clara' : 'Arthur';
       const companyName = req.body?.customCompany?.name || "Quorik";
+      const fallbackSpeech = isTrade
+        ? `Right... hey, thanks for reaching out to ${companyName}! This is ${personaName} on the digital line. Are you looking to get an active leak fixed, or did you need a quick quote on some repairs?`
+        : `Right, so... thanks for reaching ${companyName}! I'm ${personaName}. May I grab your name and preferred day or time to lock in a consultation?`;
       res.json({
         success: true,
-        aiSpeechText: `Thank you for reaching ${companyName}! I'm ${personaName}. May I have your name, email, and preferred time to schedule your discovery consultation?`,
+        aiSpeechText: fallbackSpeech,
         extractedLead: {
           callerName: "Valued Client",
           callerEmail: "",
@@ -2961,11 +3031,61 @@ Respond ONLY in valid JSON matching this schema:
     return Buffer.concat(audioBuffers);
   }
 
-  // Fast, Studio-Quality Neural Studio Audio Synthesis (100% genuine Male Baritone on iOS Safari, Android, and Desktop)
-  async function generateNeuralAudio(text: string, voiceName: string): Promise<Buffer> {
+  // Ultra-Low Latency ElevenLabs Voice Synthesis (<200ms) with dynamic stability control
+  async function fetchElevenLabsAudio(text: string, voiceName: string, stability = 0.35): Promise<Buffer> {
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
+    const isUK = voiceName.includes('GB') || voiceName.includes('Ryan') || voiceName.includes('Sonia') || voiceName.includes('oliver') || voiceName.includes('uk');
+    const isFemale = voiceName.includes('Female') || voiceName.includes('Sonia') || voiceName.includes('Jenny') || voiceName.includes('Aria') || voiceName.includes('clara');
+    
+    // Voice IDs: Custom ID if configured, or best-in-class conversational voices
+    let voiceId = process.env.ELEVENLABS_VOICE_ID;
+    if (!voiceId) {
+      if (isUK && isFemale) voiceId = 'pFZP5JQG7iQjIQuC4Bku'; // Lily (UK British Female)
+      else if (isUK && !isFemale) voiceId = 'onwK4e9ZLuTAKqWW03F9'; // Daniel (UK British Baritone Male)
+      else if (!isUK && isFemale) voiceId = '21m00Tcm4TlvDq8ikWAM'; // Rachel (US Female)
+      else voiceId = 'pNInz6obpgDQGcFmaJgB'; // Adam (US Male)
+    }
+
+    // eleven_turbo_v2_5 + optimize_streaming_latency=4 + mp3_22050_32 cuts TTS latency from 1.5s down to ~180ms
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?optimize_streaming_latency=4&output_format=mp3_22050_32`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'xi-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: {
+          stability: Math.max(0.1, Math.min(1.0, stability)),
+          similarity_boost: 0.75,
+          style: 0.25,
+          use_speaker_boost: true
+        }
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      throw new Error(`ElevenLabs TTS failed with HTTP ${response.status}: ${errText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  // Fast Studio Audio Synthesis (Strictly uses ElevenLabs when configured; removes fallback neural voice)
+  async function generateNeuralAudio(text: string, voiceName: string, stability = 0.35): Promise<Buffer> {
+    if (process.env.ELEVENLABS_API_KEY) {
+      // User explicitly requested to remove fallback neural voice when ElevenLabs is configured:
+      return await fetchElevenLabsAudio(text, voiceName, stability);
+    }
+
+    // Edge Neural engine is only used if ELEVENLABS_API_KEY is not provided:
     const tts = new MsEdgeTTS();
     await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-    const { audioStream } = tts.toStream(text);
+    const rateOption = '+1%';
+    const pitchOption = stability < 0.45 ? '+1Hz' : '+0Hz';
+    const { audioStream } = tts.toStream(text, { rate: rateOption, pitch: pitchOption });
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
       let isSettled = false;
@@ -3002,7 +3122,6 @@ Respond ONLY in valid JSON matching this schema:
       audioStream.on("error", (err: any) => {
         clearTimeout(timer);
         cleanup();
-        // If we already received audio frames before premature stream close, resolve the playable audio!
         if (chunks.length > 0) {
           const totalBuffer = Buffer.concat(chunks);
           if (totalBuffer.length > 512) {
@@ -3016,7 +3135,7 @@ Respond ONLY in valid JSON matching this schema:
   }
 
   // Helper function to resolve voice settings
-  function resolveVoiceSettings(gender: string = 'male', personaId: string = 'us-executive') {
+  function resolveVoiceSettings(gender: string = 'male', personaId: string = 'us-executive', stability: number = 0.35) {
     const gLower = (gender || '').toLowerCase();
     const pLower = (personaId || '').toLowerCase();
     const isFemale = gLower.includes('female') || pLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
@@ -3049,7 +3168,6 @@ Respond ONLY in valid JSON matching this schema:
         voiceName = 'en-US-BrianNeural';
         locale = 'en-US';
       } else if (pLower.includes('arthur') || gLower.includes('arthur') || pLower.includes('executive')) {
-        // Arthur Studio Baritone Voice
         voiceName = 'en-US-GuyNeural';
         locale = 'en-US';
       } else {
@@ -3057,7 +3175,7 @@ Respond ONLY in valid JSON matching this schema:
         locale = 'en-US';
       }
     }
-    return { voiceName, locale, isFemale };
+    return { voiceName, locale, isFemale, stability };
   }
 
   function sanitizeSpeechText(text: string): string {
@@ -3076,9 +3194,28 @@ Respond ONLY in valid JSON matching this schema:
       .replace(/\bEST\b/g, 'E.S.T.')
       .replace(/\bPST\b/g, 'P.S.T.')
       .replace(/\bGMT\b/g, 'G.M.T.')
+      .replace(/\.{2,}/g, '... ')
       .replace(/\s+/g, ' ')
       .trim();
   }
+
+  // Instant Backchanneling Verbal Nods API (0ms acoustic response while waiting or listening)
+  app.get("/api/voice-agent/backchannel", async (req: express.Request, res: express.Response) => {
+    try {
+      const gender = (req.query.gender as string) || 'male';
+      const personaId = (req.query.personaId as string) || 'arthur';
+      const stability = parseFloat(req.query.stability as string) || 0.35;
+      const verbalNods = ["Right...", "Mm-hmm...", "Yeah, gotcha...", "Got it...", "Well..."];
+      const nod = verbalNods[Math.floor(Math.random() * verbalNods.length)];
+      const { voiceName } = resolveVoiceSettings(gender, personaId, stability);
+      const audioBuffer = await generateNeuralAudio(nod, voiceName, stability);
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(audioBuffer);
+    } catch (err: any) {
+      return res.status(500).json({ error: "Backchannel nod unavailable" });
+    }
+  });
 
   // Direct Audio Streaming Endpoint (Streams hardware MP3 directly to browser audio elements)
   app.get("/api/tts/stream", async (req: express.Request, res: express.Response) => {
@@ -3086,6 +3223,7 @@ Respond ONLY in valid JSON matching this schema:
       const text = (req.query.text as string) || '';
       const gender = (req.query.gender as string) || 'male';
       const personaId = (req.query.personaId as string) || 'arthur';
+      const stability = parseFloat(req.query.stability as string) || 0.35;
 
       if (!text || typeof text !== 'string') {
         return res.status(400).send("Text query parameter is required");
@@ -3096,8 +3234,8 @@ Respond ONLY in valid JSON matching this schema:
         return res.status(400).send("No valid text content");
       }
 
-      const { voiceName, locale, isFemale } = resolveVoiceSettings(gender, personaId);
-      const cacheKey = `${gender}:${voiceName}:${cleanText}`;
+      const { voiceName, locale, isFemale } = resolveVoiceSettings(gender, personaId, stability);
+      const cacheKey = `${gender}:${voiceName}:${stability}:${cleanText}`;
 
       if (ttsCache.has(cacheKey)) {
         const cached = ttsCache.get(cacheKey)!;
@@ -3111,15 +3249,19 @@ Respond ONLY in valid JSON matching this schema:
       }
 
       let audioBuffer: Buffer | null = null;
-      try {
-        audioBuffer = await generateNeuralAudio(cleanText, voiceName);
-      } catch (err: any) {
+      if (process.env.ELEVENLABS_API_KEY) {
+        audioBuffer = await fetchElevenLabsAudio(cleanText, voiceName, stability);
+      } else {
         try {
-          audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
-        } catch (err2: any) {
+          audioBuffer = await generateNeuralAudio(cleanText, voiceName, stability);
+        } catch (err: any) {
           try {
-            audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural');
-          } catch (err3) {}
+            audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+          } catch (err2: any) {
+            try {
+              audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
+            } catch (err3) {}
+          }
         }
       }
 
@@ -3145,7 +3287,7 @@ Respond ONLY in valid JSON matching this schema:
   // Neural TTS Endpoint: Generates genuine Studio-Quality Voice (Arthur/Oliver = Male Baritone, Zephyr/Clara = Female)
   app.post("/api/tts", async (req: express.Request, res: express.Response) => {
     try {
-      const { text, gender = 'male', personaId = 'us-executive' } = req.body;
+      const { text, gender = 'male', personaId = 'us-executive', stability = 0.35 } = req.body;
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ error: "Text is required" });
       }
@@ -3155,10 +3297,10 @@ Respond ONLY in valid JSON matching this schema:
         return res.status(400).json({ error: "No valid text content after sanitization" });
       }
 
-      const { voiceName, locale, isFemale } = resolveVoiceSettings(gender, personaId);
+      const { voiceName, locale, isFemale } = resolveVoiceSettings(gender, personaId, stability);
 
       // Check in-memory cache first for 0ms instant playback
-      const cacheKey = `${gender}:${voiceName}:${cleanText}`;
+      const cacheKey = `${gender}:${voiceName}:${stability}:${cleanText}`;
       if (ttsCache.has(cacheKey)) {
         const cached = ttsCache.get(cacheKey)!;
         return res.json({
@@ -3167,6 +3309,7 @@ Respond ONLY in valid JSON matching this schema:
           mimeType: cached.mimeType,
           voiceName: cached.voiceName,
           gender: cached.gender,
+          stability,
           cached: true
         });
       }
@@ -3174,23 +3317,28 @@ Respond ONLY in valid JSON matching this schema:
       let audioBuffer: Buffer | null = null;
       let usedEngine = 'edge-neural';
 
-      // 1. Primary Engine: Edge Neural Studio Audio
-      try {
-        audioBuffer = await generateNeuralAudio(cleanText, voiceName);
-      } catch (primaryErr: any) {
-        console.warn(`[Neural TTS] Edge synthesis notice for ${voiceName}: ${primaryErr?.message || primaryErr}. Activating instant secondary audio stream.`);
-        
-        // 2. Secondary High-Speed Engine: Direct Neural Audio Stream
+      if (process.env.ELEVENLABS_API_KEY) {
+        audioBuffer = await fetchElevenLabsAudio(cleanText, voiceName, stability);
+        usedEngine = 'elevenlabs-turbo-v2_5';
+      } else {
+        // 1. Primary Engine: Edge Neural Studio Audio (only when no ElevenLabs API key is configured)
         try {
-          audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
-          usedEngine = 'google-stream';
-        } catch (secondaryErr: any) {
-          console.error(`[Neural TTS] Secondary audio stream also had notice:`, secondaryErr?.message || secondaryErr);
-          // Try Edge one more time with default Guy / Jenny
+          audioBuffer = await generateNeuralAudio(cleanText, voiceName, stability);
+        } catch (primaryErr: any) {
+          console.warn(`[Neural TTS] Edge synthesis notice for ${voiceName}: ${primaryErr?.message || primaryErr}. Activating instant secondary audio stream.`);
+          
+          // 2. Secondary High-Speed Engine: Direct Neural Audio Stream
           try {
-            audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural');
-          } catch (retryErr: any) {
-            console.error(`[Neural TTS] Edge retry error:`, retryErr);
+            audioBuffer = await fetchGoogleTtsAudio(cleanText, locale);
+            usedEngine = 'google-stream';
+          } catch (secondaryErr: any) {
+            console.error(`[Neural TTS] Secondary audio stream also had notice:`, secondaryErr?.message || secondaryErr);
+            // Try Edge one more time with default Guy / Jenny
+            try {
+              audioBuffer = await generateNeuralAudio(cleanText, isFemale ? 'en-US-JennyNeural' : 'en-US-GuyNeural', stability);
+            } catch (retryErr: any) {
+              console.error(`[Neural TTS] Edge retry error:`, retryErr);
+            }
           }
         }
       }

@@ -39,7 +39,7 @@ import {
   BadgeCheck
 } from 'lucide-react';
 import { DemoSiteData, THEME_CONFIGS } from '../../data/demoPresets';
-import { speakSpeech, stopAllSpeech, unlockAudio } from '../../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, unlockAudio, playBackchannelVerbalNod, preloadBackchannels } from '../../utils/speechUtils';
 
 interface DemoWebsiteViewProps {
   data: DemoSiteData;
@@ -164,6 +164,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       gender,
       personaId,
       preferredLocale,
+      stability: 0.35,
       onStart: () => setIsAiSpeaking(true),
       onEnd: () => setIsAiSpeaking(false),
       onError: () => setIsAiSpeaking(false)
@@ -180,6 +181,9 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     setIsCallActive(true);
     if (onCallStateChange) onCallStateChange(true);
 
+    // Preload backchannel nods immediately for 0ms acoustic responses during the call
+    preloadBackchannels(data.gender, data.gender === 'female' ? 'uk-female' : 'uk-refined');
+
     if (callConsoleRef.current) {
       callConsoleRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -188,8 +192,11 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       // If triggered with a specific question (e.g. "What are your prices?"), answer directly
       handleSendQuery(customInitialQuery);
     } else {
-      // Direct call start: play greeting
-      const greeting = `Hello and thank you for calling ${data.companyName}! My name is ${data.agentName}. I can answer questions about our services, pricing, or schedule your appointment today. How may I assist you?`;
+      // Direct call start: human conversational greeting
+      const isTrade = /roof|trade|plumb|electr|construct|builder|repair/i.test(data.companyName || '');
+      const greeting = isTrade
+        ? `Right... hey, thanks for reaching out to ${data.companyName}! This is ${data.agentName} on the digital line. Are you looking to fix an active leak from the recent storm, or do you just need a quick estimate on a new roof?`
+        : `Right, so... thanks for reaching out to ${data.companyName}! This is ${data.agentName} on the line. Are you looking to get an appointment booked, or did you need a quick quote today?`;
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
       setSimMessages([{ sender: 'ai', text: greeting, time: timeStr }]);
@@ -275,6 +282,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     setUserQueryInput('');
     setIsAiThinking(true);
 
+    // 0ms Conversational Backchannel: Instantly play a natural verbal nod ("Right...", "Gotcha...", "Yeah...")
+    // This removes the perceived 1-2s LLM/TTS generation silence, creating an instant live human conversation feel.
+    playBackchannelVerbalNod(data.gender, data.gender === 'female' ? 'uk-female' : 'uk-refined');
+
     const controller = new AbortController();
     demoAbortControllerRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 18000);
@@ -350,7 +361,10 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
         return;
       }
 
-      const fallback = `Thank you for asking! For ${data.companyName}, we provide ${data.services[0]?.title || 'premier services'} starting at ${data.services[0]?.price || 'competitive rates'}. Would you like me to reserve an appointment for you?`;
+      const isTrade = /roof|trade|plumb|electr|construct|builder|repair/i.test(data.companyName || '');
+      const fallback = isTrade
+        ? `Right... yeah, we can definitely help with that! Mac and the team handle everything from small tile repairs to complete new roofs. Did you want us to get someone out to take a look, or were you after a quick estimate?`
+        : `Right, so... we can definitely sort that out for you! Would you like me to take your details and get you booked in for a consultation?`;
       const aiTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setSimMessages(prev => [...prev, { sender: 'ai', text: fallback, time: aiTimeStr }]);
       speakText(fallback);
@@ -417,7 +431,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
             setIsRecordingMic(false);
             handleSendQuery(accumulatedTranscript);
           }
-        }, 1500);
+        }, 650);
       };
 
       recognition.onerror = () => {

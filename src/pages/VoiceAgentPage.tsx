@@ -142,6 +142,7 @@ export function VoiceAgentPage() {
     speakSpeech(text, {
       gender: selectedGender,
       personaId: currentPersona.id,
+      stability: 0.35,
       preferredLocale: (currentPersona.engLocale as any) || 'en-US',
       onStart: () => {
         setIsAiSpeaking(true);

@@ -16,6 +16,13 @@ interface Appointment {
   name: string;
   phone: string;
   date_time: string;
+  email?: string;
+  service?: string;
+  notes?: string;
+  status?: string;
+  source?: string;
+  clientId?: string;
+  businessName?: string;
   createdAt: string;
 }
 
@@ -667,9 +674,9 @@ export function AdminDashboard() {
                 <table className="w-full text-left font-sans">
                   <thead>
                     <tr className="border-b border-white/10 bg-white/5">
-                      <th className="p-6 text-[10px] font-mono tracking-widest uppercase text-white/50 w-1/4">Client Name</th>
-                      <th className="p-6 text-[10px] font-mono tracking-widest uppercase text-white/50 w-1/4">Phone</th>
-                      <th className="p-6 text-[10px] font-mono tracking-widest uppercase text-white/50 w-1/4">Date & Time</th>
+                      <th className="p-6 text-[10px] font-mono tracking-widest uppercase text-white/50 w-1/4">Lead & Business</th>
+                      <th className="p-6 text-[10px] font-mono tracking-widest uppercase text-white/50 w-1/4">Contact</th>
+                      <th className="p-6 text-[10px] font-mono tracking-widest uppercase text-white/50 w-1/4">Meeting / Service</th>
                       <th className="p-6 text-[10px] font-mono tracking-widest uppercase text-white/50 w-1/4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -685,11 +692,21 @@ export function AdminDashboard() {
                               className="w-full bg-[#05060A] border border-white/10 text-white p-2 text-sm focus:outline-none focus:border-brand-teal"
                             />
                           ) : (
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-brand-teal/10 flex items-center justify-center text-brand-teal font-bold shrink-0">
-                                {appt.name.charAt(0)}
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-brand-teal/10 flex items-center justify-center text-brand-teal font-bold shrink-0 mt-0.5">
+                                {appt.name.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-bold text-white">{appt.name}</span>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-white text-sm">{appt.name}</span>
+                                {appt.email && (
+                                  <span className="text-xs text-gray-400 font-mono mt-0.5">{appt.email}</span>
+                                )}
+                                {appt.businessName && (
+                                  <span className="inline-block px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-mono mt-1.5 self-start">
+                                    🏢 {appt.businessName}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           )}
                         </td>
@@ -702,9 +719,21 @@ export function AdminDashboard() {
                               className="w-full bg-[#05060A] border border-white/10 text-white p-2 text-sm focus:outline-none focus:border-brand-teal"
                             />
                           ) : (
-                            <div className="flex items-center gap-2 text-gray-300">
-                              <Phone className="w-4 h-4 text-white/30" />
-                              {appt.phone}
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center gap-2 text-gray-300">
+                                <Phone className="w-4 h-4 text-white/40 shrink-0" />
+                                <span className="font-mono text-sm">{appt.phone}</span>
+                              </div>
+                              {appt.phone && appt.phone !== 'N/A' && (
+                                <a
+                                  href={`https://wa.me/${formatWhatsAppPhone(appt.phone)}?text=${encodeURIComponent(`Hi ${appt.name}, confirming your consultation request with ${appt.businessName || 'Quorik'}. Let us know when you're available!`)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-green-400 hover:text-green-300 flex items-center gap-1 font-mono transition-colors"
+                                >
+                                  💬 Message on WhatsApp →
+                                </a>
+                              )}
                             </div>
                           )}
                         </td>
@@ -719,9 +748,17 @@ export function AdminDashboard() {
                           ) : (
                             <div className="flex flex-col gap-1 text-sm text-gray-400">
                               <div className="flex items-center gap-2">
-                                <Clock className="w-3.5 h-3.5 text-white/30" />
-                                {appt.date_time}
+                                <Clock className="w-3.5 h-3.5 text-brand-teal shrink-0" />
+                                <span className="text-white font-medium">{appt.date_time}</span>
                               </div>
+                              {appt.service && (
+                                <span className="text-xs text-brand-teal/90 font-mono mt-0.5">{appt.service}</span>
+                              )}
+                              {appt.notes && (
+                                <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 bg-white/[0.02] p-1.5 rounded border border-white/5">
+                                  {appt.notes}
+                                </p>
+                              )}
                             </div>
                           )}
                         </td>

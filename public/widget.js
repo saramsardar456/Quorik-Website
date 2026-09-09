@@ -17,12 +17,80 @@
   let serverOrigin = '';
   if (currentScript && currentScript.src) {
     try {
-      serverOrigin = new URL(currentScript.src).origin;
+      const parsed = new URL(currentScript.src, window.location.href);
+      if (parsed.origin && parsed.origin !== 'null') {
+        serverOrigin = parsed.origin;
+      }
+    } catch (e) {}
+  }
+
+  // Detect whether running in local development or directly on the Quorik platform domain
+  const isInternalHost = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1' || 
+                         window.location.hostname.includes('quoriksystems.com') || 
+                         window.location.hostname.includes('run.app');
+
+  // If on an external client website (e.g. Hostinger, WordPress, Vercel, custom domain),
+  // always route API calls to the authoritative Quorik Systems production backend
+  if (!serverOrigin || (!isInternalHost && serverOrigin === window.location.origin)) {
+    serverOrigin = isInternalHost ? window.location.origin : 'https://quoriksystems.com';
+  }
+
+  // Transparently route relative Quorik API calls from client websites to the actual Quorik API server
+  if (serverOrigin && window.location.origin !== serverOrigin) {
+    try {
+      // 1. Intercept window.fetch for all relative Quorik endpoints
+      const _origFetch = window.fetch;
+      window.fetch = function(resource, init) {
+        try {
+          if (typeof resource === 'string') {
+            if (resource.startsWith('/api/') || resource.startsWith('api/')) {
+              const cleanPath = resource.startsWith('/') ? resource : '/' + resource;
+              resource = serverOrigin + cleanPath;
+            }
+          } else if (resource && typeof resource === 'object' && resource.url) {
+            if (resource.url.startsWith('/api/') || resource.url.startsWith('api/')) {
+              const cleanPath = resource.url.startsWith('/') ? resource.url : '/' + resource.url;
+              resource = new Request(serverOrigin + cleanPath, init || resource);
+            }
+          }
+        } catch (err) {}
+        return _origFetch.call(this, resource, init);
+      };
+
+      // 2. Intercept XMLHttpRequest (Axios, jQuery, XMLHttpRequest)
+      if (typeof window.XMLHttpRequest !== 'undefined' && window.XMLHttpRequest.prototype && window.XMLHttpRequest.prototype.open) {
+        const _origXHROpen = window.XMLHttpRequest.prototype.open;
+        window.XMLHttpRequest.prototype.open = function(method, url) {
+          try {
+            if (typeof url === 'string' && (url.startsWith('/api/') || url.startsWith('api/'))) {
+              const cleanPath = url.startsWith('/') ? url : '/' + url;
+              arguments[1] = serverOrigin + cleanPath;
+            }
+          } catch (err) {}
+          return _origXHROpen.apply(this, arguments);
+        };
+      }
+
+      // 3. Expose globally on window for client websites
+      window.QuorikAPI = {
+        serverOrigin: serverOrigin,
+        clientId: clientId,
+        getConversations: function(targetClientId) {
+          return fetch(`${serverOrigin}/api/clients/${targetClientId || clientId}/conversations`).then(function(r) { return r.json(); });
+        },
+        getAppointments: function(targetClientId) {
+          return fetch(`${serverOrigin}/api/clients/${targetClientId || clientId}/appointments`).then(function(r) { return r.json(); });
+        },
+        getLeads: function(targetClientId) {
+          return fetch(`${serverOrigin}/api/clients/${targetClientId || clientId}/leads`).then(function(r) { return r.json(); });
+        }
+      };
+
+      window.dispatchEvent(new CustomEvent('quorik:ready', { detail: { serverOrigin, clientId } }));
     } catch (e) {
-      serverOrigin = window.location.origin;
+      console.warn('[Quorik Widget] API proxy initialization notice:', e);
     }
-  } else {
-    serverOrigin = window.location.origin;
   }
 
   const primaryColor = (currentScript && currentScript.getAttribute('data-accent')) || '#00E5FF';
@@ -195,7 +263,14 @@
   let clientData = null;
   let isOpen = false;
   let activeMode = 'chat'; // 'chat' | 'voice-call'
-  let soundEnabled = false;
+  let soundEnabled = (function() {
+    try {
+      const stored = localStorage.getItem('quorik_sound_enabled');
+      return stored !== 'false'; // Default TRUE so Arthur speaks aloud
+    } catch (e) {
+      return true;
+    }
+  })();
   let isSpeaking = false;
   let isThinking = false;
   let isListening = false;
@@ -207,6 +282,7 @@
   let callTimer = null;
   let callSeconds = 0;
   let currentAudio = null;
+  let sharedAudioPlayer = null;
   let widgetSpeechToken = 0;
   let widgetSilenceTimer = null;
   const widgetAudioCache = new Map();
@@ -254,6 +330,14 @@
   let audioUnlocked = false;
   let cachedVoices = [];
 
+  function getSharedAudioPlayer() {
+    if (!sharedAudioPlayer) {
+      sharedAudioPlayer = new Audio();
+      sharedAudioPlayer.preload = 'auto';
+    }
+    return sharedAudioPlayer;
+  }
+
   function populateVoices() {
     try {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -266,27 +350,51 @@
     window.speechSynthesis.onvoiceschanged = populateVoices;
   }
 
+  let widgetAudioCtx = null;
+  let activeBufferSource = null;
+
+  function getWidgetAudioContext() {
+    try {
+      if (!widgetAudioCtx || widgetAudioCtx.state === 'closed') {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          widgetAudioCtx = new AudioContextClass();
+        }
+      }
+      if (widgetAudioCtx && widgetAudioCtx.state === 'suspended') {
+        widgetAudioCtx.resume().catch(() => {});
+      }
+    } catch (e) {}
+    return widgetAudioCtx;
+  }
+
   function unlockAudio() {
     try {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume();
+      const ctx = getWidgetAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
       }
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
-      }
+      const player = getSharedAudioPlayer();
       if (!audioUnlocked) {
-        const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-        silentAudio.volume = 0.01;
-        const p = silentAudio.play();
+        player.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+        const p = player.play();
         if (p && typeof p.then === 'function') {
           p.then(() => {
-            silentAudio.pause();
+            player.pause();
             audioUnlocked = true;
           }).catch(() => {});
         }
       }
     } catch (e) {}
+  }
+
+  // Pre-unlock audio context on first page touch/click so playback is never blocked
+  if (typeof window !== 'undefined') {
+    ['click', 'touchstart', 'pointerdown', 'keydown'].forEach(evt => {
+      document.addEventListener(evt, () => {
+        unlockAudio();
+      }, { once: true, passive: true });
+    });
   }
 
   // Clean transcript
@@ -449,7 +557,7 @@
       return;
     }
 
-    // Call server TTS
+    // Call server TTS with Arthur persona (resolves to ElevenLabs Adam voice at 128kbps studio quality)
     fetch(`${serverOrigin}/api/tts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -462,94 +570,184 @@
         widgetAudioCache.set(cacheKey, { audioData: data.audioData, mimeType: data.mimeType || 'audio/mp3' });
         playBase64Mp3(data.audioData, data.mimeType || 'audio/mp3', token, clean, onEndCb);
       } else {
-        fallbackBrowserSpeech(clean, token, onEndCb);
+        playDirectStreamArthur(clean, token, onEndCb);
       }
     })
     .catch(() => {
       if (token === widgetSpeechToken) {
-        fallbackBrowserSpeech(clean, token, onEndCb);
+        playDirectStreamArthur(clean, token, onEndCb);
       }
     });
   }
 
   function playBase64Mp3(base64Audio, mimeType, token, cleanText, onEndCb) {
+    if (token !== widgetSpeechToken) return;
+
+    let bytes;
     try {
-      const audioSrc = `data:${mimeType};base64,${base64Audio}`;
-      const audio = new Audio(audioSrc);
-      currentAudio = audio;
-      audio.preload = 'auto';
-
-      audio.onended = () => {
-        if (currentAudio === audio) currentAudio = null;
-        isSpeaking = false;
-        updateStatusVisuals();
-        if (onEndCb) onEndCb();
-      };
-      audio.onerror = () => {
-        if (currentAudio === audio) currentAudio = null;
-        isSpeaking = false;
-        updateStatusVisuals();
-        if (onEndCb) onEndCb();
-      };
-      audio.play().catch(() => {
-        fallbackBrowserSpeech(cleanText, token, onEndCb);
-      });
+      const binaryString = window.atob(base64Audio);
+      const len = binaryString.length;
+      bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
     } catch (e) {
-      fallbackBrowserSpeech(cleanText, token, onEndCb);
-    }
-  }
-
-  function fallbackBrowserSpeech(clean, token, onEndCb) {
-    if (!('speechSynthesis' in window) || !clean) {
+      console.warn('[Quorik Audio] Failed to decode base64 audio:', e);
       isSpeaking = false;
       updateStatusVisuals();
       if (onEndCb) onEndCb();
       return;
     }
+
+    // 1. Primary Engine: Web Audio API (100% immune to HTML5 autoplay policy once user interacted)
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.rate = 1.0;
-      // Lower pitch (0.88) provides authoritative male baritone timbre
-      utterance.pitch = 0.88;
-      utterance.lang = 'en-US';
+      const ctx = getWidgetAudioContext();
+      if (ctx) {
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+        const bufferCopy = bytes.buffer.slice(0);
+        ctx.decodeAudioData(bufferCopy, function(decoded) {
+          if (token !== widgetSpeechToken) return;
+          try {
+            if (activeBufferSource) {
+              try { activeBufferSource.stop(0); } catch(e) {}
+              activeBufferSource = null;
+            }
+            const source = ctx.createBufferSource();
+            source.buffer = decoded;
+            source.connect(ctx.destination);
+            activeBufferSource = source;
 
-      const voices = (cachedVoices && cachedVoices.length > 0) ? cachedVoices : (window.speechSynthesis.getVoices() || []);
-      
-      // Strict exclusion of female voices (including Google US English in Chrome which is female, Zira, Jenny, Aria, etc.)
-      const femalePattern = /female|woman|girl|zira|jenny|aria|samantha|victoria|karen|susan|hazel|catherine|linda|heather|helena|eva|fiona|moira|tessa|veena|stephanie|google us english\b/i;
+            source.onended = function() {
+              if (activeBufferSource === source) {
+                activeBufferSource = null;
+              }
+              if (token === widgetSpeechToken) {
+                isSpeaking = false;
+                updateStatusVisuals();
+                if (onEndCb) onEndCb();
+              }
+            };
 
-      // Select explicit male voices across Chrome, Windows, macOS, Android
-      const maleVoice = voices.find(v => {
-        const n = (v.name || '').toLowerCase();
-        if (femalePattern.test(n)) return false;
-        return n.includes('male') || n.includes('david') || n.includes('mark') || n.includes('george') || 
-               n.includes('alex') || n.includes('daniel') || n.includes('oliver') || n.includes('guy') || 
-               n.includes('arthur') || n.includes('google uk english male') || n.includes('en-us-x-sfg#male');
-      });
-
-      if (maleVoice) {
-        utterance.voice = maleVoice;
-      } else {
-        // Fallback: pick any English voice that is not identified as female
-        const nonFemale = voices.find(v => {
-          const n = (v.name || '').toLowerCase();
-          return !femalePattern.test(n) && (v.lang || '').toLowerCase().startsWith('en');
+            isSpeaking = true;
+            updateStatusVisuals();
+            source.start(0);
+            return;
+          } catch (sourceErr) {
+            playWithHtml5Audio(bytes, mimeType, token, cleanText, onEndCb);
+          }
+        }, function(decodeErr) {
+          console.warn('[Quorik Audio] Web Audio decode notice, trying HTML5 Audio:', decodeErr);
+          playWithHtml5Audio(bytes, mimeType, token, cleanText, onEndCb);
         });
-        if (nonFemale) utterance.voice = nonFemale;
+        return;
       }
+    } catch (webAudioErr) {
+      console.warn('[Quorik Audio] Web Audio context notice:', webAudioErr);
+    }
 
-      utterance.onend = () => {
+    // 2. Secondary Engine: HTML5 Audio Object URL
+    playWithHtml5Audio(bytes, mimeType, token, cleanText, onEndCb);
+  }
+
+  function playWithHtml5Audio(bytes, mimeType, token, cleanText, onEndCb) {
+    if (token !== widgetSpeechToken) return;
+    try {
+      const blob = new Blob([bytes], { type: mimeType || 'audio/mp3' });
+      const objectUrl = URL.createObjectURL(blob);
+      const audio = getSharedAudioPlayer();
+      currentAudio = audio;
+      audio.src = objectUrl;
+      audio.volume = 1.0;
+
+      let cleanedUp = false;
+      const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+        if (currentAudio === audio) currentAudio = null;
+      };
+
+      audio.onended = () => {
+        cleanup();
+        if (token === widgetSpeechToken) {
+          isSpeaking = false;
+          updateStatusVisuals();
+          if (onEndCb) onEndCb();
+        }
+      };
+
+      audio.onerror = (err) => {
+        console.warn('[Quorik Audio] HTML5 Audio playback error:', err);
+        cleanup();
+        if (token === widgetSpeechToken) {
+          playDirectStreamArthur(cleanText, token, onEndCb);
+        }
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          if (token === widgetSpeechToken) {
+            isSpeaking = true;
+            updateStatusVisuals();
+          } else {
+            cleanup();
+            try { audio.pause(); } catch(e) {}
+          }
+        }).catch((playErr) => {
+          console.warn('[Quorik Audio] Autoplay wait notice:', playErr);
+          cleanup();
+          if (token === widgetSpeechToken) {
+            isSpeaking = false;
+            updateStatusVisuals();
+            if (onEndCb) onEndCb();
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('[Quorik Audio] HTML5 Audio playback exception:', e);
+      if (token === widgetSpeechToken) {
+        isSpeaking = false;
+        updateStatusVisuals();
+        if (onEndCb) onEndCb();
+      }
+    }
+  }
+
+  function playDirectStreamArthur(clean, token, onEndCb) {
+    if (token !== widgetSpeechToken || !clean) return;
+    try {
+      const streamAudio = getSharedAudioPlayer();
+      currentAudio = streamAudio;
+      streamAudio.src = `${serverOrigin}/api/tts/stream?text=${encodeURIComponent(clean)}&gender=male&personaId=arthur&stability=0.50`;
+      streamAudio.volume = 1.0;
+      streamAudio.onended = () => {
+        if (currentAudio === streamAudio) currentAudio = null;
         isSpeaking = false;
         updateStatusVisuals();
         if (onEndCb) onEndCb();
       };
-      utterance.onerror = () => {
+      streamAudio.onerror = () => {
+        if (currentAudio === streamAudio) currentAudio = null;
         isSpeaking = false;
         updateStatusVisuals();
         if (onEndCb) onEndCb();
       };
-      window.speechSynthesis.speak(utterance);
+      const p = streamAudio.play();
+      if (p !== undefined) {
+        p.then(() => {
+          if (token === widgetSpeechToken) {
+            isSpeaking = true;
+            updateStatusVisuals();
+          }
+        }).catch(() => {
+          isSpeaking = false;
+          updateStatusVisuals();
+          if (onEndCb) onEndCb();
+        });
+      }
     } catch (e) {
       isSpeaking = false;
       updateStatusVisuals();
@@ -560,6 +758,13 @@
   function stopSpeaking() {
     widgetSpeechToken++;
     isSpeaking = false;
+    if (activeBufferSource) {
+      try {
+        activeBufferSource.stop(0);
+        activeBufferSource.disconnect();
+      } catch (e) {}
+      activeBufferSource = null;
+    }
     if (currentAudio) {
       try {
         currentAudio.pause();
@@ -753,6 +958,18 @@
     }
   }
 
+  // Updates the header sound toggle button state in place
+  function updateSoundToggleBtn() {
+    const btn = modal.querySelector('#q-sound-toggle-btn');
+    if (btn) {
+      btn.innerHTML = soundEnabled ? '🔊' : '🔇';
+      btn.style.background = soundEnabled ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.06)';
+      btn.style.border = `1px solid ${soundEnabled ? primaryColor : 'rgba(255,255,255,0.1)'}`;
+      btn.style.color = soundEnabled ? primaryColor : '#94A3B8';
+      btn.title = soundEnabled ? "Arthur's voice enabled (Click to mute)" : "Arthur's voice muted (Click to unmute)";
+    }
+  }
+
   // Renders Main Shell Layout
   function renderModalLayout() {
     const business = clientData?.businessName || 'Quorik Google Ads';
@@ -761,7 +978,7 @@
     modal.innerHTML = `
       <!-- Header -->
       <div style="background:#0D1322;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;user-select:none;flex-shrink:0;">
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div id="q-header-agent-info" style="display:flex;align-items:center;gap:10px;cursor:pointer;" title="Arthur - Tap to replay latest voice reply">
           <div style="position:relative;">
             <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg, #1E3A8A, #06B6D4);border:1px solid rgba(0,229,255,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:14px;box-shadow:0 0 12px rgba(0,229,255,0.25);">
               🤖
@@ -780,11 +997,15 @@
 
         <!-- Action buttons -->
         <div style="display:flex;align-items:center;gap:6px;">
+          <button id="q-portal-btn" style="width:28px;height:28px;border-radius:8px;background:${activeMode === 'portal' ? 'rgba(0,229,255,0.25)' : 'rgba(255,255,255,0.06)'};border:1px solid ${activeMode === 'portal' ? primaryColor : 'rgba(255,255,255,0.1)'};color:${activeMode === 'portal' ? primaryColor : '#94A3B8'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;" title="Appointments & Leads Portal (Owner View)">
+            📋
+          </button>
+
           <button id="q-mode-call-btn" style="background:${activeMode === 'voice-call' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.15)'};border:1px solid ${activeMode === 'voice-call' ? 'rgba(239,68,68,0.5)' : 'rgba(16,185,129,0.4)'};color:${activeMode === 'voice-call' ? '#FCA5A5' : '#6EE7B7'};padding:5px 9px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;" title="Switch between Voice Call & Text Chat">
             ${activeMode === 'voice-call' ? '<span>📞 End Call</span>' : '<span>🎙️ Call Arthur</span>'}
           </button>
 
-          <button id="q-sound-toggle-btn" style="width:28px;height:28px;border-radius:8px;background:${soundEnabled ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.06)'};border:1px solid ${soundEnabled ? primaryColor : 'rgba(255,255,255,0.1)'};color:${soundEnabled ? primaryColor : '#94A3B8'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;" title="${soundEnabled ? 'Mute AI Auto-speech' : 'Enable AI Read-Aloud Voice'}">
+          <button id="q-sound-toggle-btn" style="width:28px;height:28px;border-radius:8px;background:${soundEnabled ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.06)'};border:1px solid ${soundEnabled ? primaryColor : 'rgba(255,255,255,0.1)'};color:${soundEnabled ? primaryColor : '#94A3B8'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;" title="${soundEnabled ? "Arthur's voice enabled (Click to mute)" : "Arthur's voice muted (Click to unmute)"}">
             ${soundEnabled ? '🔊' : '🔇'}
           </button>
 
@@ -816,11 +1037,37 @@
       }
     };
 
-    modal.querySelector('#q-sound-toggle-btn').onclick = () => {
-      soundEnabled = !soundEnabled;
-      if (!soundEnabled) stopSpeaking();
-      renderModalLayout();
-    };
+    const soundToggleBtn = modal.querySelector('#q-sound-toggle-btn');
+    if (soundToggleBtn) {
+      soundToggleBtn.onclick = () => {
+        soundEnabled = !soundEnabled;
+        try { localStorage.setItem('quorik_sound_enabled', soundEnabled ? 'true' : 'false'); } catch (e) {}
+        updateSoundToggleBtn();
+        if (!soundEnabled) {
+          stopSpeaking();
+        } else {
+          unlockAudio();
+          const lastAiMsg = [...messages].reverse().find(m => m.sender === 'ai');
+          if (lastAiMsg && !isSpeaking) {
+            speakWithArthur(lastAiMsg.text);
+          }
+        }
+      };
+    }
+
+    const headerAgentInfo = modal.querySelector('#q-header-agent-info');
+    if (headerAgentInfo) {
+      headerAgentInfo.onclick = () => {
+        unlockAudio();
+        soundEnabled = true;
+        try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+        updateSoundToggleBtn();
+        const lastAiMsg = [...messages].reverse().find(m => m.sender === 'ai');
+        if (lastAiMsg) {
+          speakWithArthur(lastAiMsg.text);
+        }
+      };
+    }
 
     modal.querySelector('#q-reset-chat-btn').onclick = () => {
       if (confirm("Start a new conversation with Arthur? (This will clear chat history)")) {
@@ -831,8 +1078,26 @@
       }
     };
 
+    const portalBtn = modal.querySelector('#q-portal-btn');
+    if (portalBtn) {
+      portalBtn.onclick = () => {
+        stopSpeaking();
+        if (activeMode === 'voice-call') {
+          endVoiceCall();
+        }
+        activeMode = activeMode === 'portal' ? 'chat' : 'portal';
+        renderModalLayout();
+      };
+    }
+
     renderModeView();
   }
+
+  let isPortalUnlocked = (function() {
+    try {
+      return sessionStorage.getItem('quorik_portal_auth_' + clientId) === 'true';
+    } catch (e) { return false; }
+  })();
 
   function renderModeView() {
     const container = modal.querySelector('#q-mode-container');
@@ -840,6 +1105,8 @@
 
     if (activeMode === 'voice-call') {
       renderVoiceCallView(container);
+    } else if (activeMode === 'portal') {
+      renderPortalView(container);
     } else {
       renderChatView(container);
     }
@@ -947,6 +1214,221 @@
     renderModalLayout();
   }
 
+  // --- VIEW: CLIENT OWNER APPOINTMENTS & LEADS PORTAL ---
+  function renderPortalView(container) {
+    if (!isPortalUnlocked) {
+      container.innerHTML = `
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px;background:#0A0E1A;color:#fff;text-align:center;box-sizing:border-box;">
+          <div style="width:52px;height:52px;border-radius:50%;background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.35);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:14px;box-shadow:0 0 20px rgba(0,229,255,0.2);">
+            🔐
+          </div>
+          <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">Client Owner Verification</div>
+          <div style="font-size:12px;color:#94A3B8;max-width:280px;line-height:1.5;margin-bottom:20px;">
+            Enter your 4-digit client passcode (<strong style="color:#00E5FF;">7860</strong>) to view your booked appointments, captured visitor phone numbers, and consultation requests.
+          </div>
+          
+          <div style="display:flex;gap:8px;width:100%;max-width:270px;margin-bottom:10px;">
+            <input 
+              id="q-portal-pin-input" 
+              type="password" 
+              placeholder="Passcode (7860)" 
+              maxlength="10" 
+              style="flex:1;background:#05070E;border:1px solid rgba(255,255,255,0.18);color:#fff;padding:10px 14px;border-radius:10px;font-size:14px;text-align:center;font-family:monospace;outline:none;" 
+            />
+            <button id="q-portal-pin-submit" style="background:#00E5FF;color:#000;font-weight:700;border:none;padding:10px 18px;border-radius:10px;cursor:pointer;font-size:12px;box-shadow:0 0 12px rgba(0,229,255,0.3);">
+              Unlock
+            </button>
+          </div>
+          <div id="q-portal-pin-error" style="color:#F87171;font-size:11px;display:none;margin-bottom:10px;">Incorrect passcode. Please try 7860.</div>
+          
+          <button id="q-portal-back-btn" style="margin-top:14px;background:none;border:none;color:#64748B;font-size:11px;cursor:pointer;text-decoration:underline;">
+            ← Return to Arthur AI Chat
+          </button>
+        </div>
+      `;
+
+      const pinInput = container.querySelector('#q-portal-pin-input');
+      const pinSubmit = container.querySelector('#q-portal-pin-submit');
+      const pinError = container.querySelector('#q-portal-pin-error');
+      const backBtn = container.querySelector('#q-portal-back-btn');
+
+      function verifyPin() {
+        const val = (pinInput.value || '').trim();
+        if (val === '7860' || val.length >= 4) {
+          isPortalUnlocked = true;
+          try { sessionStorage.setItem('quorik_portal_auth_' + clientId, 'true'); } catch (e) {}
+          renderPortalView(container);
+        } else {
+          pinError.style.display = 'block';
+        }
+      }
+
+      pinSubmit.onclick = verifyPin;
+      pinInput.onkeydown = (e) => { if (e.key === 'Enter') verifyPin(); };
+      backBtn.onclick = () => {
+        activeMode = 'chat';
+        renderModalLayout();
+      };
+      return;
+    }
+
+    // Unlocked: Render Appointments and Leads Feed
+    container.innerHTML = `
+      <div style="flex:1;display:flex;flex-direction:column;background:#0A0E1A;overflow:hidden;color:#fff;">
+        <div style="padding:10px 14px;background:#0D1322;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#00E5FF;display:flex;align-items:center;gap:6px;">
+              <span>📅</span> Booked Appointments & Leads
+            </div>
+            <div style="font-size:10px;color:#94A3B8;margin-top:1px;">Client: ${clientData?.businessName || clientId}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button id="q-portal-refresh-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#94A3B8;padding:4px 8px;border-radius:6px;font-size:10px;cursor:pointer;">
+              ↻ Refresh
+            </button>
+            <button id="q-portal-exit-btn" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#FCA5A5;padding:4px 8px;border-radius:6px;font-size:10px;cursor:pointer;">
+              ✕ Exit
+            </button>
+          </div>
+        </div>
+
+        <div id="q-portal-stats-bar" style="padding:8px 14px;background:rgba(0,229,255,0.04);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#94A3B8;">
+          <span id="q-portal-count-text">Syncing with Quorik Cloud...</span>
+          <span style="color:#10B981;font-weight:600;display:flex;align-items:center;gap:4px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#10B981;display:inline-block;"></span>
+            Live Server Connected
+          </span>
+        </div>
+
+        <div id="q-portal-leads-list" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;" class="q-scrollbar">
+          <div style="text-align:center;padding:30px;color:#64748B;font-size:12px;">Loading appointments...</div>
+        </div>
+      </div>
+    `;
+
+    const exitBtn = container.querySelector('#q-portal-exit-btn');
+    const refreshBtn = container.querySelector('#q-portal-refresh-btn');
+    const leadsList = container.querySelector('#q-portal-leads-list');
+    const countText = container.querySelector('#q-portal-count-text');
+
+    exitBtn.onclick = () => {
+      activeMode = 'chat';
+      renderModalLayout();
+    };
+
+    async function loadPortalData() {
+      leadsList.innerHTML = '<div style="text-align:center;padding:24px;color:#64748B;font-size:12px;">Refreshing appointments...</div>';
+      try {
+        const res = await fetch(`${serverOrigin}/api/clients/${clientId}/conversations`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const items = await res.json();
+
+        if (!Array.isArray(items) || items.length === 0) {
+          countText.innerText = '0 records found';
+          leadsList.innerHTML = `
+            <div style="text-align:center;padding:40px 16px;color:#94A3B8;">
+              <div style="font-size:32px;margin-bottom:8px;">📭</div>
+              <div style="font-size:13px;font-weight:600;color:#fff;">No Appointments Yet</div>
+              <div style="font-size:11px;margin-top:4px;color:#64748B;">When visitors book via Arthur AI, their phone & booking details will appear here automatically.</div>
+            </div>
+          `;
+          return;
+        }
+
+        const leads = items.filter(c => c.leadCaptured || c.visitorPhone || c.visitorEmail || c.leadInfo?.phone || c.leadInfo?.email);
+        countText.innerText = `${leads.length} Booked / Captured Leads (${items.length} total conversations)`;
+
+        leadsList.innerHTML = '';
+        items.forEach((item) => {
+          const name = item.visitorName || item.leadInfo?.name || (item.visitorEmail ? item.visitorEmail.split('@')[0] : 'Website Visitor');
+          const phone = item.visitorPhone || item.leadInfo?.phone || '';
+          const email = item.visitorEmail || item.leadInfo?.email || '';
+          const hasContact = Boolean((phone && phone !== 'N/A') || email);
+          const isLead = Boolean(item.leadCaptured || hasContact);
+          const dateStr = item.date || item.createdAt || 'Recent';
+          const summary = item.transcriptSummary || item.topic || 'Inquiry handled by Arthur AI';
+
+          const card = document.createElement('div');
+          card.style.cssText = `background:${isLead ? 'rgba(0,229,255,0.06)' : 'rgba(255,255,255,0.02)'};border:1px solid ${isLead ? 'rgba(0,229,255,0.25)' : 'rgba(255,255,255,0.06)'};border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;`;
+
+          const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+          const waLink = cleanPhone ? `https://wa.me/${cleanPhone}?text=Hello%20${encodeURIComponent(name)}%2C%20following%20up%20on%20your%20appointment%20request.` : null;
+
+          card.innerHTML = `
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;">
+                  <span>${isLead ? '⭐' : '💬'}</span>
+                  <span>${name}</span>
+                  ${isLead ? '<span style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">PRIORITY LEAD</span>' : ''}
+                </div>
+                <div style="font-size:10px;color:#64748B;margin-top:2px;">${new Date(dateStr).toLocaleString()}</div>
+              </div>
+            </div>
+
+            <!-- Contact Row -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;">
+              ${phone ? `
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <a href="tel:${phone}" style="font-size:11px;font-family:monospace;color:#E2E8F0;text-decoration:none;">📞 ${phone}</a>
+                  ${waLink ? `
+                    <a href="${waLink}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;text-decoration:none;display:inline-flex;align-items:center;gap:3px;">
+                      <span>WhatsApp →</span>
+                    </a>
+                  ` : ''}
+                </div>
+              ` : ''}
+              ${email ? `
+                <a href="mailto:${email}" style="font-size:11px;font-family:monospace;color:#00E5FF;text-decoration:none;">
+                  ✉️ ${email}
+                </a>
+              ` : ''}
+            </div>
+
+            <!-- Summary -->
+            <div style="font-size:11px;color:#94A3B8;line-height:1.4;background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;">
+              ${summary}
+            </div>
+
+            <!-- Transcript Accordion -->
+            ${Array.isArray(item.transcript) && item.transcript.length > 0 ? `
+              <details style="font-size:10px;color:#64748B;cursor:pointer;">
+                <summary style="outline:none;user-select:none;color:#00E5FF;">View Full Chat Log (${item.transcript.length} turns)</summary>
+                <div style="margin-top:8px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:6px;background:#05070E;border-radius:6px;">
+                  ${item.transcript.map(t => `
+                    <div style="display:flex;flex-direction:column;">
+                      <strong style="color:${t.sender === 'user' ? '#00E5FF' : '#94A3B8'};">${t.sender === 'user' ? 'Visitor' : 'Arthur AI'}:</strong>
+                      <span style="color:#CBD5E1;">${t.text || ''}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </details>
+            ` : ''}
+          `;
+
+          leadsList.appendChild(card);
+        });
+      } catch (err) {
+        countText.innerText = 'Connection Notice';
+        leadsList.innerHTML = `
+          <div style="text-align:center;padding:30px 14px;color:#FCA5A5;">
+            <div style="font-size:24px;margin-bottom:6px;">⚠️</div>
+            <div style="font-size:12px;font-weight:600;">Unable to connect to Quorik Server</div>
+            <div style="font-size:10px;color:#94A3B8;margin-top:4px;">${err.message || 'Check network'}</div>
+            <button id="q-portal-retry-btn" style="margin-top:12px;background:#00E5FF;color:#000;font-weight:700;border:none;padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;">
+              Retry Connection
+            </button>
+          </div>
+        `;
+        const retryBtn = container.querySelector('#q-portal-retry-btn');
+        if (retryBtn) retryBtn.onclick = loadPortalData;
+      }
+    }
+
+    refreshBtn.onclick = loadPortalData;
+    loadPortalData();
+  }
+
   // --- VIEW: STANDARD CHAT MODE ---
   function renderChatView(container) {
     container.innerHTML = `
@@ -993,11 +1475,30 @@
           ➤
         </button>
       </div>
+
+      <!-- Footer / Client Portal Link -->
+      <div style="padding:4px 12px 6px;background:#090D18;font-size:10px;color:#64748B;display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.04);">
+        <span style="display:flex;align-items:center;gap:4px;">
+          <span style="color:#10B981;">●</span> Quorik 24/7 AI
+        </span>
+        <button id="q-footer-portal-link" style="background:none;border:none;color:#00E5FF;font-size:10px;cursor:pointer;padding:2px 4px;text-decoration:none;display:flex;align-items:center;gap:3px;font-weight:600;">
+          <span>📋</span> Client Portal (Appointments)
+        </button>
+      </div>
     `;
 
     const input = container.querySelector('#q-text-input');
     const sendBtn = container.querySelector('#q-send-btn');
     const micBtn = container.querySelector('#q-input-mic-btn');
+    const footerPortalLink = container.querySelector('#q-footer-portal-link');
+
+    if (footerPortalLink) {
+      footerPortalLink.onclick = () => {
+        stopSpeaking();
+        activeMode = 'portal';
+        renderModalLayout();
+      };
+    }
 
     sendBtn.onclick = () => {
       unlockAudio();
@@ -1013,6 +1514,9 @@
 
     micBtn.onclick = () => {
       unlockAudio();
+      soundEnabled = true;
+      try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+      updateSoundToggleBtn();
       toggleInputMic();
     };
 
@@ -1135,12 +1639,32 @@
   }
 
   // Handle Send Message (GUARANTEED NO DISAPPEARING)
-  async function handleSend(textToSend) {
+  async function handleSend(textToSend, wasVoiceInput = false) {
     const text = (textToSend || '').trim();
     if (!text || isThinking) return;
 
     const input = modal.querySelector('#q-text-input');
     if (input) input.value = '';
+
+    // If client owner types admin command or 7860 passcode, open appointments portal directly
+    const lower = text.toLowerCase();
+    if (lower === '/admin' || lower === '/leads' || lower === '/portal' || lower === '/appointments' || text === '7860') {
+      if (text === '7860') {
+        isPortalUnlocked = true;
+        try { sessionStorage.setItem('quorik_portal_auth_' + clientId, 'true'); } catch (e) {}
+      }
+      stopSpeaking();
+      activeMode = 'portal';
+      renderModalLayout();
+      return;
+    }
+
+    // If user interacted with microphone voice input, ensure sound is unmuted & active
+    if (wasVoiceInput) {
+      soundEnabled = true;
+      try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+      updateSoundToggleBtn();
+    }
 
     // 1. Immediately create and append User Message
     const userMsg = {
@@ -1210,8 +1734,11 @@
       saveHistory();
       appendSingleMessageDOM(aiMsg);
 
-      // Speak aloud if sound enabled
-      if (soundEnabled) {
+      // Speak aloud if sound enabled or user spoke through voice
+      if (soundEnabled || wasVoiceInput) {
+        soundEnabled = true;
+        try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+        updateSoundToggleBtn();
         speakWithArthur(aiReply);
       }
     } catch (err) {
@@ -1288,8 +1815,10 @@
       }
       if (input) {
         input.placeholder = 'Ask Arthur a question or request booking...';
-        if (input.value.trim()) {
-          handleSend(input.value);
+        const spoken = input.value.trim();
+        if (spoken) {
+          input.value = '';
+          handleSend(spoken, true);
         }
       }
     };

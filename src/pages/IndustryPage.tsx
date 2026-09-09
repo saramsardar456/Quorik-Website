@@ -23,7 +23,7 @@ import {
   Radio
 } from 'lucide-react';
 import { Contact } from '../components/sections/Contact';
-import { speakEnglishUtterance, stopAllSpeech } from '../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, unlockAudio } from '../utils/speechUtils';
 
 // Industry Voice Answers Map for interactive demo
 const INDUSTRY_VOICE_RESPONSES: Record<string, { opening: string; qa: { question: string; answer: string }[] }> = {
@@ -185,9 +185,10 @@ export function IndustryPage() {
     setActiveSpeaker(speaker);
     setActiveTranscript(text);
     setIsPlaying(true);
+    unlockAudio();
 
-    if (!('speechSynthesis' in window) || isAudioMuted) {
-      // If SpeechSynthesis not supported or muted, simulate spoken timer
+    if (isAudioMuted) {
+      // If audio muted, simulate spoken timer
       const duration = Math.min(Math.max(text.length * 50, 2000), 7000);
       const timer = setTimeout(() => {
         setIsPlaying(false);
@@ -197,8 +198,10 @@ export function IndustryPage() {
       return;
     }
 
-    speakEnglishUtterance(text, {
+    speakSpeech(text, {
       gender: speaker === 'agent' ? 'female' : 'male',
+      personaId: speaker === 'agent' ? 'us-warm' : 'us-executive',
+      stability: 0.50,
       onStart: () => setIsPlaying(true),
       onEnd: () => {
         setIsPlaying(false);

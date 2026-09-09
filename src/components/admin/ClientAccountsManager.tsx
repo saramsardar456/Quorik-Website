@@ -39,95 +39,16 @@ import { formatWhatsAppPhone } from '../../utils/phone';
 import { speakSpeech, stopAllSpeech, unlockAudio } from '../../utils/speechUtils';
 
 export const ALL_VOICE_PERSONAS = [
-  // Male Personas
   {
     id: 'us-executive',
-    gender: 'male' as const,
+    gender: 'male' as 'male' | 'female',
     name: 'Arthur',
-    title: 'Arthur (Executive Concierge)',
+    title: 'Arthur (Executive Natural Voice)',
     flag: '🇺🇸',
-    accent: 'US Executive',
-    region: 'North America',
-    tone: 'Authoritative, Corporate & Crisp',
-    sample: "Hello and welcome! My name is Arthur. How can I assist you with custom website development, AI chatbots, or booking your discovery call today?"
-  },
-  {
-    id: 'uk-refined',
-    gender: 'male' as const,
-    name: 'Oliver',
-    title: 'Oliver (British Concierge)',
-    flag: '🇬🇧',
-    accent: 'UK Refined',
-    region: 'United Kingdom & Europe',
-    tone: 'Courteous, Calm & Elegant',
-    sample: "Good day! My name is Oliver. I would be delighted to assist you with your custom web and AI automation project today."
-  },
-  {
-    id: 'us-sales',
-    gender: 'male' as const,
-    name: 'Brian',
-    title: 'Brian (Sales Specialist)',
-    flag: '🇺🇸',
-    accent: 'US Dynamic Sales',
-    region: 'North America',
-    tone: 'High-Energy, Direct & Persuasive',
-    sample: "Hey there! Brian here. Let's see how our AI voice solutions and custom websites can drive massive ROI for your business."
-  },
-  {
-    id: 'au-friendly',
-    gender: 'male' as const,
-    name: 'William',
-    title: 'William (Global Concierge)',
-    flag: '🇦🇺',
-    accent: 'Australian Warm',
-    region: 'Asia-Pacific & Global',
-    tone: 'Friendly, Approachable & Clear',
-    sample: "G'day and welcome! William here to help you get the exact AI automation and web build you need."
-  },
-  // Female Personas
-  {
-    id: 'us-executive',
-    gender: 'female' as const,
-    name: 'Zephyr',
-    title: 'Zephyr (Executive Concierge)',
-    flag: '🇺🇸',
-    accent: 'US Executive',
-    region: 'North America',
-    tone: 'Crisp, High-Efficiency & Professional',
-    sample: "Hello and welcome! My name is Zephyr. How can I assist you with custom web development or scheduling your consultation today?"
-  },
-  {
-    id: 'uk-refined',
-    gender: 'female' as const,
-    name: 'Clara',
-    title: 'Clara (British Concierge)',
-    flag: '🇬🇧',
-    accent: 'UK Refined',
-    region: 'United Kingdom & Europe',
-    tone: 'Refined, Polite & Articulate',
-    sample: "Good day and thank you for reaching out. My name is Clara. May I assist you with securing a consultation today?"
-  },
-  {
-    id: 'us-vibrant',
-    gender: 'female' as const,
-    name: 'Aria',
-    title: 'Aria (Dynamic Specialist)',
-    flag: '🇺🇸',
-    accent: 'US Vibrant',
-    region: 'North America',
-    tone: 'Warm, Expressive & Engaging',
-    sample: "Hi there! I'm Aria. Welcome to our AI voice platform. What can we build or automate for your business today?"
-  },
-  {
-    id: 'au-modern',
-    gender: 'female' as const,
-    name: 'Natasha',
-    title: 'Natasha (Modern Concierge)',
-    flag: '🇦🇺',
-    accent: 'Australian Modern',
-    region: 'Asia-Pacific & Global',
-    tone: 'Clear, Modern & Welcoming',
-    sample: "Hello and welcome! Natasha here. I'm ready to answer any questions about our digital services and solutions."
+    accent: 'US Executive Natural Baritone',
+    region: 'Global & North America',
+    tone: 'Deep, Authoritative, Natural Human (ElevenLabs)',
+    sample: "Hello and welcome! My name is Arthur. How can I assist you with custom website development, AI voice agents, or booking your discovery call today?"
   }
 ];
 

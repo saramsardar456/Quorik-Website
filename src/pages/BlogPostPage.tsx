@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { SEO } from '../components/SEO';
-import { speakEnglishUtterance, stopAllSpeech } from '../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, unlockAudio } from '../utils/speechUtils';
 
 interface BlogPost {
   id: string;
@@ -63,34 +63,24 @@ export function BlogPostPage() {
 
   // Handle SpeechSynthesis audio playback out loud
   const handleToggleAudio = () => {
-    if (!('speechSynthesis' in window)) {
-      alert('Your browser does not support Web Speech Synthesis.');
-      return;
-    }
-
+    unlockAudio();
     if (speechStatus === 'speaking') {
-      window.speechSynthesis.pause();
-      setSpeechStatus('paused');
+      stopAllSpeech();
+      setSpeechStatus('idle');
       setIsPlayingAudio(false);
       return;
     }
 
-    if (speechStatus === 'paused') {
-      window.speechSynthesis.resume();
-      setSpeechStatus('speaking');
-      setIsPlayingAudio(true);
-      return;
-    }
-
-    // Cancel any ongoing speech and start fresh utterance
-    window.speechSynthesis.cancel();
+    stopAllSpeech();
 
     // Clean article markdown text for voice reading
     const cleanContent = article ? article.content.replace(/[*#`>|\\-]/g, ' ').substring(0, 600) : '';
     const textToRead = `Audio summary for article titled ${article?.title}. Executive summary: ${article?.excerpt}. Key insights: ${cleanContent}`;
 
-    speakEnglishUtterance(textToRead, {
+    speakSpeech(textToRead, {
       gender: 'male',
+      personaId: 'us-executive',
+      stability: 0.50,
       onStart: () => {
         setIsPlayingAudio(true);
         setSpeechStatus('speaking');

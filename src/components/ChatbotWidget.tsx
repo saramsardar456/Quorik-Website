@@ -7,7 +7,7 @@ import {
   Mic, MicOff, Phone, PhoneOff, RotateCcw
 } from 'lucide-react';
 import { ChatROICalculatorCard, ChatPortfolioCard, ChatPricingCard } from './chat/ChatCards';
-import { speakEnglishUtterance, stopAllSpeech, sanitizeTextForSpeech, unlockAudio } from '../utils/speechUtils';
+import { speakSpeech, stopAllSpeech, sanitizeTextForSpeech, unlockAudio, prefetchNeuralAudio } from '../utils/speechUtils';
 
 interface Message {
   id: string;
@@ -29,7 +29,17 @@ const INITIAL_GREETING: Message = {
 export function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [showGreeting, setShowGreeting] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('quorik_sound_enabled');
+        return saved !== 'false';
+      } catch (e) {
+        return true;
+      }
+    }
+    return true;
+  });
   const [isSpeakingId, setIsSpeakingId] = useState<string | null>(null);
 
   // Mode: 'chat' or 'voice-call'
@@ -127,10 +137,11 @@ export function ChatbotWidget() {
 
     if (msgId) setIsSpeakingId(msgId);
 
-    speakEnglishUtterance(cleanText, {
+    speakSpeech(cleanText, {
       gender: 'male',
       personaId: 'arthur',
       preferredLocale: 'en-US',
+      stability: 0.50,
       onStart: () => {
         if (msgId) setIsSpeakingId(msgId);
         if (onStartCb) onStartCb();
@@ -147,9 +158,14 @@ export function ChatbotWidget() {
   };
 
   // Send message in standard chat mode
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, wasVoiceInput: boolean = false) => {
     const query = (textToSend || inputValue).trim();
     if (!query || isTyping) return;
+
+    if (wasVoiceInput) {
+      setSoundEnabled(true);
+      try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+    }
 
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newUserMsg: Message = { 
@@ -209,7 +225,9 @@ export function ChatbotWidget() {
 
       setMessages(prev => [...prev, newBotMsg]);
 
-      if (soundEnabled) {
+      if (soundEnabled || wasVoiceInput) {
+        setSoundEnabled(true);
+        try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
         speakWithArthur(cleanText, botMsgId);
       }
     } catch (err) {
@@ -247,6 +265,8 @@ export function ChatbotWidget() {
     }
 
     unlockAudio();
+    setSoundEnabled(true);
+    try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
 
     try {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -255,6 +275,8 @@ export function ChatbotWidget() {
       recognition.lang = 'en-US';
       recognition.continuous = false;
       recognition.interimResults = true;
+
+      let latestSpoken = '';
 
       recognition.onstart = () => {
         setIsRecordingInputMic(true);
@@ -267,6 +289,7 @@ export function ChatbotWidget() {
         }
         const cleaned = cleanSpeechTranscript(transcript);
         if (cleaned) {
+          latestSpoken = cleaned;
           setInputValue(cleaned);
         }
       };
@@ -277,6 +300,11 @@ export function ChatbotWidget() {
 
       recognition.onend = () => {
         setIsRecordingInputMic(false);
+        if (latestSpoken.trim()) {
+          const spoken = latestSpoken.trim();
+          setInputValue('');
+          handleSendMessage(spoken, true);
+        }
       };
 
       recognition.start();
@@ -506,16 +534,28 @@ export function ChatbotWidget() {
           >
             {/* Header: Arthur Executive Branding & Mode Selector */}
             <div className="bg-[#0D1322] border-b border-white/10 p-3 sm:p-3.5 flex items-center justify-between relative z-20">
-              <div className="flex items-center gap-2.5">
+              <div 
+                onClick={() => {
+                  unlockAudio();
+                  setSoundEnabled(true);
+                  try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+                  const lastBot = [...messages].reverse().find(m => m.sender === 'bot');
+                  if (lastBot) {
+                    speakWithArthur(lastBot.text, lastBot.id);
+                  }
+                }}
+                className="flex items-center gap-2.5 cursor-pointer group" 
+                title="Arthur - Tap to hear latest voice response"
+              >
                 <div className="relative">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-800 border border-white/20 flex items-center justify-center shadow-inner">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-800 border border-white/20 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#0D1322] animate-pulse" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="font-bold text-white tracking-tight text-xs">
+                    <h3 className="font-bold text-white tracking-tight text-xs group-hover:text-cyan-400 transition-colors">
                       Arthur
                     </h3>
                     <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-brand-blue/20 text-blue-300 border border-brand-blue/40">
@@ -558,7 +598,16 @@ export function ChatbotWidget() {
                     onClick={() => {
                       const next = !soundEnabled;
                       setSoundEnabled(next);
-                      if (!next) stopAllSpeech();
+                      try { localStorage.setItem('quorik_sound_enabled', String(next)); } catch (e) {}
+                      if (!next) {
+                        stopAllSpeech();
+                      } else {
+                        unlockAudio();
+                        const lastBot = [...messages].reverse().find(m => m.sender === 'bot');
+                        if (lastBot && !isSpeakingId) {
+                          speakWithArthur(lastBot.text, lastBot.id);
+                        }
+                      }
                     }}
                     className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors border ${
                       soundEnabled 

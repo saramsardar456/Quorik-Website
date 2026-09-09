@@ -577,10 +577,261 @@
       "status": "active",
       "voiceAgentName": "Arthur (Executive Concierge)",
       "voiceLanguage": "English Only",
-      "totalConversations": 1,
-      "leadsCaptured": 0,
+      "totalConversations": 6,
+      "leadsCaptured": 1,
       "lastActive": "2026-09-08T22:53:18.332Z",
       "conversations": [
+        {
+          "id": "conv-oyoljyb",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-08T23:42:33.626Z",
+          "createdAt": "2026-09-08T23:42:33.626Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "hey could you help me with in a meeting",
+          "transcriptSummary": "Visitor asked: \"hey could you help me with in a meeting\". AI answered: \"Hello! I'd be happy to help you schedule a meeting or consultation with our team at Quorik Google Ads. \n\nCould you please share your name, e...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hey could you help me with in a meeting",
+              "timestamp": "2026-09-08T23:42:33.626Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hey could you help me with in a meeting",
+              "timestamp": "2026-09-08T23:42:33.626Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "Hello! I'd be happy to help you schedule a meeting or consultation with our team at Quorik Google Ads. \n\nCould you please share your name, email, and phone number so we can get that set up for you?",
+              "timestamp": "2026-09-08T23:42:33.626Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: hey could you help me with in a meeting"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-r1pbhho",
+          "visitorName": "ahmad45",
+          "visitorPhone": "03213771542",
+          "visitorEmail": "ahmad45@gmail.com",
+          "date": "2026-09-08T23:23:31.722Z",
+          "createdAt": "2026-09-08T23:23:31.722Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "ahmad ahmad45@gmail.com 03213771542",
+          "transcriptSummary": "Visitor asked: \"ahmad ahmad45@gmail.com 03213771542\". AI answered: \"Thank you, Ahmad! I have your details saved, and our team at Quorik Google Ads will reach out to you shortly to confirm your priority meetin...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "he could you book a Priority call",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "I would be happy to schedule a priority call for you! Could you please share your name, email, and phone number so our team can get that set up right away?",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "book my meeting",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "I'd love to get that meeting booked for you right away! Please share your name, email, and phone number, and I'll have our team lock in your priority consultation.",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "ahmad ahmad45@gmail.com 03213771542",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "ahmad ahmad45@gmail.com 03213771542",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "Thank you, Ahmad! I have your details saved, and our team at Quorik Google Ads will reach out to you shortly to confirm your priority meeting. Is there anything specific about your Google Ads campaigns you'd like us to review beforehand?",
+              "timestamp": "2026-09-08T23:23:31.722Z"
+            }
+          ],
+          "leadInfo": {
+            "email": "ahmad45@gmail.com",
+            "phone": "03213771542",
+            "notes": "Live chat inquiry regarding: ahmad ahmad45@gmail.com 03213771542"
+          },
+          "leadCaptured": true,
+          "status": "completed"
+        },
+        {
+          "id": "conv-o3mmydx",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-08T23:22:18.225Z",
+          "createdAt": "2026-09-08T23:22:18.225Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "book my meeting",
+          "transcriptSummary": "Visitor asked: \"book my meeting\". AI answered: \"I'd love to get that meeting booked for you right away! Please share your name, email, and phone number, and I'll have our team lock in your...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy",
+              "timestamp": "2026-09-08T23:22:18.225Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "timestamp": "2026-09-08T23:22:18.225Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "he could you book a Priority call",
+              "timestamp": "2026-09-08T23:22:18.225Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "I would be happy to schedule a priority call for you! Could you please share your name, email, and phone number so our team can get that set up right away?",
+              "timestamp": "2026-09-08T23:22:18.225Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "book my meeting",
+              "timestamp": "2026-09-08T23:22:18.225Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "book my meeting",
+              "timestamp": "2026-09-08T23:22:18.225Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "I'd love to get that meeting booked for you right away! Please share your name, email, and phone number, and I'll have our team lock in your priority consultation.",
+              "timestamp": "2026-09-08T23:22:18.225Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: book my meeting"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-ka33ybw",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-08T23:16:33.490Z",
+          "createdAt": "2026-09-08T23:16:33.490Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "he could you book a Priority call",
+          "transcriptSummary": "Visitor asked: \"he could you book a Priority call\". AI answered: \"I would be happy to schedule a priority call for you! Could you please share your name, email, and phone number so our team can get that set...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy",
+              "timestamp": "2026-09-08T23:16:33.490Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "timestamp": "2026-09-08T23:16:33.490Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "he could you book a Priority call",
+              "timestamp": "2026-09-08T23:16:33.490Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "he could you book a Priority call",
+              "timestamp": "2026-09-08T23:16:33.490Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "I would be happy to schedule a priority call for you! Could you please share your name, email, and phone number so our team can get that set up right away?",
+              "timestamp": "2026-09-08T23:16:33.490Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: he could you book a Priority call"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-od2br9m",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-08T23:16:27.048Z",
+          "createdAt": "2026-09-08T23:16:27.048Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "hy",
+          "transcriptSummary": "Visitor asked: \"hy\". AI answered: \"Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs tod...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy",
+              "timestamp": "2026-09-08T23:16:27.048Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy",
+              "timestamp": "2026-09-08T23:16:27.048Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "timestamp": "2026-09-08T23:16:27.048Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: hy"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
         {
           "id": "conv-ldgmfjw",
           "visitorName": "Website Visitor",

@@ -164,7 +164,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       gender,
       personaId,
       preferredLocale,
-      stability: 0.35,
+      stability: 0.50,
       onStart: () => setIsAiSpeaking(true),
       onEnd: () => setIsAiSpeaking(false),
       onError: () => setIsAiSpeaking(false)

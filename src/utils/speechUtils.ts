@@ -187,18 +187,18 @@ export function stopAllSpeech(): void {
 export async function prefetchNeuralAudio(
   text: string,
   gender: 'female' | 'male' | string = 'male',
-  personaId: string = 'us-executive'
+  personaId: string = 'arthur'
 ): Promise<void> {
   const clean = sanitizeTextForSpeech(text);
   if (!clean) return;
-  const cacheKey = `${gender}:${personaId}:${clean}`;
+  const cacheKey = `arthur-v3:${clean}`;
   if (clientAudioCache.has(cacheKey)) return;
 
   try {
     const res = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: clean, gender, personaId })
+      body: JSON.stringify({ text: clean, gender: 'male', personaId: 'arthur' })
     });
     if (res.ok) {
       const data = await res.json();
@@ -212,31 +212,31 @@ export async function prefetchNeuralAudio(
 // Preloaded audio element pool for 0ms instant verbal backchannels
 const backchannelAudioPool: HTMLAudioElement[] = [];
 
-export function preloadBackchannels(gender = 'male', personaId = 'uk-refined') {
+export function preloadBackchannels(gender = 'male', personaId = 'arthur') {
   try {
     if (backchannelAudioPool.length >= 2) return;
     const nods = ["Right...", "Yeah, gotcha..."];
     nods.forEach(nod => {
-      const a = new Audio(`/api/voice-agent/backchannel?gender=${encodeURIComponent(gender)}&personaId=${encodeURIComponent(personaId)}&stability=0.35&text=${encodeURIComponent(nod)}`);
+      const a = new Audio(`/api/voice-agent/backchannel?gender=male&personaId=arthur&stability=0.50&text=${encodeURIComponent(nod)}`);
       a.preload = 'auto';
       backchannelAudioPool.push(a);
     });
   } catch (e) {}
 }
 
-export async function playBackchannelVerbalNod(gender = 'male', personaId = 'uk-refined'): Promise<void> {
+export async function playBackchannelVerbalNod(gender = 'male', personaId = 'arthur'): Promise<void> {
   try {
     let audio: HTMLAudioElement | undefined;
     if (backchannelAudioPool.length > 0) {
       audio = backchannelAudioPool.shift();
       // Replenish in background
       setTimeout(() => {
-        const next = new Audio(`/api/voice-agent/backchannel?gender=${encodeURIComponent(gender)}&personaId=${encodeURIComponent(personaId)}&stability=0.35`);
+        const next = new Audio(`/api/voice-agent/backchannel?gender=male&personaId=arthur&stability=0.50`);
         next.preload = 'auto';
         backchannelAudioPool.push(next);
       }, 800);
     } else {
-      audio = new Audio(`/api/voice-agent/backchannel?gender=${encodeURIComponent(gender)}&personaId=${encodeURIComponent(personaId)}&stability=0.35`);
+      audio = new Audio(`/api/voice-agent/backchannel?gender=male&personaId=arthur&stability=0.50`);
       audio.preload = 'auto';
     }
     if (audio) {
@@ -248,7 +248,7 @@ export async function playBackchannelVerbalNod(gender = 'male', personaId = 'uk-
 
 /**
  * Primary Voice Synthesizer:
- * Uses Studio Neural Voice with HTML5 hardware MP3 playback, 0ms cache, and high resilience.
+ * Uses Studio Neural Voice (Arthur - Full Male Natural Human Voice) with Web Audio API / HTML5 fallback
  */
 export async function speakSpeech(
   rawText: string,
@@ -272,21 +272,11 @@ export async function speakSpeech(
   unlockAudio();
   const thisToken = currentSpeechToken;
 
-  const rawGender = options.gender || 'male';
-  const gLower = rawGender.toLowerCase();
-  const isFemale = gLower.includes('female') || gLower === 'zephyr' || gLower === 'clara' || gLower === 'aria' || gLower === 'natasha';
-
-  let personaId = options.personaId;
-  if (!personaId) {
-    if (gLower.includes('uk')) personaId = 'uk-refined';
-    else if (gLower.includes('au')) personaId = 'au-friendly';
-    else if (gLower.includes('vibrant') || gLower.includes('aria')) personaId = 'us-vibrant';
-    else if (gLower.includes('sales') || gLower.includes('energetic') || gLower.includes('brian')) personaId = 'us-sales';
-    else personaId = isFemale ? 'us-warm' : 'us-executive';
-  }
-
-  const stability = typeof options.stability === 'number' ? options.stability : 0.35;
-  const cacheKey = `${rawGender}:${personaId}:${stability}:${cleanText}`;
+  // Strict enforcement: Only Arthur Full Male Natural Human Voice
+  const rawGender = 'male';
+  const personaId = 'arthur';
+  const stability = 0.50;
+  const cacheKey = `arthur-v3:${cleanText}`;
 
   const playAudioData = async (base64Audio: string) => {
     if (thisToken !== currentSpeechToken) return;

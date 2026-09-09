@@ -52,95 +52,16 @@ export interface VoiceConfigOption {
 }
 
 export const ALL_DEMO_VOICES: VoiceConfigOption[] = [
-  // MALE VOICES
   {
     id: 'male',
-    name: 'Male - US Executive (Arthur)',
+    name: 'Arthur (Full Male Natural Human Voice)',
     gender: 'male',
     region: 'United States',
-    accent: 'US Corporate Executive Baritone',
+    accent: 'US Executive Natural Baritone',
     flag: '🇺🇸',
-    tone: 'Deep, Authoritative & Professional',
+    tone: 'Deep, Warm, Natural Human Voice (ElevenLabs)',
     defaultAgentName: 'Arthur',
-    sample: "Hello! I am Arthur, your 24/7 AI receptionist. I can answer questions regarding our services, pricing, or secure your priority appointment today."
-  },
-  {
-    id: 'male-uk',
-    name: 'Male - UK Refined (Oliver)',
-    gender: 'male',
-    region: 'United Kingdom',
-    accent: 'UK Received Pronunciation',
-    flag: '🇬🇧',
-    tone: 'Courteous, Elegant & Calm',
-    defaultAgentName: 'Oliver',
-    sample: "Good day! My name is Oliver. It would be my absolute pleasure to assist you with consultation booking and service details."
-  },
-  {
-    id: 'male-sales',
-    name: 'Male - US High-Conversion Sales (Brian)',
-    gender: 'male',
-    region: 'United States',
-    accent: 'US Dynamic Closer',
-    flag: '🇺🇸',
-    tone: 'Confident, Energetic & Direct Closer',
-    defaultAgentName: 'Brian',
-    sample: "Hey there! Brian here. Let's get your appointment locked in with our top specialists with zero waiting time."
-  },
-  {
-    id: 'male-au',
-    name: 'Male - Australian Warm (William)',
-    gender: 'male',
-    region: 'Australia',
-    accent: 'Australian Professional',
-    flag: '🇦🇺',
-    tone: 'Approachable, Clear & Friendly',
-    defaultAgentName: 'William',
-    sample: "G'day! William here. I'm ready to help you with instant quotes and fast appointment scheduling."
-  },
-  // FEMALE VOICES
-  {
-    id: 'female',
-    name: 'Female - US Executive (Zephyr)',
-    gender: 'female',
-    region: 'United States',
-    accent: 'US Executive Concierge',
-    flag: '🇺🇸',
-    tone: 'Warm, Crisp & High-Efficiency',
-    defaultAgentName: 'Zephyr',
-    sample: "Hello and welcome! My name is Zephyr. I can guide you through our solutions, provide pricing, or schedule a consultation with our team."
-  },
-  {
-    id: 'female-uk',
-    name: 'Female - UK Refined (Clara)',
-    gender: 'female',
-    region: 'United Kingdom',
-    accent: 'UK Received Pronunciation',
-    flag: '🇬🇧',
-    tone: 'Polished, Gentle & Sophisticated',
-    defaultAgentName: 'Clara',
-    sample: "Good day! My name is Clara. I can assist you with your inquiry and reserve a meeting with our director for tomorrow."
-  },
-  {
-    id: 'female-vibrant',
-    name: 'Female - US Vibrant & Dynamic (Aria)',
-    gender: 'female',
-    region: 'United States',
-    accent: 'US Modern Vibrant',
-    flag: '🇺🇸',
-    tone: 'Enthusiastic, Bright & Engaging',
-    defaultAgentName: 'Aria',
-    sample: "Hi there! I am Aria. I'm excited to help answer your questions and book your appointment right away!"
-  },
-  {
-    id: 'female-au',
-    name: 'Female - Australian Professional (Natasha)',
-    gender: 'female',
-    region: 'Australia',
-    accent: 'Australian Modern',
-    flag: '🇦🇺',
-    tone: 'Sunny, Modern & Welcoming',
-    defaultAgentName: 'Natasha',
-    sample: "Hello! Natasha here. I'd be delighted to assist you with our services and reserve your appointment slot."
+    sample: "Hello! I am Arthur, your 24/7 AI voice agent. I can answer questions regarding our services, pricing, or secure your priority appointment today."
   }
 ];
 
@@ -964,29 +885,19 @@ export function DemoBuilderPage({ embedded = false }: { embedded?: boolean } = {
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-mono text-gray-300 block">Voice Gender & Persona</label>
-                      <span className="text-[10px] text-cyan-400 font-mono">8 Neural Voices</span>
+                      <label className="text-xs font-mono text-gray-300 block">AI Voice Engine</label>
+                      <span className="text-[10px] text-cyan-400 font-mono">ElevenLabs Human Voice</span>
                     </div>
-                    <select
-                      value={siteData.gender}
-                      onChange={(e) => handleVoiceSelect(e.target.value)}
-                      className="w-full bg-[#05060A] border border-white/15 rounded-xl px-2.5 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none"
-                    >
-                      <optgroup label="👨 Male Voices">
-                        {ALL_DEMO_VOICES.filter(v => v.gender === 'male').map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.flag} {v.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="👩 Female Voices">
-                        {ALL_DEMO_VOICES.filter(v => v.gender === 'female').map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.flag} {v.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
+                    <div className="w-full bg-[#05060A] border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span>🇺🇸</span>
+                        <span className="font-semibold text-white">Arthur</span>
+                        <span className="text-[10px] text-gray-400 font-mono">(Full Male Natural Voice)</span>
+                      </div>
+                      <span className="text-[9px] uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-mono">
+                        Active Voice
+                      </span>
+                    </div>
                   </div>
                 </div>
 

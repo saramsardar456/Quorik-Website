@@ -82,7 +82,7 @@ export function VoiceAgentPage() {
     speakSpeech(text, {
       gender: 'male',
       personaId: 'us-executive',
-      stability: 0.35,
+      stability: 0.50,
       preferredLocale: 'en-US',
       onStart: () => {
         setIsAiSpeaking(true);

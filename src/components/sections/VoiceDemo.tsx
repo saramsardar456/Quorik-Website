@@ -102,13 +102,7 @@ export function VoiceDemo({
   const lastSentTimeRef = useRef<number>(0);
   const hasSentMicRef = useRef<boolean>(false);
 
-  const getActiveName = () => {
-    if (activePersonaId === 'uk-refined') return selectedGender === 'female' ? 'Clara' : 'Oliver';
-    if (activePersonaId === 'us-sales' || activePersonaId === 'us-vibrant') return selectedGender === 'female' ? 'Aria' : 'Brian';
-    if (activePersonaId === 'au-friendly' || activePersonaId === 'au-modern') return selectedGender === 'female' ? 'Natasha' : 'William';
-    return selectedGender === 'female' ? 'Zephyr' : 'Arthur';
-  };
-  const activeVoiceName = getActiveName();
+  const activeVoiceName = 'Arthur';
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
@@ -144,18 +138,15 @@ export function VoiceDemo({
     };
   }, [isAiSpeaking]);
 
-  // Pre-warm audio and prefetch greeting for the active persona
+  // Pre-warm audio and prefetch greeting for Arthur male voice
   useEffect(() => {
     const timer = setTimeout(() => {
-      const activeGreeting = selectedGender === 'female'
-        ? (activePersonaId === 'uk-refined' ? "Good day! Thank you for reaching Quorik. Clara here. Are you looking to discuss a custom web build or set up a 24/7 AI voice agent?" : "Hey! Thanks for reaching Quorik. I'm Zephyr. Are you looking to build a high-performance custom website, or plug in a 24/7 AI voice agent for your business?")
-        : (activePersonaId === 'uk-refined' ? "Good day! Thank you for reaching Quorik. Oliver here. Are you looking to discuss a custom web build or set up a 24/7 AI voice agent?" : "Hey! Thanks for reaching Quorik. I'm Arthur. Are you looking to build a high-performance custom website, or plug in a 24/7 AI voice agent for your business?");
-
-      prefetchNeuralAudio(activeGreeting, selectedGender, activePersonaId);
-      preloadBackchannels(selectedGender, activePersonaId);
+      const activeGreeting = "Hey! Thanks for reaching Quorik. I'm Arthur. Are you looking to build a high-performance custom website, or plug in a 24/7 AI voice agent for your business?";
+      prefetchNeuralAudio(activeGreeting, 'male', 'arthur');
+      preloadBackchannels('male', 'arthur');
     }, 600);
     return () => clearTimeout(timer);
-  }, [selectedGender, activePersonaId]);
+  }, []);
 
   const speakText = (text: string) => {
     if (recognitionRef.current) {
@@ -603,7 +594,7 @@ export function VoiceDemo({
                     <h4 className="text-xs sm:text-sm font-bold text-white uppercase font-mono">
                       {simState === 'idle' && 'AI VOICE SANDBOX: OFFLINE'}
                       {simState === 'ringing' && 'Connecting to Voice AI Pipeline...'}
-                      {simState === 'connected' && `Active: ${activeVoiceName} (${selectedGender.toUpperCase()})`}
+                      {simState === 'connected' && 'Active: Arthur (Natural Male Voice)'}
                       {simState === 'completed' && 'Session Finished: Booking Dispatched'}
                     </h4>
                     <p className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
@@ -635,14 +626,14 @@ export function VoiceDemo({
                   <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 font-mono text-xs p-4">
                     <Radio className="w-8 h-8 text-brand-teal/40 mb-3 animate-pulse" />
                     <p className="mb-1 text-gray-300 font-bold">Click "Start Voice Demo" to connect live.</p>
-                    <p className="text-gray-500 text-[11px]">Ask {activeVoiceName} about our founder, pricing, or book a consultation!</p>
+                    <p className="text-gray-500 text-[11px]">Ask Arthur about our founder, pricing, or book a consultation!</p>
                   </div>
                 )}
 
                 {simState === 'ringing' && (
                   <div className="py-12 text-center text-yellow-400 font-mono text-xs uppercase tracking-widest animate-pulse flex flex-col items-center gap-2">
                     <Zap className="w-7 h-7 animate-bounce text-brand-teal" />
-                    <span>Connecting to Voice AI... Launching {activeVoiceName} ({selectedGender})...</span>
+                    <span>Connecting to Voice AI... Launching Arthur (Natural Male Voice)...</span>
                   </div>
                 )}
 

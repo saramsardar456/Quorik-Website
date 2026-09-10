@@ -1,6 +1,34 @@
 {
   "appointments": [
     {
+      "id": "appt-23sx1e1",
+      "name": "shehrammeellu03",
+      "phone": "03484742270",
+      "email": "shehrammeellu03@gmail.com",
+      "service": "Quorik Google Ads Priority Meeting / Consultation",
+      "notes": "Visitor asked: \"shehram meellu shehrammeellu03@gmail.com 03484742270\". AI answered: \"Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik Google Ads will reach out to yo...\"",
+      "date_time": "Priority Meeting Request",
+      "status": "confirmed",
+      "source": "Widget (Quorik Google Ads)",
+      "clientId": "quorik-google-ads",
+      "businessName": "Quorik Google Ads",
+      "createdAt": "2026-09-09T21:25:03.445Z"
+    },
+    {
+      "id": "appt-r1pbhho",
+      "name": "ahmad45",
+      "phone": "03213771542",
+      "email": "ahmad45@gmail.com",
+      "service": "Quorik Google Ads Priority Meeting / Consultation",
+      "notes": "Visitor asked: \"ahmad ahmad45@gmail.com 03213771542\". AI answered: \"Thank you, Ahmad! I have your details saved, and our team at Quorik Google Ads will reach out to you shortly to confirm your priority meetin...\"",
+      "date_time": "Priority Meeting Request",
+      "status": "confirmed",
+      "source": "Widget (Quorik Google Ads)",
+      "clientId": "quorik-google-ads",
+      "businessName": "Quorik Google Ads",
+      "createdAt": "2026-09-08T23:23:31.722Z"
+    },
+    {
       "id": "i2zr3jl",
       "name": "Client Test",
       "phone": "03700146156",
@@ -577,10 +605,178 @@
       "status": "active",
       "voiceAgentName": "Arthur (Executive Concierge)",
       "voiceLanguage": "English Only",
-      "totalConversations": 6,
-      "leadsCaptured": 1,
+      "totalConversations": 10,
+      "leadsCaptured": 2,
       "lastActive": "2026-09-08T22:53:18.332Z",
       "conversations": [
+        {
+          "id": "conv-9kmswyd",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-10T21:43:31.669Z",
+          "createdAt": "2026-09-10T21:43:31.669Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "Hollywood movie",
+          "transcriptSummary": "Visitor asked: \"Hollywood movie\". AI answered: \"It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik Google Ads, we focus strictly on high-performance Google Ads and ...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Hollywood movie",
+              "timestamp": "2026-09-10T21:43:31.669Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Hollywood movie",
+              "timestamp": "2026-09-10T21:43:31.669Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik Google Ads, we focus strictly on high-performance Google Ads and digital marketing to drive real ROI for businesses. Would you like to schedule a consultation with our team to discuss how we can scale your campaigns?",
+              "timestamp": "2026-09-10T21:43:31.669Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: Hollywood movie"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-bpqed6s",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-10T21:44:04.401Z",
+          "createdAt": "2026-09-10T21:44:04.401Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "TS could you help me with everything",
+          "transcriptSummary": "Visitor asked: \"TS could you help me with everything\". AI answered: \"I'd be happy to help you with anything related to Google Ads and performance marketing! Whether you want to scale your business, lower your ...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Hollywood movie",
+              "timestamp": "2026-09-10T21:44:04.401Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik Google Ads, we focus strictly on high-performance Google Ads and digital marketing to drive real ROI for businesses. Would you like to schedule a consultation with our team to discuss how we can scale your campaigns?",
+              "timestamp": "2026-09-10T21:44:04.401Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "TS could you help me with everything",
+              "timestamp": "2026-09-10T21:44:04.401Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "TS could you help me with everything",
+              "timestamp": "2026-09-10T21:44:04.401Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "I'd be happy to help you with anything related to Google Ads and performance marketing! Whether you want to scale your business, lower your acquisition costs, or optimize your campaigns, we've got you covered. Would you like to share your email or phone number so our team can follow up with a personalized strategy?",
+              "timestamp": "2026-09-10T21:44:04.401Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: TS could you help me with everything"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-vr2qa40",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-09T21:24:09.074Z",
+          "createdAt": "2026-09-09T21:24:09.074Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "hy could book a meeting",
+          "transcriptSummary": "Visitor asked: \"hy could book a meeting\". AI answered: \"I'd be happy to help you schedule a meeting with our team at Quorik Google Ads! \n\nTo get that set up, could you please share your name, emai...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy could book a meeting",
+              "timestamp": "2026-09-09T21:24:09.074Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy could book a meeting",
+              "timestamp": "2026-09-09T21:24:09.074Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "I'd be happy to help you schedule a meeting with our team at Quorik Google Ads! \n\nTo get that set up, could you please share your name, email address, and phone number?",
+              "timestamp": "2026-09-09T21:24:09.074Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: hy could book a meeting"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-23sx1e1",
+          "visitorName": "shehrammeellu03",
+          "visitorPhone": "03484742270",
+          "visitorEmail": "shehrammeellu03@gmail.com",
+          "date": "2026-09-09T21:25:03.445Z",
+          "createdAt": "2026-09-09T21:25:03.445Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "shehram meellu shehrammeellu03@gmail.com 03484742270",
+          "transcriptSummary": "Visitor asked: \"shehram meellu shehrammeellu03@gmail.com 03484742270\". AI answered: \"Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik Google Ads will reach out to yo...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy could book a meeting",
+              "timestamp": "2026-09-09T21:25:03.445Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "I'd be happy to help you schedule a meeting with our team at Quorik Google Ads! \n\nTo get that set up, could you please share your name, email address, and phone number?",
+              "timestamp": "2026-09-09T21:25:03.445Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "shehram meellu shehrammeellu03@gmail.com 03484742270",
+              "timestamp": "2026-09-09T21:25:03.445Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "shehram meellu shehrammeellu03@gmail.com 03484742270",
+              "timestamp": "2026-09-09T21:25:03.445Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik Google Ads will reach out to you shortly to confirm your consultation time.",
+              "timestamp": "2026-09-09T21:25:03.445Z"
+            }
+          ],
+          "leadInfo": {
+            "email": "shehrammeellu03@gmail.com",
+            "phone": "03484742270",
+            "notes": "Live chat inquiry regarding: shehram meellu shehrammeellu03@gmail.com 03484742270"
+          },
+          "leadCaptured": true,
+          "status": "completed"
+        },
         {
           "id": "conv-oyoljyb",
           "visitorName": "Website Visitor",

@@ -3321,13 +3321,34 @@ Respond ONLY in valid JSON matching this schema:
     }
   }
 
-  // Resolves the premier human ElevenLabs voice ID (Strictly Arthur - Full Male Natural Human Voice)
+  // Resolves the premier human ElevenLabs voice ID (Arthur Male & Clara Female)
   function resolveElevenLabsVoiceId(gender: string = 'male', personaId: string = 'arthur', voiceName: string = ''): string {
     if (process.env.ELEVENLABS_VOICE_ID) {
       return process.env.ELEVENLABS_VOICE_ID;
     }
+    const gLower = (gender || '').toLowerCase();
+    const pLower = (personaId || '').toLowerCase();
+    const isFemale = gLower.includes('female') || pLower.includes('warm') || pLower === 'clara' || pLower === 'zephyr' || pLower === 'aria' || pLower === 'natasha';
+    if (isFemale) {
+      // Rachel (Calm, articulate, warm American female voice)
+      return '21m00Tcm4TlvDq8ikWAM';
+    }
     // Arthur: ElevenLabs Adam (Deep, warm, hyper-realistic American executive male voice)
     return 'pNInz6obpgDQGcFmaJgB';
+  }
+
+  // Track ElevenLabs API key validity so invalid/unauthorized keys don't spam 401 errors
+  let elevenLabsKeyValid = true;
+  let lastCheckedElevenLabsKey = '';
+
+  function isElevenLabsAvailable(): boolean {
+    const rawKey = (process.env.ELEVENLABS_API_KEY || '').trim();
+    if (!rawKey) return false;
+    if (rawKey !== lastCheckedElevenLabsKey) {
+      lastCheckedElevenLabsKey = rawKey;
+      elevenLabsKeyValid = true; // reset test for updated key
+    }
+    return elevenLabsKeyValid;
   }
 
   // Ultra-Low Latency ElevenLabs Human Voice Synthesis with Studio 128kbps Fidelity
@@ -3338,7 +3359,7 @@ Respond ONLY in valid JSON matching this schema:
     gender = 'male', 
     personaId = 'arthur'
   ): Promise<{ buffer: Buffer; voiceId: string }> {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const apiKey = (process.env.ELEVENLABS_API_KEY || '').trim();
     if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
 
     const voiceId = resolveElevenLabsVoiceId(gender, personaId, voiceName);
@@ -3364,8 +3385,11 @@ Respond ONLY in valid JSON matching this schema:
         })
       });
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          elevenLabsKeyValid = false;
+        }
         const errText = await response.text().catch(() => '');
-        throw new Error(`ElevenLabs TTS failed with HTTP ${response.status}: ${errText}`);
+        throw new Error(`ElevenLabs status ${response.status}: ${errText}`);
       }
       const arrayBuffer = await response.arrayBuffer();
       return { buffer: Buffer.from(arrayBuffer), voiceId };
@@ -3374,10 +3398,10 @@ Respond ONLY in valid JSON matching this schema:
     }
   }
 
-  // Microsoft Edge Studio Neural Voice - Arthur Male Baritone Fallback
+  // Microsoft Edge Studio Neural Voice - Dynamic Male & Female Studio Fallback
   async function generateEdgeNeuralAudio(text: string, voiceName = "en-US-GuyNeural", stability = 0.50): Promise<Buffer> {
     const tts = new MsEdgeTTS();
-    await tts.setMetadata("en-US-GuyNeural", OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+    await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
     const rateOption = '+1%';
     const pitchOption = '+0Hz';
     const { audioStream } = tts.toStream(text, { rate: rateOption, pitch: pitchOption });
@@ -3429,26 +3453,38 @@ Respond ONLY in valid JSON matching this schema:
     });
   }
 
-  // Fast Studio Audio Synthesis with Seamless Multi-Engine Fallback
-  async function generateNeuralAudio(text: string, voiceName = 'en-US-GuyNeural', stability = 0.50, gender = 'male', personaId = 'arthur'): Promise<Buffer> {
-    if (process.env.ELEVENLABS_API_KEY) {
-      try {
-        const { buffer } = await fetchElevenLabsAudio(text, voiceName, stability, 'male', 'arthur');
-        return buffer;
-      } catch (err: any) {
-        console.warn(`[TTS Fallback] ElevenLabs notice (${err?.message || err}). Falling back to Microsoft Edge Studio Neural Voice.`);
-        return await generateEdgeNeuralAudio(text, 'en-US-GuyNeural', stability);
-      }
+  // Helper function to resolve voice settings for Demo Builder & Chatbot Widget
+  function resolveVoiceSettings(gender: string = 'male', personaId: string = 'arthur', stability: number = 0.50) {
+    const gLower = (gender || '').toLowerCase();
+    const pLower = (personaId || '').toLowerCase();
+    const isFemale = gLower.includes('female') || pLower.includes('warm') || pLower === 'clara' || pLower === 'zephyr' || pLower === 'aria' || pLower === 'natasha';
+    const isUK = gLower.includes('uk') || pLower.includes('uk') || pLower.includes('refined');
+    const isAU = gLower.includes('au') || pLower.includes('au');
+
+    let voiceName = "en-US-GuyNeural";
+    let locale = "en-US";
+    if (isFemale) {
+      voiceName = isUK ? "en-GB-SoniaNeural" : (isAU ? "en-AU-NatashaNeural" : "en-US-JennyNeural");
+      locale = isUK ? "en-GB" : (isAU ? "en-AU" : "en-US");
+    } else {
+      voiceName = isUK ? "en-GB-RyanNeural" : (isAU ? "en-AU-WilliamNeural" : "en-US-GuyNeural");
+      locale = isUK ? "en-GB" : (isAU ? "en-AU" : "en-US");
     }
-    return await generateEdgeNeuralAudio(text, 'en-US-GuyNeural', stability);
+    return { voiceName, locale, isFemale, stability: 0.50, personaId, gender };
   }
 
-  // Helper function to resolve voice settings (Strictly Arthur - Full Male Natural Human Voice)
-  function resolveVoiceSettings(gender: string = 'male', personaId: string = 'arthur', stability: number = 0.50) {
-    const voiceName = "en-US-GuyNeural";
-    const locale = "en-US";
-    const isFemale = false;
-    return { voiceName, locale, isFemale, stability: 0.50, personaId: 'arthur', gender: 'male' };
+  // Fast Studio Audio Synthesis with Seamless Multi-Engine Fallback
+  async function generateNeuralAudio(text: string, voiceName = 'en-US-GuyNeural', stability = 0.50, gender = 'male', personaId = 'arthur'): Promise<Buffer> {
+    const settings = resolveVoiceSettings(gender, personaId, stability);
+    if (isElevenLabsAvailable()) {
+      try {
+        const { buffer } = await fetchElevenLabsAudio(text, settings.voiceName, stability, gender, personaId);
+        return buffer;
+      } catch (err: any) {
+        return await generateEdgeNeuralAudio(text, settings.voiceName, stability);
+      }
+    }
+    return await generateEdgeNeuralAudio(text, settings.voiceName, stability);
   }
 
   function sanitizeSpeechText(text: string): string {
@@ -3505,10 +3541,13 @@ Respond ONLY in valid JSON matching this schema:
     }
   });
 
-  // Direct Audio Streaming Endpoint - Arthur Full Male Natural Human Voice
+  // Direct Audio Streaming Endpoint - Arthur & Custom Demo Builder Voice
   app.get("/api/tts/stream", async (req: express.Request, res: express.Response) => {
     try {
       const text = (req.query.text as string) || '';
+      const gender = (req.query.gender as string) || 'male';
+      const personaId = (req.query.personaId as string) || 'arthur';
+      const stability = parseFloat((req.query.stability as string) || '0.50') || 0.50;
 
       if (!text || typeof text !== 'string') {
         return res.status(400).send("Text query parameter is required");
@@ -3519,7 +3558,8 @@ Respond ONLY in valid JSON matching this schema:
         return res.status(400).send("No valid text content");
       }
 
-      const cacheKey = `arthur-sole-stream:${cleanText}`;
+      const settings = resolveVoiceSettings(gender, personaId, stability);
+      const cacheKey = `tts-stream-v4:${gender}:${personaId}:${cleanText}`;
 
       if (ttsCache.has(cacheKey)) {
         const cached = ttsCache.get(cacheKey)!;
@@ -3533,29 +3573,36 @@ Respond ONLY in valid JSON matching this schema:
       }
 
       let audioBuffer: Buffer | null = null;
-      if (process.env.ELEVENLABS_API_KEY) {
+      let usedVoiceId = resolveElevenLabsVoiceId(gender, personaId, settings.voiceName);
+      let usedEngine = 'elevenlabs-turbo-v2_5';
+
+      if (isElevenLabsAvailable()) {
         try {
-          const res = await fetchElevenLabsAudio(cleanText, "en-US-GuyNeural", 0.50, 'male', 'arthur');
+          const res = await fetchElevenLabsAudio(cleanText, settings.voiceName, stability, gender, personaId);
           audioBuffer = res.buffer;
+          usedVoiceId = res.voiceId;
         } catch (elevenErr: any) {
-          console.warn(`[TTS Stream] ElevenLabs notice (${elevenErr?.message || elevenErr}). Using Arthur Edge Neural.`);
           try {
-            audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-GuyNeural", 0.50);
+            audioBuffer = await generateEdgeNeuralAudio(cleanText, settings.voiceName, stability);
+            usedEngine = 'edge-neural';
           } catch (edgeErr: any) {
-            audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-ChristopherNeural", 0.50);
+            audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-GuyNeural", 0.50);
+            usedEngine = 'edge-neural-fallback';
           }
         }
       } else {
         try {
-          audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-GuyNeural", 0.50);
+          audioBuffer = await generateEdgeNeuralAudio(cleanText, settings.voiceName, stability);
+          usedEngine = 'edge-neural';
         } catch (err: any) {
-          audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-ChristopherNeural", 0.50);
+          audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-GuyNeural", 0.50);
+          usedEngine = 'edge-neural-fallback';
         }
       }
 
       if (audioBuffer && audioBuffer.length > 0) {
         const base64Audio = audioBuffer.toString('base64');
-        ttsCache.set(cacheKey, { audioData: base64Audio, mimeType: 'audio/mp3', voiceName: 'Arthur (Male US Executive Baritone)', gender: 'male', voiceId: 'pNInz6obpgDQGcFmaJgB', engine: 'arthur-sole' });
+        ttsCache.set(cacheKey, { audioData: base64Audio, mimeType: 'audio/mp3', voiceName: settings.voiceName, gender, voiceId: usedVoiceId, engine: usedEngine });
 
         res.setHeader('Content-Type', 'audio/mpeg');
         res.setHeader('Content-Length', audioBuffer.length);
@@ -3572,10 +3619,10 @@ Respond ONLY in valid JSON matching this schema:
     }
   });
 
-  // Neural TTS Endpoint: Arthur - Full Male Natural Human Voice
+  // Neural TTS Endpoint: Arthur & Custom Demo Builder Voice
   app.post("/api/tts", async (req: express.Request, res: express.Response) => {
     try {
-      const { text } = req.body;
+      const { text, gender = 'male', personaId = 'arthur', stability = 0.50 } = req.body;
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ error: "Text is required" });
       }
@@ -3585,51 +3632,49 @@ Respond ONLY in valid JSON matching this schema:
         return res.status(400).json({ error: "No valid text content after sanitization" });
       }
 
-      // Check in-memory cache first for 0ms instant playback
-      const cacheKey = `arthur-sole-v3:${cleanText}`;
+      const settings = resolveVoiceSettings(gender, personaId, stability);
+      const cacheKey = `tts-v4:${gender}:${personaId}:${cleanText}`;
       if (ttsCache.has(cacheKey)) {
         const cached = ttsCache.get(cacheKey)!;
         return res.json({
           success: true,
           audioData: cached.audioData,
           mimeType: cached.mimeType,
-          voiceName: 'Arthur (Full Male Natural Human Voice)',
-          gender: 'male',
+          voiceName: cached.voiceName || settings.voiceName,
+          gender: cached.gender || gender,
           stability: 0.50,
           engine: cached.engine || 'elevenlabs-turbo-v2_5',
-          voiceId: cached.voiceId || 'pNInz6obpgDQGcFmaJgB',
+          voiceId: cached.voiceId || resolveElevenLabsVoiceId(gender, personaId, settings.voiceName),
           cached: true
         });
       }
 
       let audioBuffer: Buffer | null = null;
       let usedEngine = 'elevenlabs-turbo-v2_5';
-      let usedVoiceId = 'pNInz6obpgDQGcFmaJgB';
+      let usedVoiceId = resolveElevenLabsVoiceId(gender, personaId, settings.voiceName);
 
-      if (process.env.ELEVENLABS_API_KEY) {
+      if (isElevenLabsAvailable()) {
         try {
-          const elevenRes = await fetchElevenLabsAudio(cleanText, "en-US-GuyNeural", 0.50, 'male', 'arthur');
+          const elevenRes = await fetchElevenLabsAudio(cleanText, settings.voiceName, stability, gender, personaId);
           audioBuffer = elevenRes.buffer;
           usedVoiceId = elevenRes.voiceId;
           usedEngine = 'elevenlabs-turbo-v2_5';
         } catch (elevenErr: any) {
-          console.warn(`[Neural TTS] ElevenLabs notice (${elevenErr?.message || elevenErr}). Activating Arthur Edge Neural studio voice.`);
           try {
-            audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-GuyNeural", 0.50);
-            usedEngine = 'edge-neural-arthur';
+            audioBuffer = await generateEdgeNeuralAudio(cleanText, settings.voiceName, stability);
+            usedEngine = 'edge-neural';
           } catch (edgeErr: any) {
-            console.warn(`[Neural TTS] Edge fallback notice:`, edgeErr?.message || edgeErr);
-            audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-ChristopherNeural', 0.50);
-            usedEngine = 'edge-neural-arthur-alt';
+            audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-GuyNeural', 0.50);
+            usedEngine = 'edge-neural-fallback';
           }
         }
       } else {
         try {
-          audioBuffer = await generateEdgeNeuralAudio(cleanText, "en-US-GuyNeural", 0.50);
-          usedEngine = 'edge-neural-arthur';
+          audioBuffer = await generateEdgeNeuralAudio(cleanText, settings.voiceName, stability);
+          usedEngine = 'edge-neural';
         } catch (primaryErr: any) {
-          audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-ChristopherNeural', 0.50);
-          usedEngine = 'edge-neural-arthur-alt';
+          audioBuffer = await generateEdgeNeuralAudio(cleanText, 'en-US-GuyNeural', 0.50);
+          usedEngine = 'edge-neural-fallback';
         }
       }
 
@@ -3642,14 +3687,14 @@ Respond ONLY in valid JSON matching this schema:
           const firstKey = ttsCache.keys().next().value;
           if (firstKey) ttsCache.delete(firstKey);
         }
-        ttsCache.set(cacheKey, { audioData: base64Audio, mimeType, voiceName: 'Arthur (Full Male Natural Human Voice)', gender: 'male', voiceId: usedVoiceId, engine: usedEngine });
+        ttsCache.set(cacheKey, { audioData: base64Audio, mimeType, voiceName: settings.voiceName, gender, voiceId: usedVoiceId, engine: usedEngine });
 
         return res.json({
           success: true,
           audioData: base64Audio,
           mimeType,
-          voiceName: 'Arthur (Full Male Natural Human Voice)',
-          gender: 'male',
+          voiceName: settings.voiceName,
+          gender,
           stability: 0.50,
           engine: usedEngine,
           voiceId: usedVoiceId
@@ -3658,7 +3703,7 @@ Respond ONLY in valid JSON matching this schema:
 
       return res.status(500).json({
         success: false,
-        error: "Failed to generate Arthur neural audio stream"
+        error: "Failed to generate neural audio stream"
       });
     } catch (err: any) {
       console.error("TTS endpoint global error:", err);

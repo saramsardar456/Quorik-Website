@@ -29,17 +29,7 @@ const INITIAL_GREETING: Message = {
 export function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [showGreeting, setShowGreeting] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('quorik_sound_enabled');
-        return saved !== 'false';
-      } catch (e) {
-        return true;
-      }
-    }
-    return true;
-  });
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(false);
   const [isSpeakingId, setIsSpeakingId] = useState<string | null>(null);
 
   // Mode: 'chat' or 'voice-call'
@@ -76,9 +66,30 @@ export function ChatbotWidget() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const voiceMessagesEndRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const inputRecognitionRef = useRef<any>(null);
+  const callRecognitionRef = useRef<any>(null);
   const callTimerRef = useRef<any>(null);
-  const silenceTimerRef = useRef<any>(null);
+  const inputSilenceTimerRef = useRef<any>(null);
+  const callSilenceTimerRef = useRef<any>(null);
+  const micSpokenRef = useRef<string>('');
+  const hasSentInputMicRef = useRef<boolean>(false);
+  const callVoiceTranscriptRef = useRef<string>('');
+  const activeModeRef = useRef<'chat' | 'voice-call'>('chat');
+  const isAiSpeakingCallRef = useRef<boolean>(false);
+  const isCallThinkingRef = useRef<boolean>(false);
+  const isCallMicMutedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    activeModeRef.current = activeMode;
+  }, [activeMode]);
+
+  useEffect(() => {
+    isAiSpeakingCallRef.current = isAiSpeakingCall;
+  }, [isAiSpeakingCall]);
+
+  useEffect(() => {
+    isCallThinkingRef.current = isCallThinking;
+  }, [isCallThinking]);
 
   // Sync messages to localStorage whenever they change
   useEffect(() => {
@@ -109,13 +120,7 @@ export function ChatbotWidget() {
   // Clean speech sanitization to avoid keyboard mash or noise characters
   const cleanSpeechTranscript = (raw: string): string => {
     if (!raw) return '';
-    const trimmed = raw.replace(/\s+/g, ' ').trim();
-    if (/([a-zA-Z])\1{3,}/i.test(trimmed)) return '';
-    if (!trimmed.includes(' ') && trimmed.length > 6) {
-      const vowels = (trimmed.match(/[aeiouy]/gi) || []).length;
-      if (vowels / trimmed.length < 0.15) return '';
-    }
-    return trimmed;
+    return raw.replace(/\s+/g, ' ').trim();
   };
 
   // Speak text with Arthur's baritone voice
@@ -159,12 +164,24 @@ export function ChatbotWidget() {
 
   // Send message in standard chat mode
   const handleSendMessage = async (textToSend?: string, wasVoiceInput: boolean = false) => {
+    // Stop any active microphone recording immediately
+    if (isRecordingInputMic) {
+      if (inputRecognitionRef.current) {
+        try { inputRecognitionRef.current.stop(); } catch (e) {}
+      }
+      setIsRecordingInputMic(false);
+    }
+    if (inputSilenceTimerRef.current) {
+      clearTimeout(inputSilenceTimerRef.current);
+    }
+
     const query = (textToSend || inputValue).trim();
     if (!query || isTyping) return;
 
-    if (wasVoiceInput) {
-      setSoundEnabled(true);
-      try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+    // When the user communicates via text, stop any playing audio so it remains quiet
+    if (!wasVoiceInput) {
+      stopAllSpeech();
+      setIsSpeakingId(null);
     }
 
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -177,7 +194,8 @@ export function ChatbotWidget() {
 
     // Immutable append: never wipe previous messages
     setMessages(prev => [...prev, newUserMsg]);
-    if (!textToSend) setInputValue('');
+    setInputValue('');
+    micSpokenRef.current = '';
     setIsTyping(true);
 
     try {
@@ -225,9 +243,10 @@ export function ChatbotWidget() {
 
       setMessages(prev => [...prev, newBotMsg]);
 
-      if (soundEnabled || wasVoiceInput) {
-        setSoundEnabled(true);
-        try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+      // TEXT ONLY REQUIREMENT:
+      // When the user communicates by text, Arthur responds with TEXT ONLY.
+      // Arthur ONLY speaks voice aloud if the user spoke to him using the microphone (wasVoiceInput === true).
+      if (wasVoiceInput) {
         speakWithArthur(cleanText, botMsgId);
       }
     } catch (err) {
@@ -250,87 +269,145 @@ export function ChatbotWidget() {
   };
 
   // Microphone speech-to-text for standard chat input box
-  const toggleInputMic = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert("Speech recognition is not supported on this browser. Please type your message.");
+  const toggleInputMic = async () => {
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
+      alert("Microphone speech recognition is not supported in this browser. Please type your message.");
       return;
     }
 
+    // If currently recording, user clicked to stop and send
     if (isRecordingInputMic) {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
+      if (inputSilenceTimerRef.current) clearTimeout(inputSilenceTimerRef.current);
+      if (inputRecognitionRef.current) {
+        try { inputRecognitionRef.current.stop(); } catch (e) {}
       }
       setIsRecordingInputMic(false);
+      
+      const spoken = (micSpokenRef.current || inputValue).trim();
+      if (spoken && !hasSentInputMicRef.current) {
+        hasSentInputMicRef.current = true;
+        micSpokenRef.current = '';
+        setInputValue('');
+        handleSendMessage(spoken, true);
+      }
       return;
     }
 
     unlockAudio();
-    setSoundEnabled(true);
-    try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
+    stopAllSpeech();
+
+    // Trigger browser microphone permission check
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        console.warn("Microphone access prompt:", err);
+      }
+    }
 
     try {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
+      const recognition = new SpeechRecognitionClass();
+      inputRecognitionRef.current = recognition;
       recognition.lang = 'en-US';
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
-      let latestSpoken = '';
+      hasSentInputMicRef.current = false;
+      micSpokenRef.current = '';
 
       recognition.onstart = () => {
         setIsRecordingInputMic(true);
+        hasSentInputMicRef.current = false;
       };
 
       recognition.onresult = (event: any) => {
-        let transcript = '';
+        let finalTrans = '';
+        let interimTrans = '';
         for (let i = 0; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalTrans += res[0].transcript + ' ';
+          } else {
+            interimTrans += res[0].transcript + ' ';
+          }
         }
-        const cleaned = cleanSpeechTranscript(transcript);
-        if (cleaned) {
-          latestSpoken = cleaned;
-          setInputValue(cleaned);
+        const currentText = (finalTrans + interimTrans).replace(/\s+/g, ' ').trim();
+        if (currentText) {
+          micSpokenRef.current = currentText;
+          setInputValue(currentText);
         }
+
+        // Auto-send when user pauses speaking for 1.4 seconds
+        if (inputSilenceTimerRef.current) clearTimeout(inputSilenceTimerRef.current);
+        inputSilenceTimerRef.current = setTimeout(() => {
+          const toSend = (micSpokenRef.current || currentText).trim();
+          if (toSend && !hasSentInputMicRef.current) {
+            hasSentInputMicRef.current = true;
+            micSpokenRef.current = '';
+            setInputValue('');
+            try { recognition.stop(); } catch (e) {}
+            setIsRecordingInputMic(false);
+            handleSendMessage(toSend, true);
+          }
+        }, 1400);
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
+        console.warn("Input mic error:", event?.error);
+        if (event?.error === 'not-allowed') {
+          alert("Microphone permission was denied. Please allow microphone permissions in your browser settings.");
+        }
         setIsRecordingInputMic(false);
+        if (inputSilenceTimerRef.current) clearTimeout(inputSilenceTimerRef.current);
+        const toSend = micSpokenRef.current.trim();
+        if (toSend && !hasSentInputMicRef.current) {
+          hasSentInputMicRef.current = true;
+          micSpokenRef.current = '';
+          setInputValue('');
+          handleSendMessage(toSend, true);
+        }
       };
 
       recognition.onend = () => {
         setIsRecordingInputMic(false);
-        if (latestSpoken.trim()) {
-          const spoken = latestSpoken.trim();
+        if (inputSilenceTimerRef.current) clearTimeout(inputSilenceTimerRef.current);
+        const toSend = micSpokenRef.current.trim();
+        if (toSend && !hasSentInputMicRef.current) {
+          hasSentInputMicRef.current = true;
+          micSpokenRef.current = '';
           setInputValue('');
-          handleSendMessage(spoken, true);
+          handleSendMessage(toSend, true);
         }
       };
 
       recognition.start();
     } catch (e) {
+      console.error("Failed to start speech recognition:", e);
       setIsRecordingInputMic(false);
     }
   };
 
   // --- Live Voice Call with Arthur Mode ---
-  const startLiveVoiceCall = () => {
+  const startLiveVoiceCall = async () => {
     unlockAudio();
     stopAllSpeech();
     setActiveMode('voice-call');
+    activeModeRef.current = 'voice-call';
     setCallDuration(0);
     setInterimVoiceText('');
+    isCallMicMutedRef.current = false;
 
     if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => {
       setCallDuration(prev => prev + 1);
     }, 1000);
 
-    // Initial greeting in call if user hasn't talked yet
+    // Initial greeting in call
     const callGreeting = "Hello! Arthur here, your executive AI concierge. How can Quorik assist your business today?";
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    // Check if we should append a call start notice
     const callStartMsg: Message = {
       id: `call-start-${Date.now()}`,
       text: callGreeting,
@@ -340,12 +417,17 @@ export function ChatbotWidget() {
     setMessages(prev => [...prev, callStartMsg]);
 
     setIsAiSpeakingCall(true);
+    isAiSpeakingCallRef.current = true;
     speakWithArthur(
       callGreeting, 
       undefined, 
-      () => setIsAiSpeakingCall(true), 
+      () => {
+        setIsAiSpeakingCall(true);
+        isAiSpeakingCallRef.current = true;
+      }, 
       () => {
         setIsAiSpeakingCall(false);
+        isAiSpeakingCallRef.current = false;
         startCallMicListening();
       }
     );
@@ -357,27 +439,53 @@ export function ChatbotWidget() {
       clearInterval(callTimerRef.current);
       callTimerRef.current = null;
     }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+    if (callRecognitionRef.current) {
+      try { callRecognitionRef.current.stop(); } catch (e) {}
+      callRecognitionRef.current = null;
+    }
+    if (callSilenceTimerRef.current) {
+      clearTimeout(callSilenceTimerRef.current);
     }
     setIsMicActive(false);
     setIsAiSpeakingCall(false);
     setIsCallThinking(false);
+    isAiSpeakingCallRef.current = false;
+    isCallThinkingRef.current = false;
+    activeModeRef.current = 'chat';
     setActiveMode('chat');
   };
 
-  const startCallMicListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+  const startCallMicListening = async () => {
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
       return;
     }
 
+    if (activeModeRef.current !== 'voice-call' || isAiSpeakingCallRef.current || isCallThinkingRef.current || isCallMicMutedRef.current) {
+      return;
+    }
+
+    // Stop previous instance if exists
+    if (callRecognitionRef.current) {
+      try { callRecognitionRef.current.stop(); } catch (e) {}
+      callRecognitionRef.current = null;
+    }
+
+    unlockAudio();
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {}
+    }
+
     try {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
+      const recognition = new SpeechRecognitionClass();
+      callRecognitionRef.current = recognition;
       recognition.lang = 'en-US';
       recognition.continuous = true;
       recognition.interimResults = true;
+
+      callVoiceTranscriptRef.current = '';
 
       recognition.onstart = () => {
         setIsMicActive(true);
@@ -391,37 +499,59 @@ export function ChatbotWidget() {
           if (event.results[i].isFinal) {
             finalTrans += event.results[i][0].transcript + ' ';
           } else {
-            interim += event.results[i][0].transcript;
+            interim += event.results[i][0].transcript + ' ';
           }
         }
-        const raw = (finalTrans + interim).trim();
-        const cleaned = cleanSpeechTranscript(raw);
-        if (cleaned) {
-          setInterimVoiceText(cleaned);
+        const raw = (finalTrans + interim).replace(/\s+/g, ' ').trim();
+        if (raw) {
+          callVoiceTranscriptRef.current = raw;
+          setInterimVoiceText(raw);
         }
 
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = setTimeout(() => {
-          const toSend = cleanSpeechTranscript(raw || finalTrans);
-          if (toSend && toSend.length > 2) {
+        if (callSilenceTimerRef.current) clearTimeout(callSilenceTimerRef.current);
+        callSilenceTimerRef.current = setTimeout(() => {
+          const toSend = (callVoiceTranscriptRef.current || raw || finalTrans).trim();
+          if (toSend && toSend.length > 1) {
             try { recognition.stop(); } catch (e) {}
             setIsMicActive(false);
             setInterimVoiceText('');
+            callVoiceTranscriptRef.current = '';
             sendCallTurn(toSend);
           }
-        }, 800);
+        }, 1400);
       };
 
-      recognition.onerror = () => {
-        setIsMicActive(false);
+      recognition.onerror = (event: any) => {
+        console.warn("Call mic recognition notice:", event?.error);
+        if (event?.error === 'not-allowed') {
+          setIsMicActive(false);
+          return;
+        }
+        // Silence or temporary glitch: automatically keep listening if still in voice call
+        if (activeModeRef.current === 'voice-call' && !isAiSpeakingCallRef.current && !isCallThinkingRef.current && !isCallMicMutedRef.current) {
+          setTimeout(() => {
+            if (activeModeRef.current === 'voice-call' && !isAiSpeakingCallRef.current && !isCallThinkingRef.current && !isCallMicMutedRef.current) {
+              startCallMicListening();
+            }
+          }, 300);
+        }
       };
 
       recognition.onend = () => {
         setIsMicActive(false);
+        // If the call is still active and Arthur is not speaking/thinking, automatically restart listening so the line never dies
+        if (activeModeRef.current === 'voice-call' && !isAiSpeakingCallRef.current && !isCallThinkingRef.current && !isCallMicMutedRef.current) {
+          setTimeout(() => {
+            if (activeModeRef.current === 'voice-call' && !isAiSpeakingCallRef.current && !isCallThinkingRef.current && !isCallMicMutedRef.current) {
+              startCallMicListening();
+            }
+          }, 200);
+        }
       };
 
       recognition.start();
     } catch (e) {
+      console.error("Call mic start error:", e);
       setIsMicActive(false);
     }
   };
@@ -439,6 +569,7 @@ export function ChatbotWidget() {
 
     setMessages(prev => [...prev, userMsg]);
     setIsCallThinking(true);
+    isCallThinkingRef.current = true;
 
     try {
       const history = messages.map(m => ({
@@ -459,6 +590,7 @@ export function ChatbotWidget() {
 
       const data = await res.json();
       setIsCallThinking(false);
+      isCallThinkingRef.current = false;
 
       const aiReply = data.aiSpeechText || "Right, so... we can definitely assist you with custom engineering and AI voice agents. Would you like to check our pricing packages?";
       
@@ -471,18 +603,24 @@ export function ChatbotWidget() {
 
       setMessages(prev => [...prev, botMsg]);
       setIsAiSpeakingCall(true);
+      isAiSpeakingCallRef.current = true;
 
       speakWithArthur(
         aiReply, 
         undefined, 
-        () => setIsAiSpeakingCall(true), 
+        () => {
+          setIsAiSpeakingCall(true);
+          isAiSpeakingCallRef.current = true;
+        }, 
         () => {
           setIsAiSpeakingCall(false);
+          isAiSpeakingCallRef.current = false;
           startCallMicListening();
         }
       );
     } catch (e) {
       setIsCallThinking(false);
+      isCallThinkingRef.current = false;
       const fallbackReply = "We can certainly help you with custom web development and AI receptionists. Shall I book a consultation for you?";
       setMessages(prev => [...prev, {
         id: `call-bot-${Date.now()}`,
@@ -491,12 +629,17 @@ export function ChatbotWidget() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
       setIsAiSpeakingCall(true);
+      isAiSpeakingCallRef.current = true;
       speakWithArthur(
         fallbackReply, 
         undefined, 
-        () => setIsAiSpeakingCall(true), 
+        () => {
+          setIsAiSpeakingCall(true);
+          isAiSpeakingCallRef.current = true;
+        }, 
         () => {
           setIsAiSpeakingCall(false);
+          isAiSpeakingCallRef.current = false;
           startCallMicListening();
         }
       );
@@ -537,8 +680,6 @@ export function ChatbotWidget() {
               <div 
                 onClick={() => {
                   unlockAudio();
-                  setSoundEnabled(true);
-                  try { localStorage.setItem('quorik_sound_enabled', 'true'); } catch (e) {}
                   const lastBot = [...messages].reverse().find(m => m.sender === 'bot');
                   if (lastBot) {
                     speakWithArthur(lastBot.text, lastBot.id);
@@ -716,9 +857,11 @@ export function ChatbotWidget() {
                   <button
                     onClick={() => {
                       if (isMicActive) {
-                        if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
+                        isCallMicMutedRef.current = true;
+                        if (callRecognitionRef.current) try { callRecognitionRef.current.stop(); } catch(e){}
                         setIsMicActive(false);
                       } else {
+                        isCallMicMutedRef.current = false;
                         startCallMicListening();
                       }
                     }}
@@ -874,10 +1017,10 @@ export function ChatbotWidget() {
                       type="text"
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
-                      placeholder={isRecordingInputMic ? "Listening to your voice..." : "Message Arthur or ask a question..."}
+                      placeholder={isRecordingInputMic ? "Listening to your voice... (Speak now)" : "Message Arthur or ask a question..."}
                       className={`w-full bg-[#121829] border rounded-full py-2.5 pl-4 pr-20 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors ${
                         isRecordingInputMic 
-                          ? 'border-emerald-500/60 bg-emerald-950/20 text-emerald-200' 
+                          ? 'border-emerald-500/80 bg-emerald-950/30 text-emerald-200 ring-1 ring-emerald-500/50' 
                           : 'border-white/15 focus:border-brand-blue/60'
                       }`}
                     />
@@ -886,12 +1029,12 @@ export function ChatbotWidget() {
                     <button
                       type="button"
                       onClick={toggleInputMic}
-                      className={`absolute right-10 w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                      className={`absolute right-10 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                         isRecordingInputMic 
-                          ? 'bg-emerald-500 text-white animate-pulse' 
+                          ? 'bg-emerald-500 text-white animate-pulse ring-2 ring-emerald-400/60 shadow-lg shadow-emerald-500/30' 
                           : 'text-gray-400 hover:text-cyan-400 hover:bg-white/5'
                       }`}
-                      title={isRecordingInputMic ? "Stop recording" : "Speak your message to Arthur"}
+                      title={isRecordingInputMic ? "Tap to finish speaking & send" : "Speak to Arthur with microphone"}
                     >
                       <Mic className="w-3.5 h-3.5" />
                     </button>

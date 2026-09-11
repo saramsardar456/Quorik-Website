@@ -2029,10 +2029,10 @@ ${message}
     config?: any;
     primaryModel?: string;
   }) {
-    // Ultra-low latency model sequence (<800ms) with high availability
+    // High availability sequence: fast, resilient models capable of answering complex/tricky queries
     const modelsToTry = [
       options.primaryModel || "gemini-3.5-flash-lite",
-      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
       "gemini-3.6-flash"
     ];
     const uniqueModels = Array.from(new Set(modelsToTry));
@@ -2046,7 +2046,7 @@ ${message}
           config: options.config
         });
         const attemptTimeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Model ${model} timed out after 4s`)), 4000)
+          setTimeout(() => reject(new Error(`Model ${model} timed out after 8s`)), 8000)
         );
         const response: any = await Promise.race([attemptPromise, attemptTimeout]);
         if (response && response.text) {
@@ -2347,17 +2347,22 @@ CORE OBJECTIVES & PERSONA RULES:
       } else {
         let toneInstruction = "Tone: Professional, welcoming, and concise.";
         if (accent === "arthur") {
-          toneInstruction = "Language & Persona: Professional Corporate Voice (Arthur Persona). You MUST start your response with 'Hello!' or 'Welcome!'. Reply in clear, articulate executive English as Arthur, Quorik's AI Voice Concierge.";
+          toneInstruction = "Language & Persona: Professional Corporate Voice (Arthur Persona). Reply in clear, articulate executive English as Arthur, Quorik's AI Voice Concierge. Answer questions directly without forced greetings if a conversation is underway.";
         } else if (accent === "us") {
-          toneInstruction = "Language & Persona: Professional American English (US Executive). You MUST start greetings with 'Hello!' or 'Welcome!'. Reply strictly in clean, direct American English with an executive, metrics-driven tone.";
+          toneInstruction = "Language & Persona: Professional American English (US Executive). Reply strictly in clean, direct American English with an executive, metrics-driven tone. Answer questions directly without introductory filler.";
         } else if (accent === "uk") {
-          toneInstruction = "Language & Persona: Refined British English. You MUST start greetings with 'Good day!' or 'Hello!'. Polished, articulate, precise, and polite.";
+          toneInstruction = "Language & Persona: Refined British English. Polished, articulate, precise, and polite. Answer questions directly.";
         } else if (accent === "casual") {
-          toneInstruction = "Language & Persona: Casual Tech English. You MUST start greetings with 'Hey!' or 'Yo!'. Energetic, enthusiastic startup tech vibe.";
+          toneInstruction = "Language & Persona: Casual Tech English. Energetic, enthusiastic startup tech vibe. Answer questions directly.";
         }
 
         systemInstruction = `You are Quorik AI, an intelligent assistant for Quorik (founded by Shehram Meellu, Founder & CEO).
 ${toneInstruction}
+
+CONVERSATIONAL CONTINUITY & DIRECT ANSWERS:
+- If the visitor asks a specific, tricky, technical, or edge-case question (such as integrations, uptime, architecture, pricing nuances, security, or compliance), DO NOT start with "Hello!" or "Welcome!". Jump directly into answering the question with deep technical competence, precision, and clarity.
+- Only provide a greeting if the user's message was purely a greeting (like "hi" or "hello") with no previous chat history.
+- Never repeat greetings in the middle of an ongoing conversation.
 
 FOUNDER & LEADERSHIP INFORMATION (5 CORE COUNCIL SPECIALISTS):
 - 1. Founder & CEO / Lead Developer: Shehram Meellu is the Founder & CEO of Quorik. He is a senior AI engineering architect, full-stack software engineer, and digital growth executive. Tagline: "Building Scalable Solutions. Driving Innovation." Under his leadership, Quorik builds robust digital systems, multi-lingual conversational AI, and automated lead pipelines for businesses worldwide.
@@ -2749,7 +2754,9 @@ CRITICAL RULES:
 2. DO NOT repeat or echo the caller's question or statement back to them. Answer directly and take action.
 3. Start naturally with subtle verbal nods: "Right...", "Yeah, absolutely...", "Gotcha...", "Well...".
 4. Use ellipses (...) for natural human breath pauses.
-5. Banned: "How may I assist you today?", "I would be delighted", "As an AI". If the user input is gibberish, unreadable, or incoherent typing/speech, politely ask them to repeat or clarify what service they are looking for.
+5. NEVER repeat greetings ("Hello", "Hi, this is Arthur...", "Thanks for calling Quorik...") if the conversation is ongoing or if the caller asked a specific question.
+6. TRICKY / TECHNICAL / COMPLEX QUESTIONS: When the caller asks a tricky question (such as handling server crashes, 3am downtime, CRM syncs, HIPAA/compliance, high call concurrency, or edge cases), ANSWER DIRECTLY with high technical intelligence, confidence, and concrete systems capability. Never dodge or return a generic greeting!
+7. Banned: "How may I assist you today?", "I would be delighted", "As an AI". If the user input is gibberish, unreadable, or incoherent typing/speech, politely ask them to repeat or clarify what service they are looking for.
 Key Services: ${companyServices}.
 ${founderDetailInformation}
 ${pricingInformation}
@@ -3027,9 +3034,15 @@ Respond ONLY in valid JSON matching this schema:
           };
         }
 
-        // Inbound Greeting Check (e.g. "hi", "hello", "hey", "how are you")
-        const isSimpleGreeting = /^(hi|hello|hey|hey there|good morning|good afternoon|howdy|yo|greetings|how are you|how's it going)[\s.?!]*$/i.test(currentLower) ||
-          /^(hi|hello|hey)\s+(arthur|zephyr|oliver|clara|there|quorik)/i.test(currentLower);
+        // Inbound Greeting Check: strictly ONLY for pure opening greetings with no prior history and no follow-up question
+        const isHistoryEmpty = !history || history.length === 0;
+        const containsQuestionOrTopic = currentLower.includes('?') ||
+          /\b(what|how|why|can|could|would|should|do|does|did|is|are|tell|explain|pricing|cost|rate|build|server|integ|support|crash|bug|down|team|shehram|roof|leak|quote|estimate)\b/i.test(currentLower);
+
+        const isSimpleGreeting = isHistoryEmpty && !containsQuestionOrTopic && (
+          /^(hi|hello|hey|hey there|good morning|good afternoon|howdy|yo|greetings|how are you|how's it going)[\s.?!]*$/i.test(currentLower) ||
+          /^(hi|hello|hey)\s+(arthur|zephyr|oliver|clara|there|quorik)[\s.?!]*$/i.test(currentLower)
+        );
 
         if (isSimpleGreeting) {
           const greetingMsg = customCompany?.name
@@ -3052,11 +3065,23 @@ Respond ONLY in valid JSON matching this schema:
           };
         }
 
-        const generalMsg = customCompany?.name
-          ? (isRooferOrTrade
-              ? `Hey, thanks for reaching out to ${cName}! This is ${pName} on the digital line. Are you looking to fix an active leak from the recent storm, or do you just need a quick estimate on a roof repair?`
-              : `Hey, thanks for reaching out to ${cName}! This is ${pName} on the line. Are you looking for a quick estimate, or did you want to schedule an appointment today?`)
-          : `Hey, thanks for reaching out to ${cName}! This is ${pName} on the line. Are you looking to build a custom high-performance website, or plug in a 24/7 AI voice agent for your business?`;
+        // Contextual fallback: if ongoing conversation or a question was asked, NEVER repeat opening greetings!
+        const isOngoingOrQuestion = !isHistoryEmpty || containsQuestionOrTopic;
+        let generalMsg = "";
+
+        if (isOngoingOrQuestion) {
+          generalMsg = customCompany?.name
+            ? (isRooferOrTrade
+                ? `Right... that's a great question regarding ${cName}. Our team can definitely handle that for you, from inspection to full repair. Would you like to schedule a quick inspection so we can review the exact details?`
+                : `Right... that's a great question regarding ${cName}. We build custom, dependable solutions specifically tailored to that. Would you like to book a quick priority consultation so we can go through your requirements?`)
+            : `Right, so... Quorik engineers custom enterprise systems with automated failover, zero-latency WebRTC voice streams, and deep CRM synchronizations. Would you like to book a quick 15-minute discovery consultation with Shehram Meellu and our engineering team to review the exact technical specifications?`;
+        } else {
+          generalMsg = customCompany?.name
+            ? (isRooferOrTrade
+                ? `Hey, thanks for reaching out to ${cName}! This is ${pName} on the digital line. Are you looking to fix an active leak from the recent storm, or do you just need a quick estimate on a roof repair?`
+                : `Hey, thanks for reaching out to ${cName}! This is ${pName} on the line. Are you looking for a quick estimate, or did you want to schedule an appointment today?`)
+            : `Hey, thanks for reaching out to ${cName}! This is ${pName} on the line. Are you looking to build a custom high-performance website, or plug in a 24/7 AI voice agent for your business?`;
+        }
 
         return {
           aiSpeechText: generalMsg,
@@ -3180,6 +3205,20 @@ Respond ONLY in valid JSON matching this schema:
 
       // Humanization & Natural Cadence Post-Processing
       let finalSpeechText = (aiSpeechText || fallbackData.aiSpeechText || "").trim();
+
+      // If conversation has prior turns OR if the user asked a question, strip any redundant intro greetings returned by the AI
+      const isPriorHistory = Array.isArray(conversationHistory) && conversationHistory.length > 0;
+      const isQuestionQuery = normalizedUserQuery.includes('?') ||
+        /\b(what|how|why|can|could|would|should|do|does|did|is|are|tell|explain|pricing|cost|server|crash|integ|support)\b/i.test(normalizedUserQuery);
+
+      if (isPriorHistory || isQuestionQuery) {
+        finalSpeechText = finalSpeechText
+          .replace(/^(hi|hello|hey there|hey|good morning|good afternoon)[,.]\s*(this is [a-z0-9\s]+(for|at|from)\s+[a-z0-9\s]+[.!,]?)?\s*/i, "")
+          .replace(/^this is [a-z0-9\s]+(for|at|from)\s+[a-z0-9\s]+[.!,]\s*/i, "")
+          .replace(/^thanks for (calling|reaching out to) [a-z0-9\s]+[.!,]\s*/i, "")
+          .replace(/^thank you for (calling|reaching out to) [a-z0-9\s]+[.!,]\s*/i, "")
+          .trim();
+      }
 
       // Eliminate any robotic phrases that might slip through
       finalSpeechText = finalSpeechText
@@ -3322,13 +3361,23 @@ Respond ONLY in valid JSON matching this schema:
   }
 
   // Resolves the premier human ElevenLabs voice ID (Arthur Male & Clara Female)
-  function resolveElevenLabsVoiceId(gender: string = 'male', personaId: string = 'arthur', voiceName: string = ''): string {
-    if (process.env.ELEVENLABS_VOICE_ID) {
-      return process.env.ELEVENLABS_VOICE_ID;
+  function resolveElevenLabsVoiceId(gender: string = 'male', personaId: string = 'arthur', voiceName: string = '', explicitVoiceId?: string): string {
+    if (explicitVoiceId && explicitVoiceId.trim() && /^[a-zA-Z0-9_-]{15,40}$/.test(explicitVoiceId.trim())) {
+      return explicitVoiceId.trim();
+    }
+    // If gender or personaId is passed as a 20+ character ElevenLabs voice ID
+    if (gender && /^[a-zA-Z0-9_-]{18,40}$/.test(gender.trim())) {
+      return gender.trim();
+    }
+    if (personaId && /^[a-zA-Z0-9_-]{18,40}$/.test(personaId.trim())) {
+      return personaId.trim();
+    }
+    if (process.env.ELEVENLABS_VOICE_ID && process.env.ELEVENLABS_VOICE_ID.trim()) {
+      return process.env.ELEVENLABS_VOICE_ID.trim();
     }
     const gLower = (gender || '').toLowerCase();
     const pLower = (personaId || '').toLowerCase();
-    const isFemale = gLower.includes('female') || pLower.includes('warm') || pLower === 'clara' || pLower === 'zephyr' || pLower === 'aria' || pLower === 'natasha';
+    const isFemale = gLower.includes('female') || pLower.includes('warm') || pLower === 'clara' || pLower === 'zephyr' || pLower === 'aria' || pLower === 'natasha' || pLower.includes('female');
     if (isFemale) {
       // Rachel (Calm, articulate, warm American female voice)
       return '21m00Tcm4TlvDq8ikWAM';
@@ -3337,8 +3386,8 @@ Respond ONLY in valid JSON matching this schema:
     return 'pNInz6obpgDQGcFmaJgB';
   }
 
-  // Track ElevenLabs API key validity so invalid/unauthorized keys don't spam 401 errors
-  let elevenLabsKeyValid = true;
+  // Track ElevenLabs API key validity with a 60s cooldown instead of permanent lock-out
+  let lastElevenLabsFailureTime = 0;
   let lastCheckedElevenLabsKey = '';
 
   function isElevenLabsAvailable(): boolean {
@@ -3346,9 +3395,14 @@ Respond ONLY in valid JSON matching this schema:
     if (!rawKey) return false;
     if (rawKey !== lastCheckedElevenLabsKey) {
       lastCheckedElevenLabsKey = rawKey;
-      elevenLabsKeyValid = true; // reset test for updated key
+      lastElevenLabsFailureTime = 0; // reset test for updated key
+      return true;
     }
-    return elevenLabsKeyValid;
+    // If a 401/403 occurred, retry after 60s in case user updated API key permissions in ElevenLabs console
+    if (Date.now() - lastElevenLabsFailureTime < 60000) {
+      return false;
+    }
+    return true;
   }
 
   // Ultra-Low Latency ElevenLabs Human Voice Synthesis with Studio 128kbps Fidelity
@@ -3357,17 +3411,18 @@ Respond ONLY in valid JSON matching this schema:
     voiceName: string = 'en-US-GuyNeural', 
     stability = 0.50, 
     gender = 'male', 
-    personaId = 'arthur'
+    personaId = 'arthur',
+    explicitVoiceId?: string
   ): Promise<{ buffer: Buffer; voiceId: string }> {
     const apiKey = (process.env.ELEVENLABS_API_KEY || '').trim();
     if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
 
-    const voiceId = resolveElevenLabsVoiceId(gender, personaId, voiceName);
+    const voiceId = resolveElevenLabsVoiceId(gender, personaId, voiceName, explicitVoiceId);
 
     await acquireElevenLabsTicket();
     try {
-      // eleven_turbo_v2_5 + mp3_44100_128 delivers studio broadcast fidelity with ~200ms latency
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?optimize_streaming_latency=3&output_format=mp3_44100_128`, {
+      // Primary attempt: eleven_turbo_v2_5 + latency optimization for fast voice agent turns
+      let response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?optimize_streaming_latency=3&output_format=mp3_44100_128`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3384,9 +3439,29 @@ Respond ONLY in valid JSON matching this schema:
           }
         })
       });
+
+      // If turbo model is not permitted on user tier (400 bad request / model not found), fallback to multilingual v2
+      if (!response.ok && (response.status === 400 || response.status === 404)) {
+        response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'xi-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            text,
+            model_id: 'eleven_multilingual_v2',
+            voice_settings: {
+              stability: 0.50,
+              similarity_boost: 0.80
+            }
+          })
+        });
+      }
+
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          elevenLabsKeyValid = false;
+          lastElevenLabsFailureTime = Date.now();
         }
         const errText = await response.text().catch(() => '');
         throw new Error(`ElevenLabs status ${response.status}: ${errText}`);
@@ -3548,6 +3623,7 @@ Respond ONLY in valid JSON matching this schema:
       const gender = (req.query.gender as string) || 'male';
       const personaId = (req.query.personaId as string) || 'arthur';
       const stability = parseFloat((req.query.stability as string) || '0.50') || 0.50;
+      const explicitVoiceId = (req.query.voiceId as string) || '';
 
       if (!text || typeof text !== 'string') {
         return res.status(400).send("Text query parameter is required");
@@ -3559,7 +3635,7 @@ Respond ONLY in valid JSON matching this schema:
       }
 
       const settings = resolveVoiceSettings(gender, personaId, stability);
-      const cacheKey = `tts-stream-v4:${gender}:${personaId}:${cleanText}`;
+      const cacheKey = `tts-stream-v4:${gender}:${personaId}:${explicitVoiceId}:${cleanText}`;
 
       if (ttsCache.has(cacheKey)) {
         const cached = ttsCache.get(cacheKey)!;
@@ -3573,12 +3649,12 @@ Respond ONLY in valid JSON matching this schema:
       }
 
       let audioBuffer: Buffer | null = null;
-      let usedVoiceId = resolveElevenLabsVoiceId(gender, personaId, settings.voiceName);
+      let usedVoiceId = resolveElevenLabsVoiceId(gender, personaId, settings.voiceName, explicitVoiceId);
       let usedEngine = 'elevenlabs-turbo-v2_5';
 
       if (isElevenLabsAvailable()) {
         try {
-          const res = await fetchElevenLabsAudio(cleanText, settings.voiceName, stability, gender, personaId);
+          const res = await fetchElevenLabsAudio(cleanText, settings.voiceName, stability, gender, personaId, explicitVoiceId);
           audioBuffer = res.buffer;
           usedVoiceId = res.voiceId;
         } catch (elevenErr: any) {
@@ -3622,7 +3698,7 @@ Respond ONLY in valid JSON matching this schema:
   // Neural TTS Endpoint: Arthur & Custom Demo Builder Voice
   app.post("/api/tts", async (req: express.Request, res: express.Response) => {
     try {
-      const { text, gender = 'male', personaId = 'arthur', stability = 0.50 } = req.body;
+      const { text, gender = 'male', personaId = 'arthur', stability = 0.50, voiceId: explicitVoiceId } = req.body;
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ error: "Text is required" });
       }
@@ -3633,7 +3709,7 @@ Respond ONLY in valid JSON matching this schema:
       }
 
       const settings = resolveVoiceSettings(gender, personaId, stability);
-      const cacheKey = `tts-v4:${gender}:${personaId}:${cleanText}`;
+      const cacheKey = `tts-v4:${gender}:${personaId}:${explicitVoiceId || ''}:${cleanText}`;
       if (ttsCache.has(cacheKey)) {
         const cached = ttsCache.get(cacheKey)!;
         return res.json({
@@ -3644,18 +3720,18 @@ Respond ONLY in valid JSON matching this schema:
           gender: cached.gender || gender,
           stability: 0.50,
           engine: cached.engine || 'elevenlabs-turbo-v2_5',
-          voiceId: cached.voiceId || resolveElevenLabsVoiceId(gender, personaId, settings.voiceName),
+          voiceId: cached.voiceId || resolveElevenLabsVoiceId(gender, personaId, settings.voiceName, explicitVoiceId),
           cached: true
         });
       }
 
       let audioBuffer: Buffer | null = null;
       let usedEngine = 'elevenlabs-turbo-v2_5';
-      let usedVoiceId = resolveElevenLabsVoiceId(gender, personaId, settings.voiceName);
+      let usedVoiceId = resolveElevenLabsVoiceId(gender, personaId, settings.voiceName, explicitVoiceId);
 
       if (isElevenLabsAvailable()) {
         try {
-          const elevenRes = await fetchElevenLabsAudio(cleanText, settings.voiceName, stability, gender, personaId);
+          const elevenRes = await fetchElevenLabsAudio(cleanText, settings.voiceName, stability, gender, personaId, explicitVoiceId);
           audioBuffer = elevenRes.buffer;
           usedVoiceId = elevenRes.voiceId;
           usedEngine = 'elevenlabs-turbo-v2_5';

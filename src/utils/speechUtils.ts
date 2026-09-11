@@ -390,7 +390,7 @@ export async function speakSpeech(
   const playDirectStreamUrl = () => {
     if (thisToken !== currentSpeechToken) return;
     try {
-      const streamUrl = `/api/tts/stream?text=${encodeURIComponent(cleanText)}&gender=${encodeURIComponent(rawGender)}&personaId=${encodeURIComponent(personaId)}&stability=${stability}`;
+      const streamUrl = `/api/tts/stream?text=${encodeURIComponent(cleanText)}&gender=${encodeURIComponent(rawGender)}&personaId=${encodeURIComponent(personaId)}&stability=${stability}&voiceId=${encodeURIComponent(rawGender)}`;
       const streamAudio = new Audio(streamUrl);
       activeHtmlAudio = streamAudio;
 
@@ -449,7 +449,8 @@ export async function speakSpeech(
           text: cleanText,
           gender: rawGender,
           personaId,
-          stability
+          stability,
+          voiceId: rawGender
         })
       });
 

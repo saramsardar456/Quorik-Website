@@ -307,13 +307,13 @@
   }
 
   function getInitialGreeting() {
-    const business = clientData?.businessName || 'Quorik Google Ads';
+    const business = clientData?.businessName || 'Quorik';
     const agent = clientData?.voiceAgentName || 'Arthur (Executive Concierge)';
     return [
       {
         id: 'msg-init-1',
         sender: 'ai',
-        text: `Hello and welcome! 👋 I am **${agent}**, the 24/7 AI Voice & Strategy Concierge for **${business}**.\n\nYou can speak with me live voice-to-voice or type below to analyze performance, calculate your ROI, or schedule a strategy consultation!`,
+        text: `Hello and welcome! 👋 I am **${agent}**, the 24/7 AI Voice & Chat Concierge for **${business}**.\n\nYou can speak with me live voice-to-voice or type below to explore custom web applications, autonomous AI voice agents, or schedule a priority consultation!`,
         time: 'Just now'
       }
     ];
@@ -452,25 +452,25 @@
 
   // Render Interactive Card inside message
   function renderCardHTML(type) {
-    const business = clientData?.businessName || 'Quorik Google Ads';
-    const email = clientData?.email || 'saramsardar456@gmail.com';
+    const business = clientData?.businessName || 'Quorik';
+    const email = clientData?.email || 'info@quoriksystems.com';
     const phone = clientData?.phone || '+92 370 0146156';
 
     if (type === 'ROI') {
       return `
         <div style="margin-top:10px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.25);border-radius:12px;padding:12px;color:#fff;">
           <div style="font-size:11px;font-weight:700;color:#00E5FF;display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span>📈</span> ROI & Conversion Projection
+            <span>📈</span> ROI & Revenue Projection
           </div>
           <div style="font-size:11px;color:#94A3B8;line-height:1.4;margin-bottom:10px;">
-            Targeting a <strong>3.8x - 5.5x ROAS</strong> on Google Ads with dedicated campaign optimization, high-converting landing pages, and AI voice follow-ups.
+            Targeting a <strong>300% - 500% ROI</strong> through bespoke high-speed web engineering, automated lead capture, and zero-latency 24/7 AI voice receptionists that recover lost calls.
           </div>
           <div style="display:flex;gap:6px;">
-            <button class="q-card-action-btn" data-query="Calculate my exact projected ROAS with $3,000 monthly spend" style="flex:1;background:#00E5FF;border:none;color:#000;font-weight:700;font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;">
-              Run $3k Spend Model
+            <button class="q-card-action-btn" data-query="Calculate my projected ROI with 24/7 AI voice agents and a custom website" style="flex:1;background:#00E5FF;border:none;color:#000;font-weight:700;font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;">
+              Run ROI Calculator
             </button>
-            <button class="q-card-action-btn" data-query="What ad strategies do you use to lower CPC?" style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;">
-              How to Lower CPC
+            <button class="q-card-action-btn" data-query="How does an AI voice agent convert more leads than a contact form?" style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;">
+              How AI Converts Leads
             </button>
           </div>
         </div>
@@ -481,21 +481,21 @@
       return `
         <div style="margin-top:10px;background:rgba(147,51,234,0.08);border:1px solid rgba(147,51,234,0.3);border-radius:12px;padding:12px;color:#fff;">
           <div style="font-size:11px;font-weight:700;color:#C084FC;display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-            <span>💼</span> Available Retainers & Tiers
+            <span>💼</span> Available Packages & Retainers
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
             <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px;">
-              <div style="font-size:10px;color:#94A3B8;">Starter Ads</div>
-              <div style="font-size:13px;font-weight:700;color:#fff;">$990<span style="font-size:9px;color:#64748B;">/mo</span></div>
-              <div style="font-size:9px;color:#10B981;margin-top:2px;">Campaign Setup + Weekly QA</div>
+              <div style="font-size:10px;color:#94A3B8;">Starter AI</div>
+              <div style="font-size:13px;font-weight:700;color:#fff;">$999 <span style="font-size:9px;color:#64748B;">setup</span></div>
+              <div style="font-size:9px;color:#10B981;margin-top:2px;">+$199/mo | 5-Page Site + 1 Voice AI</div>
             </div>
             <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(0,229,255,0.3);border-radius:8px;padding:8px;">
-              <div style="font-size:10px;color:#00E5FF;">Performance Scale</div>
-              <div style="font-size:13px;font-weight:700;color:#fff;">$1,890<span style="font-size:9px;color:#64748B;">/mo</span></div>
-              <div style="font-size:9px;color:#00E5FF;margin-top:2px;">Ads + Arthur AI Voice Line</div>
+              <div style="font-size:10px;color:#00E5FF;">Growth Suite</div>
+              <div style="font-size:13px;font-weight:700;color:#fff;">$1,999 <span style="font-size:9px;color:#64748B;">setup</span></div>
+              <div style="font-size:9px;color:#00E5FF;margin-top:2px;">+$399/mo | Web App + 2 Voice AIs + CRM</div>
             </div>
           </div>
-          <button class="q-card-action-btn" data-query="Book a call to discuss the Performance Scale package" style="width:100%;background:#C084FC;color:#000;border:none;font-weight:700;font-size:10px;padding:7px;border-radius:6px;cursor:pointer;">
+          <button class="q-card-action-btn" data-query="Tell me more about the Growth Suite and Enterprise packages" style="width:100%;background:#C084FC;color:#000;border:none;font-weight:700;font-size:10px;padding:7px;border-radius:6px;cursor:pointer;">
             Inquire About Packages ➤
           </button>
         </div>
@@ -509,15 +509,15 @@
             <span>📅</span> Executive Discovery Consultation
           </div>
           <div style="font-size:11px;color:#94A3B8;line-height:1.4;margin-bottom:10px;">
-            Schedule a 1-on-1 strategy call with the leadership team for a full campaign audit.
+            Schedule a 1-on-1 strategy call with our engineering leadership to scope your custom website and AI voice agent.
           </div>
           <div style="display:flex;gap:6px;">
-            <a href="https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(business)}%2C%20I%20would%20like%20to%20schedule%20a%20strategy%20consultation." target="_blank" rel="noopener noreferrer" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:#25D366;color:#000;font-weight:700;font-size:10px;padding:7px 8px;border-radius:6px;text-decoration:none;">
-              <span>💬 WhatsApp</span>
-            </a>
-            <a href="mailto:${email}?subject=Strategy%20Consultation%20Inquiry%20from%20${encodeURIComponent(business)}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;padding:7px 8px;border-radius:6px;text-decoration:none;">
+            <a href="mailto:${email}?subject=Discovery%20Consultation%20Inquiry%20from%20${encodeURIComponent(business)}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;padding:7px 8px;border-radius:6px;text-decoration:none;">
               <span>✉️ Send Email</span>
             </a>
+            <button class="q-card-action-btn" data-query="I want to book an executive discovery consultation" style="flex:1;background:#10B981;border:none;color:#000;font-weight:700;font-size:10px;padding:7px 8px;border-radius:6px;cursor:pointer;">
+              <span>📅 Book in Chat</span>
+            </button>
           </div>
         </div>
       `;
@@ -845,7 +845,7 @@
           <span style="font-size:9px;background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;color:#94A3B8;">24/7 Live</span>
         </div>
         <div id="q-callout-text" style="font-size:11px;color:#E2E8F0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          👋 Tap to talk live or ask about Google Ads!
+          👋 Tap to talk live or ask Arthur anything!
         </div>
       </div>
       <button id="q-callout-close-btn" style="background:transparent;border:none;color:#64748B;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px;line-height:1;" title="Dismiss">✕</button>
@@ -956,7 +956,7 @@
       // Update titles in current view safely
       const headerTitle = modal.querySelector('#q-header-business');
       const headerSub = modal.querySelector('#q-header-agent');
-      if (headerTitle) headerTitle.innerText = clientData.businessName || 'Quorik Google Ads';
+      if (headerTitle) headerTitle.innerText = clientData.businessName || 'Quorik';
       if (headerSub) headerSub.innerText = clientData.voiceAgentName || 'Arthur (Executive Concierge)';
     } catch (e) {
       console.warn('[Quorik AI] Status fetch error:', e);
@@ -977,7 +977,7 @@
 
   // Renders Main Shell Layout
   function renderModalLayout() {
-    const business = clientData?.businessName || 'Quorik Google Ads';
+    const business = clientData?.businessName || 'Quorik';
     const agent = clientData?.voiceAgentName || 'Arthur (Executive Concierge)';
 
     modal.innerHTML = `
@@ -1201,7 +1201,7 @@
     }, 1000);
 
     // Initial greeting aloud
-    const greeting = "Hello! Arthur here, your executive concierge. How can we assist your business or Google Ads strategy today?";
+    const greeting = "Hello! I'm Arthur, your executive concierge. How can I assist you with custom websites or 24/7 AI voice agents today?";
     speakWithArthur(greeting, () => updateStatusVisuals(), () => {
       startRecognitionLoop();
     });
@@ -1444,16 +1444,16 @@
 
       <!-- Quick Action Chips -->
       <div style="padding:8px 12px;background:#0D1322;border-top:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:6px;overflow-x:auto;user-select:none;" class="q-scrollbar">
-        <button class="q-chip-btn" data-query="Can you run a free Google Ads campaign audit for my business?">
-          <span>⚡ Free Ads Audit</span>
+        <button class="q-chip-btn" data-query="How does a 24/7 AI voice receptionist handle incoming calls?">
+          <span>⚡ How AI Voice Works</span>
         </button>
-        <button class="q-chip-btn" data-query="Calculate my projected ROI with Google Ads and AI voice">
+        <button class="q-chip-btn" data-query="Calculate my projected ROI with an AI voice agent and new website">
           <span>📊 Calculate ROI</span>
         </button>
-        <button class="q-chip-btn" data-query="What are your service packages and monthly retainers?">
-          <span>💼 Retainers & Pricing</span>
+        <button class="q-chip-btn" data-query="What are your custom development and AI package prices?">
+          <span>💼 Packages & Pricing</span>
         </button>
-        <button class="q-chip-btn" data-query="I would like to schedule an executive discovery call">
+        <button class="q-chip-btn" data-query="Can I schedule a live consultation with Shehram Meellu?">
           <span>📅 Book Consultation</span>
         </button>
       </div>
@@ -1725,7 +1725,7 @@
       }
 
       const data = await res.json();
-      const aiReply = data.text || "I'd be glad to assist you with Google Ads campaign scaling and performance optimization.";
+      const aiReply = data.text || "I'd be glad to assist you with high-performance web engineering and 24/7 autonomous AI voice agents.";
       
       const aiMsg = {
         id: 'msg-ai-' + Date.now(),
@@ -1989,7 +1989,7 @@
       const data = await res.json();
       isThinking = false;
 
-      const aiReply = data.aiSpeechText || "Understood. We can definitely tailor our Google Ads strategies to maximize your conversions and lower cost per acquisition.";
+      const aiReply = data.aiSpeechText || "Understood. We engineer bespoke web platforms and autonomous AI voice agents that operate 24/7 with zero hold times.";
       
       const botMsg = {
         id: 'call-ai-' + Date.now(),
@@ -2007,7 +2007,7 @@
       });
     } catch (e) {
       isThinking = false;
-      const fallbackReply = "We can certainly assist you with campaign audits and performance marketing. Would you like to schedule a quick consultation?";
+      const fallbackReply = "Quorik develops custom high-performance websites and 24/7 autonomous AI voice agents. Would you like to schedule a quick consultation with our team?";
       messages.push({
         id: 'call-ai-' + Date.now(),
         sender: 'ai',

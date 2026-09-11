@@ -112,7 +112,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
     id: '',
     clientName: '',
     businessName: '',
-    industry: 'Google Ads & Performance Marketing',
+    industry: 'Custom Web Engineering & Autonomous AI Voice Agents',
     email: '',
     phone: '',
     websiteUrl: '',
@@ -201,7 +201,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
           id: '',
           clientName: '',
           businessName: '',
-          industry: 'Google Ads & Performance Marketing',
+          industry: 'Custom Web Engineering & Autonomous AI Voice Agents',
           email: '',
           phone: '',
           websiteUrl: '',
@@ -911,7 +911,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                   <label className="text-gray-400 block mb-1.5">Industry / Niche</label>
                   <input
                     type="text"
-                    placeholder="e.g. Google Ads & Performance Marketing"
+                    placeholder="e.g. Custom Web Engineering & AI Voice Agents"
                     value={newClient.industry}
                     onChange={(e) => setNewClient({ ...newClient, industry: e.target.value })}
                     className="w-full bg-[#05060A] border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-brand-teal"
@@ -1182,7 +1182,7 @@ export function ClientAccountsManager({ clients, onRefresh }: ClientAccountsMana
                   <label className="text-gray-400 block mb-1.5">Industry / Niche</label>
                   <input
                     type="text"
-                    placeholder="e.g. Google Ads & Performance Marketing"
+                    placeholder="e.g. Custom Web Engineering & AI Voice Agents"
                     value={editingClient.industry}
                     onChange={(e) => setEditingClient({ ...editingClient, industry: e.target.value })}
                     className="w-full bg-[#05060A] border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-brand-teal"

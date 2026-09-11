@@ -339,7 +339,13 @@ export function ChatbotWidget() {
           setInputValue(currentText);
         }
 
-        // Auto-send when user pauses speaking for 1.4 seconds
+        const words = currentText.split(/\s+/).filter(Boolean);
+        const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
+        const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'can', 'we'].includes(lastWord);
+        // Adaptive wait: 2600ms if trailing connector or short query, 1800ms otherwise
+        const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+
+        // Auto-send when user pauses speaking
         if (inputSilenceTimerRef.current) clearTimeout(inputSilenceTimerRef.current);
         inputSilenceTimerRef.current = setTimeout(() => {
           const toSend = (micSpokenRef.current || currentText).trim();
@@ -351,7 +357,7 @@ export function ChatbotWidget() {
             setIsRecordingInputMic(false);
             handleSendMessage(toSend, true);
           }
-        }, 1400);
+        }, silenceDelay);
       };
 
       recognition.onerror = (event: any) => {
@@ -508,6 +514,12 @@ export function ChatbotWidget() {
           setInterimVoiceText(raw);
         }
 
+        const words = raw.split(/\s+/).filter(Boolean);
+        const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
+        const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'can', 'we'].includes(lastWord);
+        // Adaptive wait: 2600ms if trailing connector or short query, 1800ms otherwise
+        const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+
         if (callSilenceTimerRef.current) clearTimeout(callSilenceTimerRef.current);
         callSilenceTimerRef.current = setTimeout(() => {
           const toSend = (callVoiceTranscriptRef.current || raw || finalTrans).trim();
@@ -518,7 +530,7 @@ export function ChatbotWidget() {
             callVoiceTranscriptRef.current = '';
             sendCallTurn(toSend);
           }
-        }, 1400);
+        }, silenceDelay);
       };
 
       recognition.onerror = (event: any) => {

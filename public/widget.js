@@ -24,16 +24,21 @@
     } catch (e) {}
   }
 
-  // Detect whether running in local development or directly on the Quorik platform domain
+  // Detect whether running in local development, preview environment, or directly on platform domain
   const isInternalHost = window.location.hostname === 'localhost' || 
                          window.location.hostname === '127.0.0.1' || 
                          window.location.hostname.includes('quoriksystems.com') || 
-                         window.location.hostname.includes('run.app');
+                         window.location.hostname.includes('run.app') ||
+                         window.location.hostname.includes('aistudio') ||
+                         window.location.hostname.includes('google') ||
+                         window.location.hostname.includes('web.app') ||
+                         window.location.hostname.includes('cloudworkstations.dev');
 
-  // If on an external client website (e.g. Hostinger, WordPress, Vercel, custom domain),
-  // always route API calls to the authoritative Quorik Systems production backend
-  if (!serverOrigin || (!isInternalHost && serverOrigin === window.location.origin)) {
-    serverOrigin = isInternalHost ? window.location.origin : 'https://quoriksystems.com';
+  if (!serverOrigin || serverOrigin === 'null' || serverOrigin === 'undefined') {
+    serverOrigin = window.location.origin || '';
+  } else if (!isInternalHost && serverOrigin === window.location.origin) {
+    // Only route to external domain if explicitly configured for external websites
+    serverOrigin = 'https://quoriksystems.com';
   }
 
   // Transparently route relative Quorik API calls from client websites to the actual Quorik API server
@@ -1781,29 +1786,58 @@
 
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRec();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
+    let inputSpeechBuffer = '';
+    let inputSilenceTimer = null;
+    let inputSent = false;
+
     recognition.onstart = () => {
       isListening = true;
+      inputSent = false;
       if (inputMicBtn) {
         inputMicBtn.style.background = 'rgba(16,185,129,0.2)';
         inputMicBtn.style.color = '#10B981';
         inputMicBtn.style.borderColor = '#10B981';
       }
-      if (input) input.placeholder = 'Listening to your voice...';
+      if (input) input.placeholder = 'Listening... (Speak full message)';
     };
 
     recognition.onresult = (event) => {
+      let finalSpoken = '';
       let interim = '';
       for (let i = 0; i < event.results.length; ++i) {
-        interim += event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalSpoken += event.results[i][0].transcript + ' ';
+        } else {
+          interim += event.results[i][0].transcript + ' ';
+        }
       }
-      const cleaned = cleanTranscript(interim);
+      const raw = (finalSpoken + interim).trim();
+      const cleaned = cleanTranscript(raw);
       if (cleaned && input) {
+        inputSpeechBuffer = cleaned;
         input.value = cleaned;
       }
+
+      const words = (cleaned || raw).split(/\s+/).filter(Boolean);
+      const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
+      const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'we'].includes(lastWord);
+      const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+
+      if (inputSilenceTimer) clearTimeout(inputSilenceTimer);
+      inputSilenceTimer = setTimeout(() => {
+        const toSend = (inputSpeechBuffer || cleaned).trim();
+        if (toSend && !inputSent) {
+          inputSent = true;
+          try { recognition.stop(); } catch (e) {}
+          isListening = false;
+          if (input) input.value = '';
+          handleSend(toSend, true);
+        }
+      }, silenceDelay);
     };
 
     recognition.onend = () => {
@@ -1815,8 +1849,9 @@
       }
       if (input) {
         input.placeholder = 'Ask Arthur a question or request booking...';
-        const spoken = input.value.trim();
-        if (spoken) {
+        const spoken = (inputSpeechBuffer || input.value || '').trim();
+        if (spoken && !inputSent) {
+          inputSent = true;
           input.value = '';
           handleSend(spoken, true);
         }
@@ -1878,6 +1913,11 @@
         previewEl.innerText = `"${cleaned}..."`;
       }
 
+      const words = (cleaned || raw).split(/\s+/).filter(Boolean);
+      const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
+      const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'can', 'we'].includes(lastWord);
+      const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+
       if (widgetSilenceTimer) clearTimeout(widgetSilenceTimer);
       widgetSilenceTimer = setTimeout(() => {
         const toSend = cleanTranscript(raw || finalSpoken);
@@ -1887,7 +1927,7 @@
           if (previewEl) previewEl.innerText = '';
           sendCallTurn(toSend);
         }
-      }, 750);
+      }, silenceDelay);
     };
 
     recognition.onerror = () => {
@@ -1896,6 +1936,13 @@
     };
 
     recognition.onend = () => {
+      // If voice call is active and Arthur isn't speaking or thinking, keep microphone listening alive
+      if (activeMode === 'voice-call' && !isSpeaking && !isThinking) {
+        try {
+          recognition.start();
+          return;
+        } catch (e) {}
+      }
       isListening = false;
       updateStatusVisuals();
     };

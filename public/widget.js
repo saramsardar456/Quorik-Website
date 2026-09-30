@@ -402,16 +402,115 @@
     });
   }
 
-  // Clean transcript
+  // Robust speech text deduplication to eliminate progressive prefix accumulation & stutter
   function cleanTranscript(raw) {
-    if (!raw) return '';
-    const trimmed = raw.replace(/\s+/g, ' ').trim();
-    if (/([a-zA-Z])\1{3,}/i.test(trimmed)) return '';
-    if (!trimmed.includes(' ') && trimmed.length > 6) {
-      const vowels = (trimmed.match(/[aeiouy]/gi) || []).length;
-      if (vowels / trimmed.length < 0.15) return '';
+    if (!raw || typeof raw !== 'string') return '';
+    let s = raw.replace(/\s+/g, ' ').trim();
+
+    // 1. Sanitize severe keyboard mashing or random noise
+    if (/([a-zA-Z])\1{4,}/i.test(s)) return '';
+    if (!s.includes(' ') && s.length > 7) {
+      const vowels = (s.match(/[aeiouy]/gi) || []).length;
+      if (vowels / s.length < 0.12) return '';
     }
-    return trimmed;
+
+    // 2. Remove immediate duplicate single words like "hi hi", "book book"
+    s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+    // 3. Progressive prefix accumulation check (Android Chrome WebSpeech bug)
+    const words = s.split(' ');
+    if (words.length > 3) {
+      const firstWordClean = words[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (firstWordClean) {
+        const candidateStarts = [];
+        for (let i = 1; i < words.length; i++) {
+          if (words[i].toLowerCase().replace(/[^a-z0-9]/g, '') === firstWordClean) {
+            candidateStarts.push(i);
+          }
+        }
+        if (candidateStarts.length >= 2) {
+          for (let k = candidateStarts.length - 1; k >= 0; k--) {
+            const startIdx = candidateStarts[k];
+            const tail = words.slice(startIdx).join(' ');
+            const tailLower = tail.toLowerCase();
+            const sampleSub = words.slice(0, Math.min(startIdx, 5)).join(' ').toLowerCase();
+            if (tailLower.startsWith(sampleSub) || tailLower.includes(sampleSub)) {
+              s = tail;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Repeated multi-word phrases (e.g. "I want to book security guard I want to book security guard")
+    for (let n = 8; n >= 2; n--) {
+      const pattern = new RegExp(`\\b((?:[\\w\']+[.,?!]?\\s+){${n-1}}[\\w\']+[.,?!]?)\\s+\\1\\b`, 'gi');
+      let prev = '';
+      do {
+        prev = s;
+        s = s.replace(pattern, '$1');
+      } while (s !== prev);
+    }
+
+    // 5. Repeated phrase where question mark or period separates: e.g. "Where are you located? Where are you located?"
+    s = s.replace(/([a-zA-Z0-9\s]{3,}[?.!])\s*\1/gi, '$1');
+
+    // 6. Final pass for immediate word duplicates
+    s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+    return s.trim();
+  }
+
+  // Safely extracts speech recognition transcript from SpeechRecognitionEvent across all browsers
+  function extractSpeechTranscript(event) {
+    if (!event || !event.results || event.results.length === 0) return '';
+    let finalTranscript = '';
+    let interimTranscript = '';
+    for (let i = 0; i < event.results.length; ++i) {
+      const res = event.results[i];
+      if (!res || !res[0]) continue;
+      const chunk = (res[0].transcript || '').trim();
+      if (!chunk) continue;
+      if (res.isFinal) {
+        if (finalTranscript) {
+          const lowerFinal = finalTranscript.toLowerCase();
+          const lowerChunk = chunk.toLowerCase();
+          if (lowerChunk.startsWith(lowerFinal)) {
+            finalTranscript = chunk;
+          } else if (lowerFinal.endsWith(lowerChunk)) {
+            // already included
+          } else {
+            finalTranscript += ' ' + chunk;
+          }
+        } else {
+          finalTranscript = chunk;
+        }
+      } else {
+        if (finalTranscript) {
+          const lowerFinal = finalTranscript.toLowerCase();
+          const lowerChunk = chunk.toLowerCase();
+          if (lowerChunk.startsWith(lowerFinal)) {
+            interimTranscript = chunk.slice(finalTranscript.length).trim();
+          } else {
+            interimTranscript = chunk;
+          }
+        } else {
+          interimTranscript = chunk;
+        }
+      }
+    }
+    const lastItem = event.results[event.results.length - 1];
+    const lastText = (lastItem && lastItem[0] && lastItem[0].transcript ? lastItem[0].transcript : '').trim();
+    let combined = (finalTranscript + (interimTranscript ? ' ' + interimTranscript : '')).trim();
+    if (lastText && lastText.length > combined.length) {
+      const cleanedLast = cleanTranscript(lastText);
+      const cleanedCombined = cleanTranscript(combined);
+      if (cleanedLast.length >= cleanedCombined.length) {
+        combined = lastText;
+      }
+    }
+    return cleanTranscript(combined);
   }
 
   // Simple Markdown Parser
@@ -1645,7 +1744,7 @@
 
   // Handle Send Message (GUARANTEED NO DISAPPEARING)
   async function handleSend(textToSend, wasVoiceInput = false) {
-    const text = (textToSend || '').trim();
+    const text = cleanTranscript(textToSend || '');
     if (!text || isThinking) return;
 
     const input = modal.querySelector('#q-text-input');
@@ -1781,13 +1880,20 @@
         inputMicBtn.style.color = '#94A3B8';
         inputMicBtn.style.borderColor = 'rgba(255,255,255,0.12)';
       }
+      const spokenNow = cleanTranscript(input ? input.value : '');
+      if (spokenNow) {
+        if (input) input.value = '';
+        handleSend(spokenNow, true);
+      }
       return;
     }
 
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRec();
-    recognition.continuous = true;
+    const isMobile = (('ontouchstart' in window) || /android|iphone|ipad|ipod/i.test(navigator.userAgent));
+    recognition.continuous = !isMobile;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
     recognition.lang = 'en-US';
 
     let inputSpeechBuffer = '';
@@ -1806,30 +1912,20 @@
     };
 
     recognition.onresult = (event) => {
-      let finalSpoken = '';
-      let interim = '';
-      for (let i = 0; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalSpoken += event.results[i][0].transcript + ' ';
-        } else {
-          interim += event.results[i][0].transcript + ' ';
-        }
-      }
-      const raw = (finalSpoken + interim).trim();
-      const cleaned = cleanTranscript(raw);
+      const cleaned = extractSpeechTranscript(event);
       if (cleaned && input) {
         inputSpeechBuffer = cleaned;
         input.value = cleaned;
       }
 
-      const words = (cleaned || raw).split(/\s+/).filter(Boolean);
+      const words = (cleaned || '').split(/\s+/).filter(Boolean);
       const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
       const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'we'].includes(lastWord);
-      const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+      const silenceDelay = isTrailingConnector ? 1000 : (words.length < 3 ? 850 : 700);
 
       if (inputSilenceTimer) clearTimeout(inputSilenceTimer);
       inputSilenceTimer = setTimeout(() => {
-        const toSend = (inputSpeechBuffer || cleaned).trim();
+        const toSend = cleanTranscript(inputSpeechBuffer || (input ? input.value : ''));
         if (toSend && !inputSent) {
           inputSent = true;
           try { recognition.stop(); } catch (e) {}
@@ -1842,6 +1938,7 @@
 
     recognition.onend = () => {
       isListening = false;
+      if (inputSilenceTimer) clearTimeout(inputSilenceTimer);
       if (inputMicBtn) {
         inputMicBtn.style.background = 'rgba(255,255,255,0.06)';
         inputMicBtn.style.color = '#94A3B8';
@@ -1849,7 +1946,7 @@
       }
       if (input) {
         input.placeholder = 'Ask Arthur a question or request booking...';
-        const spoken = (inputSpeechBuffer || input.value || '').trim();
+        const spoken = cleanTranscript(inputSpeechBuffer || input.value || '');
         if (spoken && !inputSent) {
           inputSent = true;
           input.value = '';
@@ -1885,11 +1982,13 @@
 
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRec();
-    recognition.continuous = true;
+    const isMobile = (('ontouchstart' in window) || /android|iphone|ipad|ipod/i.test(navigator.userAgent));
+    recognition.continuous = !isMobile;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
     recognition.lang = 'en-US';
 
-    let finalSpoken = '';
+    let callBuffer = '';
 
     recognition.onstart = () => {
       isListening = true;
@@ -1897,31 +1996,25 @@
     };
 
     recognition.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalSpoken += event.results[i][0].transcript + ' ';
-        } else {
-          interim += event.results[i][0].transcript;
-        }
+      const cleaned = extractSpeechTranscript(event);
+      if (cleaned) {
+        callBuffer = cleaned;
       }
-      const raw = (finalSpoken + interim).trim();
-      const cleaned = cleanTranscript(raw);
 
       const previewEl = modal.querySelector('#q-call-interim-text');
       if (previewEl && cleaned) {
         previewEl.innerText = `"${cleaned}..."`;
       }
 
-      const words = (cleaned || raw).split(/\s+/).filter(Boolean);
+      const words = (cleaned || '').split(/\s+/).filter(Boolean);
       const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
       const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'can', 'we'].includes(lastWord);
-      const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+      const silenceDelay = isTrailingConnector ? 1000 : (words.length < 3 ? 850 : 700);
 
       if (widgetSilenceTimer) clearTimeout(widgetSilenceTimer);
       widgetSilenceTimer = setTimeout(() => {
-        const toSend = cleanTranscript(raw || finalSpoken);
-        if (toSend && toSend.length > 2) {
+        const toSend = cleanTranscript(callBuffer || cleaned);
+        if (toSend && toSend.length > 1) {
           try { recognition.stop(); } catch (e) {}
           isListening = false;
           if (previewEl) previewEl.innerText = '';
@@ -1955,12 +2048,13 @@
   }
 
   async function sendCallTurn(userText) {
-    if (!userText.trim()) return;
+    const cleanUserText = cleanTranscript(userText || '');
+    if (!cleanUserText) return;
 
     const userMsg = {
       id: 'call-user-' + Date.now(),
       sender: 'user',
-      text: userText,
+      text: cleanUserText,
       time: formatTime()
     };
     messages.push(userMsg);
@@ -1981,7 +2075,7 @@
         body: JSON.stringify({
           personaId: 'arthur',
           gender: 'male',
-          userQuery: userText,
+          userQuery: cleanUserText,
           conversationHistory: history
         })
       });

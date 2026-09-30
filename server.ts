@@ -375,18 +375,18 @@ function loadStore() {
     clientAccounts.unshift({
       id: "quorik-google-ads",
       clientName: "Saram Sardar",
-      businessName: "Quorik Google Ads",
-      industry: "Google Ads & Performance Marketing",
-      email: "saramsardar456@gmail.com",
+      businessName: "Quorik",
+      industry: "Custom Web Engineering & Autonomous AI Voice Agents",
+      email: "info@quoriksystems.com",
       phone: "+92 370 0146156",
-      websiteUrl: "https://quoriksystem.online",
+      websiteUrl: "https://quoriksystems.com",
       tier: "starter",
       monthlyVoiceMinutesLimit: 300,
       voiceMinutesUsed: 0,
       monthlyTextChatLimit: 1000,
       textChatsUsed: 0,
       status: "active",
-      voiceAgentName: "Arthur (Executive Concierge)",
+      voiceAgentName: "Arthur (Executive AI Voice & Chat Concierge)",
       voiceLanguage: "English Only",
       totalConversations: 0,
       leadsCaptured: 0,
@@ -395,7 +395,13 @@ function loadStore() {
       createdAt: new Date().toISOString()
     });
   } else {
-    // Ensure founder name is accurately set to Saram Sardar if it was previously set to business name
+    // Ensure accurate branding and founder name
+    if (existingQuorik.businessName === "Quorik Google Ads" || !existingQuorik.businessName) {
+      existingQuorik.businessName = "Quorik";
+    }
+    if (existingQuorik.industry === "Google Ads & Performance Marketing" || !existingQuorik.industry) {
+      existingQuorik.industry = "Custom Web Engineering & Autonomous AI Voice Agents";
+    }
     if (!existingQuorik.clientName || existingQuorik.clientName === "Quorik Google Ads" || existingQuorik.clientName === "quorik-google-ads") {
       existingQuorik.clientName = "Saram Sardar";
     }
@@ -1750,7 +1756,7 @@ ${message}
         id,
         clientName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         businessName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        industry: "Google Ads & Performance Marketing",
+        industry: "Custom Web Engineering & Autonomous AI Voice Agents",
         email: `contact@${id.toLowerCase()}.com`,
         phone: "+1 (555) 019-2834",
         websiteUrl: `https://${id.toLowerCase()}.com`,
@@ -2195,9 +2201,63 @@ Respond ONLY in valid JSON format matching this exact schema:
     }
   });
 
+  // Robust speech text deduplication to eliminate progressive prefix stutter (Android Chrome WebSpeech bug)
+  function cleanSpeechDuplicates(text: string): string {
+    if (!text || typeof text !== 'string') return '';
+    let s = text.replace(/\s+/g, ' ').trim();
+
+    // 1. Remove immediate duplicate single words like "hi hi", "book book"
+    s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+    // 2. Progressive prefix accumulation check (Android WebSpeech bug)
+    const words = s.split(' ');
+    if (words.length > 3) {
+      const firstWordClean = words[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (firstWordClean) {
+        const candidateStarts: number[] = [];
+        for (let i = 1; i < words.length; i++) {
+          if (words[i].toLowerCase().replace(/[^a-z0-9]/g, '') === firstWordClean) {
+            candidateStarts.push(i);
+          }
+        }
+        if (candidateStarts.length >= 2) {
+          for (let k = candidateStarts.length - 1; k >= 0; k--) {
+            const startIdx = candidateStarts[k];
+            const tail = words.slice(startIdx).join(' ');
+            const tailLower = tail.toLowerCase();
+            const sampleSub = words.slice(0, Math.min(startIdx, 5)).join(' ').toLowerCase();
+            if (tailLower.startsWith(sampleSub) || tailLower.includes(sampleSub)) {
+              s = tail;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Repeated multi-word phrases (e.g. "I want to book security guard I want to book security guard")
+    for (let n = 8; n >= 2; n--) {
+      const pattern = new RegExp(`\\b((?:[\\w\']+[.,?!]?\\s+){${n-1}}[\\w\']+[.,?!]?)\\s+\\1\\b`, 'gi');
+      let prev = '';
+      do {
+        prev = s;
+        s = s.replace(pattern, '$1');
+      } while (s !== prev);
+    }
+
+    // 4. Repeated phrase where question mark or period separates: e.g. "Where are you located? Where are you located?"
+    s = s.replace(/([a-zA-Z0-9\s]{3,}[?.!])\s*\1/gi, '$1');
+
+    // 5. Final pass for immediate word duplicates
+    s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+    return s.trim();
+  }
+
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, history, accent, clientId, isVoice, isVoiceMode, durationSeconds, visitorName, visitorPhone, visitorEmail } = req.body;
+      const { history, accent, clientId, isVoice, isVoiceMode, durationSeconds, visitorName, visitorPhone, visitorEmail } = req.body;
+      const message = cleanSpeechDuplicates(req.body.message || '');
       
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -2254,7 +2314,7 @@ Respond ONLY in valid JSON format matching this exact schema:
           id: cleanId,
           clientName: cleanId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
           businessName: cleanId.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-          industry: "Google Ads & Performance Marketing",
+          industry: "Custom Web Engineering & Autonomous AI Voice Agents",
           email: `contact@${cleanId.toLowerCase()}.com`,
           phone: "+1 (555) 019-2834",
           websiteUrl: originHeader ? String(req.headers.origin || req.headers.referer) : `https://${cleanId.toLowerCase()}.com`,
@@ -2315,22 +2375,118 @@ Respond ONLY in valid JSON format matching this exact schema:
         }
       });
       
+      const isQuorikTarget = !clientTarget || 
+        clientTarget.id === 'quorik-google-ads' || 
+        clientTarget.id === 'quorik' || 
+        (clientTarget.businessName && clientTarget.businessName.toLowerCase().includes('quorik'));
+
+      let replyText = "";
       let systemInstruction = "";
 
-      if (clientTarget) {
-        // Dynamic client-specific AI prompt for embedded widgets on client websites
-        const hasValidFounder = clientTarget.clientName && 
-          clientTarget.clientName.trim().length > 1 &&
-          clientTarget.clientName.trim().toLowerCase() !== clientTarget.businessName.trim().toLowerCase();
+      // Check if inbound query is purely a greeting like "hi" or "hello"
+      const trimmedMsg = (message || "").trim().toLowerCase();
+      const isUserGreetingOnly = /^(hi|hello|hey|hey there|good morning|good afternoon|good evening|howdy|yo|greetings|what's up|hy)[\s.?!]*$/i.test(trimmedMsg) ||
+        /^(hi|hello|hey)\s+(there|arthur|zephyr|oliver|clara|quorik|everyone)[\s.?!]*$/i.test(trimmedMsg);
+      const hasPriorChat = Array.isArray(history) && history.length > 0;
 
-        const founderInfo = hasValidFounder
-          ? `FOUNDER & LEADERSHIP INFORMATION:
+      // Check if inbound query matches common tricky questions for instant authority responses
+      const resolveTrickyChatQuestion = (q: string, isQuorik: boolean, targetName?: string) => {
+        const lower = q.toLowerCase();
+        // 1. Database crash / ACID / failover / data loss
+        if (lower.includes('crash') || lower.includes('database') || lower.includes('failover') || lower.includes('acid') || lower.includes('transaction') || lower.includes('data loss') || lower.includes('downtime')) {
+          return isQuorik
+            ? `Quorik systems implement distributed ACID-compliant transactions, two-phase commits, automated point-in-time recovery, and multi-region replication. Interrupted state rolls back safely with zero data corruption, and failover happens in under 2 seconds.`
+            : `Our platforms run on redundant cloud infrastructure with automated hourly backups and instant failover, ensuring your business data and client appointments are 100% safeguarded even during unexpected outages.`;
+        }
+        // 2. High concurrency / 5000 calls
+        if (lower.includes('concurrent') || lower.includes('5000') || lower.includes('5,000') || lower.includes('capacity') || lower.includes('traffic') || lower.includes('simultaneous') || lower.includes('scale') || lower.includes('concurrency')) {
+          return isQuorik
+            ? `Our telephony architecture runs on an elastic serverless WebRTC edge with dedicated auto-scaling clusters, easily processing 5,000+ simultaneous callers with sub-350ms response latency and zero hold time. Would you like to review our enterprise infrastructure specifications?`
+            : `Our automated systems scale dynamically in the cloud, handling hundreds of concurrent inquiries simultaneously with zero delays or busy signals.`;
+        }
+        // 3. AI Hallucination / false promises / wrong prices
+        if (lower.includes('hallucinat') || lower.includes('wrong info') || lower.includes('false promise') || lower.includes('guardrail') || lower.includes('make up') || lower.includes('accurate') || lower.includes('invent facts')) {
+          return isQuorik
+            ? `Our voice and chat agents run on deterministic RAG architectures with strict policy guardrails and boundary verification. The AI never invents facts or makes unauthorized promises outside your verified catalog.`
+            : `Our AI is strictly bound by verified company knowledge and pricing rules, ensuring it never quotes incorrect rates or makes unauthorized promises.`;
+        }
+        // 4. Live human transfer / escalation
+        if (lower.includes('transfer') || lower.includes('human') || lower.includes('live agent') || lower.includes('forward') || lower.includes('real person') || lower.includes('speak to someone') || lower.includes('pass to staff')) {
+          return isQuorik
+            ? `We support warm SIP call forwarding, human escalation routing, and real-time SMS and WhatsApp dispatch so your staff can take over high-priority conversations seamlessly.`
+            : `Our system supports instant warm call transfers and immediate WhatsApp/SMS alerts to our staff whenever human assistance is requested.`;
+        }
+        // 5. 3 AM / after-hours / emergencies
+        if (lower.includes('3 am') || lower.includes('after hours') || lower.includes('midnight') || lower.includes('night') || lower.includes('emergency') || lower.includes('urgent leak') || lower.includes('storm damage')) {
+          return isQuorik
+            ? `Our infrastructure operates 24/7/365 with automated priority triage, instantly capturing late-night inquiries and dispatching emergency alerts to on-call personnel.`
+            : `Our 24/7 digital line flags urgent inquiries immediately and notifies our on-call team for priority response.`;
+        }
+        // 6. Multilingual / accents
+        if (lower.includes('accent') || lower.includes('language') || lower.includes('spanish') || lower.includes('multilingual') || lower.includes('bilingual') || lower.includes('dialect')) {
+          return isQuorik
+            ? `Our neural acoustic pipelines feature multi-dialect noise reduction and phoneme parsing, easily understanding heavy accents and dynamically conversing across 40+ languages.`
+            : `Our AI features advanced noise cancellation and dialect adaptation, conversing smoothly across multiple languages and regional accents.`;
+        }
+        // 7. Bland AI / Retell AI / DIY comparison
+        if (lower.includes('bland') || lower.includes('retell') || lower.includes('vapi') || lower.includes('myself') || lower.includes('diy') || lower.includes('why choose you') || lower.includes('different from') || lower.includes('competitor')) {
+          return `While raw APIs require in-house prompt engineering, fragile webhooks, and complex telephony DevOps, Quorik delivers a bespoke turnkey web platform, pre-trained conversion workflows, two-way CRM sync, and guaranteed SLAs maintained by senior engineers.`;
+        }
+        // 8. HIPAA / SOC 2 / compliance / privacy
+        if (lower.includes('hipaa') || lower.includes('soc') || lower.includes('compliance') || lower.includes('compliant') || lower.includes('privacy') || lower.includes('gdpr') || lower.includes('encryption')) {
+          return `We enforce end-to-end TLS 1.3 encryption in transit, AES-256 at rest, zero data retention voice policies, and signed BAAs for enterprise and healthcare clients.`;
+        }
+        // 9. Guarantees / refunds
+        if (lower.includes('guarantee') || lower.includes('refund') || lower.includes('satisfied') || lower.includes('satisfaction') || lower.includes('what if it fails')) {
+          return `We provide a 100% milestone guarantee with dedicated engineering support until your voice agent and web platform hit your exact performance goals.`;
+        }
+        // 10. CRM & Calendar integration
+        if (lower.includes('crm') || lower.includes('hubspot') || lower.includes('salesforce') || lower.includes('gohighlevel') || lower.includes('google calendar') || lower.includes('calendar sync') || lower.includes('webhook')) {
+          return `We provide native two-way synchronization with Google Calendar, Outlook, HubSpot, Salesforce, GoHighLevel, and custom Webhooks so every booked appointment and lead note appears in your CRM immediately.`;
+        }
+        // 11. Why AI vs contact form
+        if (lower.includes('contact form') || lower.includes('why not a form') || lower.includes('form vs') || lower.includes('better than a form')) {
+          return `Over 67% of inbound visitors bounce when faced with a static contact form or voicemail. Our 24/7 AI answers in under 350 milliseconds, resolves complex questions, and books appointments directly into your calendar.`;
+        }
+        // 12. Turnaround time / speed
+        if (lower.includes('how long') || lower.includes('turnaround') || lower.includes('timeline') || lower.includes('launch time') || lower.includes('how fast can you build')) {
+          return `Our standard turnaround time is typically 5 to 7 business days from project kickoff to live production deployment, including telephony configuration, custom knowledge base calibration, and CRM integration.`;
+        }
+        return null;
+      };
+
+      if (isUserGreetingOnly) {
+        if (hasPriorChat) {
+          replyText = isQuorikTarget
+            ? `Right, glad you're here! What can I scope or build for you today — or would you like to check our pricing packages and live demos?`
+            : `Right, good to have you! How can we assist you with our services today, or did you want to schedule an appointment?`;
+        } else {
+          replyText = isQuorikTarget
+            ? `Hello and welcome to Quorik! I'm Arthur, your Executive AI Concierge. How can we assist you with custom high-speed web platforms or 24/7 AI Voice Agents today?`
+            : `Hello! Welcome to ${clientTarget?.businessName || "our website"}. How may we assist you today?`;
+        }
+      } else {
+        const trickyAnswer = resolveTrickyChatQuestion(message, isQuorikTarget, clientTarget?.businessName);
+        if (trickyAnswer) {
+          replyText = trickyAnswer;
+        }
+      }
+
+      if (!replyText) {
+        if (clientTarget && !isQuorikTarget) {
+          // Dynamic client-specific AI prompt for embedded widgets on client websites
+          const hasValidFounder = clientTarget.clientName && 
+            clientTarget.clientName.trim().length > 1 &&
+            clientTarget.clientName.trim().toLowerCase() !== clientTarget.businessName.trim().toLowerCase();
+
+          const founderInfo = hasValidFounder
+            ? `FOUNDER & LEADERSHIP INFORMATION:
 - Founder / Owner: ${clientTarget.clientName} is the founder and head of ${clientTarget.businessName}.
 - If a visitor asks "who is the founder", "who is the CEO", "who owns this", or "who created this company", state clearly: "${clientTarget.businessName} was founded and is led by ${clientTarget.clientName}. We specialize in ${clientTarget.industry} to drive exceptional performance and measurable ROI."`
-          : `FOUNDER & LEADERSHIP INFORMATION:
+            : `FOUNDER & LEADERSHIP INFORMATION:
 - Leadership: ${clientTarget.businessName} is led and operated by our executive leadership team and certified ${clientTarget.industry} specialists. If asked who the founder or CEO is, state that ${clientTarget.businessName} is led by our executive leadership team. For direct executive inquiries, they can email ${clientTarget.email || clientTarget.websiteUrl}.`;
 
-        systemInstruction = `You are ${clientTarget.voiceAgentName || "Arthur (Executive Concierge)"}, the dedicated 24/7 AI voice and chat representative for "${clientTarget.businessName}".
+          systemInstruction = `You are ${clientTarget.voiceAgentName || "Arthur (Executive Concierge)"}, the dedicated 24/7 AI voice and chat representative for "${clientTarget.businessName}".
 Industry / Specialty: ${clientTarget.industry}
 Contact & Website: ${clientTarget.websiteUrl} (${clientTarget.email || ""})
 Languages Supported: ${clientTarget.voiceLanguage || "English"}
@@ -2339,24 +2495,24 @@ ${founderInfo}
 
 CORE OBJECTIVES & PERSONA RULES:
 1. You represent ONLY ${clientTarget.businessName}. Do NOT mention any third-party providers or external agency names unless referring to ${clientTarget.businessName}.
-2. Greet visitors warmly and speak on behalf of ${clientTarget.businessName} with high professional authority.
+2. If a conversation is underway, NEVER repeat greetings. Answer visitor questions directly.
 3. Answer inquiries about ${clientTarget.businessName}'s services and offerings accurately.
-4. When visitors ask about the founder or CEO, always answer directly and accurately using the founder information above.
+4. When visitors ask tricky questions (server crash, high traffic, 3 AM emergency, live human transfer, privacy/compliance), answer directly with confidence.
 5. Offer to book a consultation/appointment or capture the visitor's name, email, and phone number so the team can follow up.
-6. Keep answers crisp, conversational, and direct (2-3 sentences max) so it sounds natural when spoken aloud over voice.`;
-      } else {
-        let toneInstruction = "Tone: Professional, welcoming, and concise.";
-        if (accent === "arthur") {
-          toneInstruction = "Language & Persona: Professional Corporate Voice (Arthur Persona). Reply in clear, articulate executive English as Arthur, Quorik's AI Voice Concierge. Answer questions directly without forced greetings if a conversation is underway.";
-        } else if (accent === "us") {
-          toneInstruction = "Language & Persona: Professional American English (US Executive). Reply strictly in clean, direct American English with an executive, metrics-driven tone. Answer questions directly without introductory filler.";
-        } else if (accent === "uk") {
-          toneInstruction = "Language & Persona: Refined British English. Polished, articulate, precise, and polite. Answer questions directly.";
-        } else if (accent === "casual") {
-          toneInstruction = "Language & Persona: Casual Tech English. Energetic, enthusiastic startup tech vibe. Answer questions directly.";
-        }
+6. Keep answers crisp, conversational, and direct (2-3 sentences max).`;
+        } else {
+          let toneInstruction = "Tone: Professional, welcoming, and concise.";
+          if (accent === "arthur") {
+            toneInstruction = "Language & Persona: Professional Corporate Voice (Arthur Persona). Reply in clear, articulate executive English as Arthur, Quorik's AI Voice Concierge. Answer questions directly without forced greetings if a conversation is underway.";
+          } else if (accent === "us") {
+            toneInstruction = "Language & Persona: Professional American English (US Executive). Reply strictly in clean, direct American English with an executive, metrics-driven tone. Answer questions directly without introductory filler.";
+          } else if (accent === "uk") {
+            toneInstruction = "Language & Persona: Refined British English. Polished, articulate, precise, and polite. Answer questions directly.";
+          } else if (accent === "casual") {
+            toneInstruction = "Language & Persona: Casual Tech English. Energetic, enthusiastic startup tech vibe. Answer questions directly.";
+          }
 
-        systemInstruction = `You are Quorik AI, an intelligent assistant for Quorik (founded by Shehram Meellu, Founder & CEO).
+          systemInstruction = `You are Quorik AI, an intelligent assistant for Quorik (founded by Shehram Meellu, Founder & CEO).
 ${toneInstruction}
 
 CONVERSATIONAL CONTINUITY & DIRECT ANSWERS:
@@ -2405,40 +2561,42 @@ When asked tough or technical edge-case questions, answer directly with deep com
 - Multi-lingual / thick accents: Explain that our neural acoustic pipelines feature multi-dialect noise reduction and phoneme parsing, easily understanding heavy accents and dynamically conversing across 40+ languages.
 - Bland AI / Retell AI / DIY comparison: Explain that while raw APIs require in-house prompt engineering, fragile webhooks, and telephony DevOps, Quorik delivers a bespoke turnkey web platform, pre-trained conversion workflows, two-way CRM sync, and guaranteed SLAs maintained by senior engineers.
 - HIPAA / SOC 2 / Compliance: Explain that we enforce TLS 1.3 encryption in transit, AES-256 at rest, zero data retention voice policies, and signed BAAs for enterprise and healthcare clients.
-- Guarantees: Highlight our 100% milestone guarantee and dedicated engineering support until your voice agent and web platform hit your exact performance goals.`;
-      }
+- Guarantees: Highlight our 100% milestone guarantee and dedicated engineering support until your voice agent and web platform hit your exact performance goals.
+- CRM & Calendar sync: Explain that we natively sync two-way with Google Calendar, Outlook, HubSpot, Salesforce, and GoHighLevel.
+- Contact forms vs Voice Agent: Explain that 67% of visitors bounce on forms, while our voice agent answers on the 1st ring and locks appointments instantly.`;
+        }
 
-      const formattedContents = [
-        ...(history || []),
-        { role: "user", parts: [{ text: message }] }
-      ];
+        const formattedContents = [
+          ...(history || []),
+          { role: "user", parts: [{ text: message }] }
+        ];
 
-      const isVoiceRequest = Boolean(isVoice || isVoiceMode);
-      let replyText = "";
-      try {
-        // Resilient model invocation
-        const generatePromise = generateResilientContent(ai, {
-          primaryModel: "gemini-3.1-flash-lite",
-          contents: formattedContents,
-          config: {
-            systemInstruction,
-            maxOutputTokens: isVoiceRequest ? 160 : 300,
-            temperature: 0.4,
-          },
-        });
+        const isVoiceRequest = Boolean(isVoice || isVoiceMode);
+        try {
+          // Resilient model invocation
+          const generatePromise = generateResilientContent(ai, {
+            primaryModel: "gemini-3.1-flash-lite",
+            contents: formattedContents,
+            config: {
+              systemInstruction,
+              maxOutputTokens: isVoiceRequest ? 160 : 300,
+              temperature: 0.4,
+            },
+          });
 
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("AI response timeout")), 12000)
-        );
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("AI response timeout")), 12000)
+          );
 
-        const response: any = await Promise.race([generatePromise, timeoutPromise]);
-        replyText = response?.text || "";
-      } catch (modelErr: any) {
-        console.warn("[Chat API Notice] AI model request fallback triggered:", modelErr?.message || modelErr);
-        if (clientTarget) {
-          replyText = `Thank you for reaching ${clientTarget.businessName}! We specialize in ${clientTarget.industry || "custom digital solutions"}. How can we assist you today? Please share your name and contact details to connect with our team.`;
-        } else {
-          replyText = `Hello and thank you for reaching Quorik! We specialize in custom web applications and 24/7 AI Voice Agents. How may we assist your business today?`;
+          const response: any = await Promise.race([generatePromise, timeoutPromise]);
+          replyText = response?.text || "";
+        } catch (modelErr: any) {
+          console.warn("[Chat API Notice] AI model request fallback triggered:", modelErr?.message || modelErr);
+          if (clientTarget && !isQuorikTarget) {
+            replyText = `Thank you for reaching ${clientTarget.businessName}! We specialize in ${clientTarget.industry || "custom digital solutions"}. How can we assist you today? Please share your name and contact details to connect with our team.`;
+          } else {
+            replyText = `Quorik engineers bespoke web platforms and autonomous AI voice agents that operate 24/7 with zero hold times. How can we assist you today?`;
+          }
         }
       }
 
@@ -2609,7 +2767,7 @@ When asked tough or technical edge-case questions, answer directly with deep com
       res.json({ text: replyText });
     } catch (error: any) {
       console.error("Chat API fallback handler:", error);
-      const fallbackMsg = `Thank you for your message! How can we assist you with our Google Ads management and automation solutions today? Please share your name and email to connect with our team.`;
+      const fallbackMsg = `Thank you for your message! How can we assist you with our custom web development and 24/7 AI Voice Agent solutions today? Please share your name and email to connect with our team.`;
       res.json({ text: fallbackMsg });
     }
   });
@@ -2619,7 +2777,7 @@ When asked tough or technical edge-case questions, answer directly with deep com
     try {
       const { personaId, gender, userQuery, scenario, conversationHistory, customCompany } = req.body;
 
-      let normalizedUserQuery = (userQuery || "").trim();
+      let normalizedUserQuery = cleanSpeechDuplicates((userQuery || "").trim());
       // Normalize common speech-to-text mishearings for founder queries only when not a custom company
       if (!customCompany?.name) {
         if (
@@ -2875,16 +3033,30 @@ Respond ONLY in valid JSON matching this schema:
           };
         }
 
-        // Inbound Pure Greeting Check: whenever caller says "hi", "hello", "hey", respond with a natural, friendly greeting
-        const isGreetingOnly = /^(hi|hello|hey|hey there|good morning|good afternoon|good evening|howdy|yo|greetings|how are you|how are you doing|how's it going|what's up)[\s.?!]*$/i.test(currentLower) ||
+        // Inbound Pure Greeting Check: whenever caller says "hi", "hello", "hey", respond with a natural, conversational response
+        const isGreetingOnly = /^(hi|hello|hey|hey there|good morning|good afternoon|good evening|howdy|yo|greetings|how are you|how are you doing|how's it going|what's up|hy)[\s.?!]*$/i.test(currentLower) ||
           /^(hi|hello|hey)\s+(there|arthur|zephyr|oliver|clara|quorik|everyone)[\s.?!]*$/i.test(currentLower);
 
         if (isGreetingOnly) {
-          const greetingMsg = customCompany?.name
-            ? (isRooferOrTrade
+          const hasPriorTurns = Array.isArray(history) && history.length > 0;
+          let greetingMsg = "";
+          if (hasPriorTurns) {
+            if (customCompany?.name) {
+              greetingMsg = isRooferOrTrade
+                ? `Right, good to have you! How can we help you today — are you looking for a roof inspection, or do you have an urgent repair?`
+                : `Right, glad you're here! How can we help you today — are you looking to book an appointment or ask about our services?`;
+            } else {
+              greetingMsg = `Right, good to have you on the line! What can I scope or build for you today — or did you want to check our custom pricing and live voice demos?`;
+            }
+          } else {
+            if (customCompany?.name) {
+              greetingMsg = isRooferOrTrade
                 ? `Hey there! Good to hear from you at ${cName}. Are you looking to fix an active roof leak, or do you just need a quick estimate on some repairs?`
-                : `Hey there! Good to hear from you at ${cName}. How can we help you today — are you looking for a quick quote, or did you want to schedule an appointment?`)
-            : `Hey there! Great to speak with you. How can I help you today — are you looking for custom web engineering, or setting up a 24/7 AI voice agent?`;
+                : `Hey there! Good to hear from you at ${cName}. How can we help you today — are you looking for a quick quote, or did you want to schedule an appointment?`;
+            } else {
+              greetingMsg = `Hey there! Great to speak with you. How can I help you today — are you looking for custom web engineering, or setting up a 24/7 AI voice agent?`;
+            }
+          }
 
           return {
             aiSpeechText: greetingMsg,
@@ -2915,7 +3087,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Database & High Availability Architecture',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🛡️ TECHNICAL INQUIRY: Visitor asked about database crash and failover architecture.`
+            whatsappMessage: `🛡️ TECHNICAL INQUIRY: Visitor asked about database crash and failover architecture.`,
+            isInstant: true
           };
         }
 
@@ -2930,7 +3103,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'High Concurrency & Telephony Scale',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `📈 CONCURRENCY INQUIRY: Visitor asked about 5,000+ simultaneous call capacity.`
+            whatsappMessage: `📈 CONCURRENCY INQUIRY: Visitor asked about 5,000+ simultaneous call capacity.`,
+            isInstant: true
           };
         }
 
@@ -2945,7 +3119,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'AI Guardrails & Accuracy',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🛡️ GUARDRAILS INQUIRY: Visitor asked about hallucination prevention and AI accuracy.`
+            whatsappMessage: `🛡️ GUARDRAILS INQUIRY: Visitor asked about hallucination prevention and AI accuracy.`,
+            isInstant: true
           };
         }
 
@@ -2960,7 +3135,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Human Transfer & Call Escalation',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `📞 TRANSFER INQUIRY: Visitor asked about live agent transfer and call forwarding.`
+            whatsappMessage: `📞 TRANSFER INQUIRY: Visitor asked about live agent transfer and call forwarding.`,
+            isInstant: true
           };
         }
 
@@ -2980,7 +3156,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: '24/7 Emergency Response',
             bookingStatus: 'in_progress',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🚨 EMERGENCY INQUIRY: Visitor inquired about 24/7 emergency dispatch at ${cName}.`
+            whatsappMessage: `🚨 EMERGENCY INQUIRY: Visitor inquired about 24/7 emergency dispatch at ${cName}.`,
+            isInstant: true
           };
         }
 
@@ -2995,7 +3172,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Multilingual & Accent Support',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🌍 LANGUAGE INQUIRY: Visitor asked about multilingual and accent support.`
+            whatsappMessage: `🌍 LANGUAGE INQUIRY: Visitor asked about multilingual and accent support.`,
+            isInstant: true
           };
         }
 
@@ -3010,7 +3188,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Quorik vs DIY Platform Architecture',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `💡 COMPARISON INQUIRY: Visitor asked why choose Quorik vs raw APIs (Bland/Retell/Vapi).`
+            whatsappMessage: `💡 COMPARISON INQUIRY: Visitor asked why choose Quorik vs raw APIs (Bland/Retell/Vapi).`,
+            isInstant: true
           };
         }
 
@@ -3025,7 +3204,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Security & Compliance (HIPAA / SOC 2)',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🔒 COMPLIANCE INQUIRY: Visitor asked about HIPAA, SOC 2, and data encryption.`
+            whatsappMessage: `🔒 COMPLIANCE INQUIRY: Visitor asked about HIPAA, SOC 2, and data encryption.`,
+            isInstant: true
           };
         }
 
@@ -3040,11 +3220,76 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Performance & Satisfaction Guarantee',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `⭐ GUARANTEE INQUIRY: Visitor asked about guarantees and performance assurances.`
+            whatsappMessage: `⭐ GUARANTEE INQUIRY: Visitor asked about guarantees and performance assurances.`,
+            isInstant: true
           };
         }
 
-        // 10. Trade / Demo Inquiries: Insurance Claims & Adjusters
+        // 10. CRM & Calendar Sync
+        if (currentLower.includes('crm') || currentLower.includes('hubspot') || currentLower.includes('salesforce') || currentLower.includes('gohighlevel') || currentLower.includes('google calendar') || currentLower.includes('calendar sync') || currentLower.includes('webhook')) {
+          return {
+            aiSpeechText: `Yeah, absolutely... we provide native two-way synchronization with Google Calendar, Outlook, HubSpot, Salesforce, GoHighLevel, and custom Webhooks so every appointment and caller summary appears in your CRM immediately.`,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'CRM & Calendar Integration',
+            bookingStatus: 'inquiry_only',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `🔄 CRM INQUIRY: Visitor asked about CRM and Calendar integration.`,
+            isInstant: true
+          };
+        }
+
+        // 11. Why AI Voice Agent instead of Contact Form
+        if (currentLower.includes('contact form') || currentLower.includes('why not a form') || currentLower.includes('form vs') || currentLower.includes('better than a form')) {
+          return {
+            aiSpeechText: `Great question... over 67% of inbound visitors bounce when faced with a static contact form or voicemail. Our 24/7 AI answers in sub-350 milliseconds, resolves complex questions, and books appointments directly into your calendar.`,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'AI Voice Agent vs Static Form',
+            bookingStatus: 'inquiry_only',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `🎯 ADVANTAGE INQUIRY: Visitor asked why AI Voice Agent beats contact forms.`,
+            isInstant: true
+          };
+        }
+
+        // 12. Latency & Sound Quality
+        if (currentLower.includes('latency') || currentLower.includes('delay') || currentLower.includes('lag') || currentLower.includes('robot sound') || currentLower.includes('sound like an ai')) {
+          return {
+            aiSpeechText: `Right... our voice engine operates with sub-350ms streaming latency using real-time WebRTC neural pipelines and humanized speech inflections, delivering a natural conversation with zero awkward pauses.`,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'Low Latency Audio Infrastructure',
+            bookingStatus: 'inquiry_only',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `⚡ LATENCY INQUIRY: Visitor asked about audio latency and natural cadence.`,
+            isInstant: true
+          };
+        }
+
+        // 13. Turnaround Time / Speed of Delivery
+        if (currentLower.includes('how long') || currentLower.includes('turnaround') || currentLower.includes('timeline') || currentLower.includes('how fast') || currentLower.includes('launch time')) {
+          return {
+            aiSpeechText: `Right... our standard turnaround time is typically 5 to 7 business days from project kickoff to live production deployment, including telephony setup, custom knowledge base calibration, and CRM integration.`,
+            callerName,
+            callerEmail,
+            callerPhone,
+            requestedSlot: requestedSlot || 'Pending Slot Selection',
+            topic: 'Project Timeline & Delivery',
+            bookingStatus: 'inquiry_only',
+            missingFields: ['name', 'time', 'email', 'phone'],
+            whatsappMessage: `⏱️ TIMELINE INQUIRY: Visitor asked about turnaround time and deployment schedule.`,
+            isInstant: true
+          };
+        }
+
+        // 14. Trade / Demo Inquiries: Insurance Claims & Adjusters
         if (currentLower.includes('insurance') || currentLower.includes('adjuster') || currentLower.includes('claim')) {
           return {
             aiSpeechText: `Yeah, absolutely... we work directly with all major insurance carriers, providing photographic damage documentation, itemized estimates, and on-site adjuster meetings. Would you like us to assist with your claim?`,
@@ -3055,11 +3300,12 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Insurance Claims & Adjuster Assistance',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `📋 INSURANCE INQUIRY: Visitor asked about insurance claims and adjusters.`
+            whatsappMessage: `📋 INSURANCE INQUIRY: Visitor asked about insurance claims and adjusters.`,
+            isInstant: true
           };
         }
 
-        // 11. Trade / Demo Inquiries: Licensing & Insurance
+        // 15. Trade / Demo Inquiries: Licensing & Insurance
         if (currentLower.includes('license') || currentLower.includes('insured') || currentLower.includes('bonded') || currentLower.includes('certificate')) {
           return {
             aiSpeechText: `Well... we are fully certified, licensed, and carry comprehensive public liability and worker's compensation insurance for complete peace of mind. Would you like to schedule an on-site consultation?`,
@@ -3070,11 +3316,12 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Licensing & Insurance Verification',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `📜 LICENSE INQUIRY: Visitor asked about licensing and insurance certification.`
+            whatsappMessage: `📜 LICENSE INQUIRY: Visitor asked about licensing and insurance certification.`,
+            isInstant: true
           };
         }
 
-        // 12. Trade / Demo Inquiries: Hidden Costs & Extra Unexpected Work
+        // 16. Trade / Demo Inquiries: Hidden Costs & Extra Unexpected Work
         if (currentLower.includes('hidden') || currentLower.includes('extra cost') || currentLower.includes('unexpected') || currentLower.includes('surprise')) {
           return {
             aiSpeechText: `Gotcha... we never perform unauthorized work. If any hidden issues or additional repairs are discovered, we document them with photos, provide a transparent written estimate, and only proceed with your direct sign-off.`,
@@ -3085,7 +3332,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Transparent Pricing & No Hidden Fees',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `💎 PRICING TRANSPARENCY INQUIRY: Visitor asked about hidden costs and extra work.`
+            whatsappMessage: `💎 PRICING TRANSPARENCY INQUIRY: Visitor asked about hidden costs and extra work.`,
+            isInstant: true
           };
         }
 
@@ -3142,7 +3390,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Location & Hours Inquiry',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `📍 LOCATION & HOURS INQUIRY: Visitor asked for location and schedule at ${cName}.`
+            whatsappMessage: `📍 LOCATION & HOURS INQUIRY: Visitor asked for location and schedule at ${cName}.`,
+            isInstant: true
           };
         }
 
@@ -3166,7 +3415,8 @@ Respond ONLY in valid JSON matching this schema:
                   topic: 'FAQ & Service Details',
                   bookingStatus: 'inquiry_only',
                   missingFields: ['name', 'time', 'email', 'phone'],
-                  whatsappMessage: `ℹ️ FAQ INQUIRY: Visitor asked about: "${qMatch[1]}" for ${cName}.`
+                  whatsappMessage: `ℹ️ FAQ INQUIRY: Visitor asked about: "${qMatch[1]}" for ${cName}.`,
+                  isInstant: true
                 };
               }
             }
@@ -3204,7 +3454,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Leadership & Specialist Inquiry',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `👑 LEADERSHIP INQUIRY: Caller inquired about owner/leadership for ${cName}.`
+            whatsappMessage: `👑 LEADERSHIP INQUIRY: Caller inquired about owner/leadership for ${cName}.`,
+            isInstant: true
           };
         }
 
@@ -3221,7 +3472,9 @@ Respond ONLY in valid JSON matching this schema:
           if (!callerName && !requestedSlot) {
             const promptBookingMsg = isRooferOrTrade
               ? `Right... I can definitely get someone out to inspect that for you! What's your name, and what day or time works best?`
-              : `Right... I'd be happy to get that scheduled for you! May I have your name and preferred day or time?`;
+              : (customCompany?.name
+                  ? `Right... I'd be happy to arrange that for you with ${cName}! May I have your name and preferred day or time?`
+                  : `Right... I'd be happy to get that scheduled for you! May I have your name and preferred day or time?`);
             return {
               aiSpeechText: promptBookingMsg,
               callerName: '',
@@ -3231,7 +3484,8 @@ Respond ONLY in valid JSON matching this schema:
               topic,
               bookingStatus: 'in_progress',
               missingFields: ['name', 'time', 'email', 'phone'],
-              whatsappMessage: `⏳ APPOINTMENT IN PROGRESS: Awaiting caller name and time slot for ${cName}.`
+              whatsappMessage: `⏳ APPOINTMENT IN PROGRESS: Awaiting caller name and time slot for ${cName}.`,
+              isInstant: true
             };
           } else if (!callerEmail || !callerPhone) {
             const missingText = !callerEmail && !callerPhone ? "your email address and phone number" : (!callerEmail ? "your email address" : "your phone number");
@@ -3244,7 +3498,8 @@ Respond ONLY in valid JSON matching this schema:
               topic,
               bookingStatus: 'in_progress',
               missingFields: missing,
-              whatsappMessage: `⏳ APPOINTMENT IN PROGRESS: ${callerName || 'Caller'} selected ${requestedSlot || 'Tomorrow'}. Awaiting contact info.`
+              whatsappMessage: `⏳ APPOINTMENT IN PROGRESS: ${callerName || 'Caller'} selected ${requestedSlot || 'Tomorrow'}. Awaiting contact info.`,
+              isInstant: true
             };
           } else {
             return {
@@ -3256,7 +3511,8 @@ Respond ONLY in valid JSON matching this schema:
               topic,
               bookingStatus: 'confirmed',
               missingFields: [],
-              whatsappMessage: `🚀 CONFIRMED APPOINTMENT: ${callerName} booked ${topic} on ${requestedSlot} at ${cName}. Contact: ${callerEmail} | ${callerPhone}`
+              whatsappMessage: `🚀 CONFIRMED APPOINTMENT: ${callerName} booked ${topic} on ${requestedSlot} at ${cName}. Contact: ${callerEmail} | ${callerPhone}`,
+              isInstant: true
             };
           }
         }
@@ -3282,7 +3538,8 @@ Respond ONLY in valid JSON matching this schema:
             topic: 'Pricing & Services Consultation',
             bookingStatus: 'inquiry_only',
             missingFields: ['name', 'time', 'email', 'phone'],
-            whatsappMessage: `🚀 INBOUND LEAD: Pricing inquiry regarding services at ${cName}.`
+            whatsappMessage: `🚀 INBOUND LEAD: Pricing inquiry regarding services at ${cName}.`,
+            isInstant: true
           };
         }
 
@@ -3374,7 +3631,7 @@ Respond ONLY in valid JSON matching this schema:
           contents: prompt,
           config: {
             responseMimeType: "application/json",
-            maxOutputTokens: 500,
+            maxOutputTokens: 140,
             temperature: 0.3,
           }
         });

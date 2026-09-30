@@ -712,3 +712,126 @@ export function speakEnglishUtterance(
   speakSpeech(rawText, options);
 }
 
+/**
+ * Robust speech text de-duplication:
+ * Eliminates progressive prefix accumulation (the Android Chrome WebSpeech bug where
+ * "hi" + "hi I" + "hi I want" are concatenated back-to-back), repeated multi-word phrases,
+ * and immediate word stuttering.
+ */
+export function cleanSpeechDuplicates(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  let s = text.replace(/\s+/g, ' ').trim();
+
+  // 1. Remove immediate duplicate single words like "hi hi", "book book"
+  s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+  // 2. Progressive prefix accumulation check (Android WebSpeech bug)
+  // If Chrome Android concats "hi" + "hi I" + "hi I want" + "hi I want to book..."
+  const words = s.split(' ');
+  if (words.length > 3) {
+    const firstWordClean = words[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (firstWordClean) {
+      const candidateStarts: number[] = [];
+      for (let i = 1; i < words.length; i++) {
+        if (words[i].toLowerCase().replace(/[^a-z0-9]/g, '') === firstWordClean) {
+          candidateStarts.push(i);
+        }
+      }
+      if (candidateStarts.length >= 2) {
+        for (let k = candidateStarts.length - 1; k >= 0; k--) {
+          const startIdx = candidateStarts[k];
+          const tail = words.slice(startIdx).join(' ');
+          const tailLower = tail.toLowerCase();
+          const sampleSub = words.slice(0, Math.min(startIdx, 5)).join(' ').toLowerCase();
+          if (tailLower.startsWith(sampleSub) || tailLower.includes(sampleSub)) {
+            s = tail;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Repeated multi-word phrases (e.g., "I want to book security guard I want to book security guard")
+  for (let n = 8; n >= 2; n--) {
+    const pattern = new RegExp(`\\b((?:[\\w\']+[.,?!]?\\s+){${n-1}}[\\w\']+[.,?!]?)\\s+\\1\\b`, 'gi');
+    let prev = '';
+    do {
+      prev = s;
+      s = s.replace(pattern, '$1');
+    } while (s !== prev);
+  }
+
+  // 4. Repeated phrase where question mark or period separates: e.g. "Where are you located? Where are you located?"
+  s = s.replace(/([a-zA-Z0-9\s]{3,}[?.!])\s*\1/gi, '$1');
+
+  // 5. Final pass for immediate word duplicates
+  s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+  return s.trim();
+}
+
+/**
+ * Safely extracts speech recognition transcript from SpeechRecognitionEvent across all browsers
+ * (specifically protecting against Android Chrome / Samsung Internet cumulative array bug).
+ */
+export function extractSpeechTranscript(event: any): string {
+  if (!event || !event.results || event.results.length === 0) return '';
+
+  let finalTranscript = '';
+  let interimTranscript = '';
+
+  for (let i = 0; i < event.results.length; ++i) {
+    const res = event.results[i];
+    if (!res || !res[0]) continue;
+    const chunk = (res[0].transcript || '').trim();
+    if (!chunk) continue;
+
+    if (res.isFinal) {
+      if (finalTranscript) {
+        const lowerFinal = finalTranscript.toLowerCase();
+        const lowerChunk = chunk.toLowerCase();
+        if (lowerChunk.startsWith(lowerFinal)) {
+          // Android Chrome: current final item is cumulative of prior final
+          finalTranscript = chunk;
+        } else if (lowerFinal.endsWith(lowerChunk)) {
+          // Chunk is already included at the end
+        } else {
+          finalTranscript += ' ' + chunk;
+        }
+      } else {
+        finalTranscript = chunk;
+      }
+    } else {
+      // Interim result
+      if (finalTranscript) {
+        const lowerFinal = finalTranscript.toLowerCase();
+        const lowerChunk = chunk.toLowerCase();
+        if (lowerChunk.startsWith(lowerFinal)) {
+          interimTranscript = chunk.slice(finalTranscript.length).trim();
+        } else {
+          interimTranscript = chunk;
+        }
+      } else {
+        interimTranscript = chunk;
+      }
+    }
+  }
+
+  // On mobile Chrome, check if the last result item has the complete phrase
+  const lastItem = event.results[event.results.length - 1];
+  const lastText = (lastItem?.[0]?.transcript || '').trim();
+
+  let combined = (finalTranscript + (interimTranscript ? ' ' + interimTranscript : '')).trim();
+
+  if (lastText && lastText.length > combined.length) {
+    const cleanedLast = cleanSpeechDuplicates(lastText);
+    const cleanedCombined = cleanSpeechDuplicates(combined);
+    if (cleanedLast.length >= cleanedCombined.length) {
+      combined = lastText;
+    }
+  }
+
+  return cleanSpeechDuplicates(combined);
+}
+

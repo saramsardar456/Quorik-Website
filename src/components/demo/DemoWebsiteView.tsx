@@ -41,6 +41,98 @@ import {
 import { DemoSiteData, THEME_CONFIGS } from '../../data/demoPresets';
 import { speakSpeech, stopAllSpeech, unlockAudio, playBackchannelVerbalNod, preloadBackchannels } from '../../utils/speechUtils';
 
+// Robust speech text deduplication to eliminate progressive prefix accumulation & stutter
+function cleanSpeechDuplicates(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  let s = text.replace(/\s+/g, ' ').trim();
+  s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+  const words = s.split(' ');
+  if (words.length > 3) {
+    const firstWordClean = words[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (firstWordClean) {
+      const candidateStarts: number[] = [];
+      for (let i = 1; i < words.length; i++) {
+        if (words[i].toLowerCase().replace(/[^a-z0-9]/g, '') === firstWordClean) {
+          candidateStarts.push(i);
+        }
+      }
+      if (candidateStarts.length >= 2) {
+        for (let k = candidateStarts.length - 1; k >= 0; k--) {
+          const startIdx = candidateStarts[k];
+          const tail = words.slice(startIdx).join(' ');
+          const tailLower = tail.toLowerCase();
+          const sampleSub = words.slice(0, Math.min(startIdx, 5)).join(' ').toLowerCase();
+          if (tailLower.startsWith(sampleSub) || tailLower.includes(sampleSub)) {
+            s = tail;
+            break;
+          }
+        }
+      }
+    }
+  }
+  for (let n = 8; n >= 2; n--) {
+    const pattern = new RegExp(`\\b((?:[\\w\']+[.,?!]?\\s+){${n-1}}[\\w\']+[.,?!]?)\\s+\\1\\b`, 'gi');
+    let prev = '';
+    do {
+      prev = s;
+      s = s.replace(pattern, '$1');
+    } while (s !== prev);
+  }
+  s = s.replace(/([a-zA-Z0-9\s]{3,}[?.!])\s*\1/gi, '$1');
+  s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+  return s.trim();
+}
+
+function extractSpeechTranscript(event: any): string {
+  if (!event || !event.results || event.results.length === 0) return '';
+  let finalTranscript = '';
+  let interimTranscript = '';
+  for (let i = 0; i < event.results.length; ++i) {
+    const res = event.results[i];
+    if (!res || !res[0]) continue;
+    const chunk = (res[0].transcript || '').trim();
+    if (!chunk) continue;
+    if (res.isFinal) {
+      if (finalTranscript) {
+        const lowerFinal = finalTranscript.toLowerCase();
+        const lowerChunk = chunk.toLowerCase();
+        if (lowerChunk.startsWith(lowerFinal)) {
+          finalTranscript = chunk;
+        } else if (lowerFinal.endsWith(lowerChunk)) {
+          // already included
+        } else {
+          finalTranscript += ' ' + chunk;
+        }
+      } else {
+        finalTranscript = chunk;
+      }
+    } else {
+      if (finalTranscript) {
+        const lowerFinal = finalTranscript.toLowerCase();
+        const lowerChunk = chunk.toLowerCase();
+        if (lowerChunk.startsWith(lowerFinal)) {
+          interimTranscript = chunk.slice(finalTranscript.length).trim();
+        } else {
+          interimTranscript = chunk;
+        }
+      } else {
+        interimTranscript = chunk;
+      }
+    }
+  }
+  const lastItem = event.results[event.results.length - 1];
+  const lastText = (lastItem?.[0]?.transcript || '').trim();
+  let combined = (finalTranscript + (interimTranscript ? ' ' + interimTranscript : '')).trim();
+  if (lastText && lastText.length > combined.length) {
+    const cleanedLast = cleanSpeechDuplicates(lastText);
+    const cleanedCombined = cleanSpeechDuplicates(combined);
+    if (cleanedLast.length >= cleanedCombined.length) {
+      combined = lastText;
+    }
+  }
+  return cleanSpeechDuplicates(combined);
+}
+
 interface DemoWebsiteViewProps {
   data: DemoSiteData;
   onCallStateChange?: (active: boolean) => void;
@@ -87,6 +179,7 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
   const lastSentTextRef = useRef<string>('');
   const lastSentTimeRef = useRef<number>(0);
   const hasSentMicTranscriptRef = useRef<boolean>(false);
+  const isListeningActiveRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -231,7 +324,8 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
 
   const handleSendQuery = async (queryText?: string) => {
     unlockAudio();
-    const textToSend = (queryText || userQueryInput).trim();
+    const rawText = (queryText || userQueryInput).trim();
+    const textToSend = cleanSpeechDuplicates(rawText);
     if (!textToSend) return;
 
     // Concurrency & Duplicate Check: prevent double questions and rapid re-triggers
@@ -388,14 +482,16 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
     }
 
     if (isRecordingMic) {
+      isListeningActiveRef.current = false;
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch(e){}
       }
       setIsRecordingMic(false);
       // If user manually stopped mic and there is recorded text that wasn't dispatched yet:
-      if (userQueryInput.trim() && !hasSentMicTranscriptRef.current) {
+      const manualText = cleanSpeechDuplicates(userQueryInput.trim());
+      if (manualText && !hasSentMicTranscriptRef.current) {
         hasSentMicTranscriptRef.current = true;
-        handleSendQuery(userQueryInput.trim());
+        handleSendQuery(manualText);
       }
       return;
     }
@@ -405,10 +501,15 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
       recognition.lang = 'en-US';
-      recognition.continuous = true;
+
+      // On Android / mobile browsers, continuous=true causes speech engine duplication. Use continuous=false on mobile for crisp single-utterance capture.
+      const isMobile = typeof window !== 'undefined' && (('ontouchstart' in window) || /android|iphone|ipad|ipod/i.test(navigator.userAgent));
+      recognition.continuous = !isMobile;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
       hasSentMicTranscriptRef.current = false;
+      isListeningActiveRef.current = true;
       let accumulatedTranscript = '';
 
       recognition.onstart = () => {
@@ -417,57 +518,58 @@ export const DemoWebsiteView: React.FC<DemoWebsiteViewProps> = ({
       };
 
       recognition.onresult = (event: any) => {
-        let currentText = '';
-        for (let i = 0; i < event.results.length; ++i) {
-          currentText += event.results[i][0].transcript + ' ';
-        }
-        const raw = currentText.trim();
+        // Robust transcript extraction with anti-stutter deduplication
+        const validated = extractSpeechTranscript(event);
 
-        // Sanitize keyboard mashing or random noise characters
-        const cleanSpeech = (text: string) => {
-          if (!text) return '';
-          const trimmed = text.replace(/\s+/g, ' ').trim();
-          if (/([a-zA-Z])\1{3,}/i.test(trimmed)) return '';
-          if (!trimmed.includes(' ') && trimmed.length > 6) {
-            const vowels = (trimmed.match(/[aeiouy]/gi) || []).length;
-            if (vowels / trimmed.length < 0.15) return '';
-          }
-          return trimmed;
-        };
-
-        const validated = cleanSpeech(raw);
         if (validated) {
           accumulatedTranscript = validated;
           setUserQueryInput(validated);
         }
 
+        const words = (validated || '').split(/\s+/).filter(Boolean);
+        const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
+        const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are'].includes(lastWord);
+        // Snappy low latency silence delay: 1000ms if trailing connector, 750ms otherwise
+        const silenceDelay = isTrailingConnector ? 1000 : (words.length <= 2 ? 850 : 700);
+
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          const toSend = cleanSpeech(accumulatedTranscript || raw);
+          const toSend = cleanSpeechDuplicates(accumulatedTranscript || validated);
           if (toSend && !hasSentMicTranscriptRef.current) {
             hasSentMicTranscriptRef.current = true;
+            isListeningActiveRef.current = false;
             try { recognition.stop(); } catch(e){}
             setIsRecordingMic(false);
             handleSendQuery(toSend);
           }
-        }, 650);
+        }, silenceDelay);
       };
 
-      recognition.onerror = () => {
-        setIsRecordingMic(false);
+      recognition.onerror = (e: any) => {
+        if (e.error !== 'no-speech') {
+          isListeningActiveRef.current = false;
+          setIsRecordingMic(false);
+        }
       };
 
       recognition.onend = () => {
         setIsRecordingMic(false);
-        // Only trigger if silence timer did NOT already send it
-        if (accumulatedTranscript && !hasSentMicTranscriptRef.current) {
+        isListeningActiveRef.current = false;
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+
+        const finalSend = cleanSpeechDuplicates(accumulatedTranscript || userQueryInput);
+        if (finalSend && !hasSentMicTranscriptRef.current) {
           hasSentMicTranscriptRef.current = true;
-          handleSendQuery(accumulatedTranscript);
+          handleSendQuery(finalSend);
         }
       };
 
       recognition.start();
     } catch (err) {
+      isListeningActiveRef.current = false;
       setIsRecordingMic(false);
     }
   };

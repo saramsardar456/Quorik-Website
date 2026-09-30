@@ -5,13 +5,13 @@
       "name": "shehrammeellu03",
       "phone": "03484742270",
       "email": "shehrammeellu03@gmail.com",
-      "service": "Quorik Google Ads Priority Meeting / Consultation",
-      "notes": "Visitor asked: \"shehram meellu shehrammeellu03@gmail.com 03484742270\". AI answered: \"Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik Google Ads will reach out to yo...\"",
+      "service": "Quorik Priority Meeting / Consultation",
+      "notes": "Visitor asked: \"shehram meellu shehrammeellu03@gmail.com 03484742270\". AI answered: \"Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik will reach out to yo...\"",
       "date_time": "Priority Meeting Request",
       "status": "confirmed",
-      "source": "Widget (Quorik Google Ads)",
+      "source": "Widget (Quorik)",
       "clientId": "quorik-google-ads",
-      "businessName": "Quorik Google Ads",
+      "businessName": "Quorik",
       "createdAt": "2026-09-09T21:25:03.445Z"
     },
     {
@@ -19,13 +19,13 @@
       "name": "ahmad45",
       "phone": "03213771542",
       "email": "ahmad45@gmail.com",
-      "service": "Quorik Google Ads Priority Meeting / Consultation",
-      "notes": "Visitor asked: \"ahmad ahmad45@gmail.com 03213771542\". AI answered: \"Thank you, Ahmad! I have your details saved, and our team at Quorik Google Ads will reach out to you shortly to confirm your priority meetin...\"",
+      "service": "Quorik Priority Meeting / Consultation",
+      "notes": "Visitor asked: \"ahmad ahmad45@gmail.com 03213771542\". AI answered: \"Thank you, Ahmad! I have your details saved, and our team at Quorik will reach out to you shortly to confirm your priority meetin...\"",
       "date_time": "Priority Meeting Request",
       "status": "confirmed",
-      "source": "Widget (Quorik Google Ads)",
+      "source": "Widget (Quorik)",
       "clientId": "quorik-google-ads",
-      "businessName": "Quorik Google Ads",
+      "businessName": "Quorik",
       "createdAt": "2026-09-08T23:23:31.722Z"
     },
     {
@@ -33,7 +33,7 @@
       "name": "Client Test",
       "phone": "03700146156",
       "email": "",
-      "service": "Google Ads & Voice Setup",
+      "service": "AI Voice Agents & Custom Websites & Voice Setup",
       "notes": "",
       "date_time": "Tomorrow 3:00 PM",
       "status": "confirmed",
@@ -76,7 +76,7 @@
       "phone": "03700146156",
       "type": "WhatsApp",
       "channel": "instant_confirmation",
-      "message": "📲 [Appointment Confirmed] Hi Client Test! Your appointment for \"Google Ads & Voice Setup\" (Tomorrow 3:00 PM) is confirmed. Our team will contact you shortly!",
+      "message": "📲 [Appointment Confirmed] Hi Client Test! Your appointment for \"AI Voice Agents & Custom Websites & Voice Setup\" (Tomorrow 3:00 PM) is confirmed. Our team will contact you shortly!",
       "status": "DELIVERED (Green-API WhatsApp Gateway)",
       "createdAt": "2026-09-03T12:38:27.205Z"
     },
@@ -86,7 +86,7 @@
       "phone": "03700146156",
       "type": "SMS",
       "channel": "instant_confirmation",
-      "message": "📲 [Appointment Confirmed] Hi Client Test! Your appointment for \"Google Ads & Voice Setup\" (Tomorrow 3:00 PM) is confirmed. Our team will contact you shortly!",
+      "message": "📲 [Appointment Confirmed] Hi Client Test! Your appointment for \"AI Voice Agents & Custom Websites & Voice Setup\" (Tomorrow 3:00 PM) is confirmed. Our team will contact you shortly!",
       "status": "DELIVERED (Global SMS Carrier)",
       "createdAt": "2026-09-03T12:38:27.205Z"
     },
@@ -538,7 +538,7 @@
       "id": "leicester-roof-repairs",
       "clientName": "Leicester Roof Repairs",
       "businessName": "Leicester Roof Repairs",
-      "industry": "Google Ads & Performance Marketing",
+      "industry": "Custom Web Engineering & Autonomous AI Voice Agents",
       "email": "contact@leicester-roof-repairs.com",
       "phone": "+1 (555) 019-2834",
       "websiteUrl": "https://leicester-roof-repairs.com",
@@ -592,23 +592,210 @@
     {
       "id": "quorik-google-ads",
       "clientName": "Saram Sardar",
-      "businessName": "Quorik Google Ads",
-      "industry": "Google Ads & Performance Marketing",
-      "email": "saramsardar456@gmail.com",
+      "businessName": "Quorik",
+      "industry": "Custom Web Engineering & Autonomous AI Voice Agents",
+      "email": "info@quoriksystems.com",
       "phone": "+92 370 0146156",
-      "websiteUrl": "https://quoriksystem.online",
+      "websiteUrl": "https://quoriksystems.com",
       "tier": "starter",
       "monthlyVoiceMinutesLimit": 300,
       "voiceMinutesUsed": 0,
       "monthlyTextChatLimit": 1000,
-      "textChatsUsed": 1,
+      "textChatsUsed": 2,
       "status": "active",
-      "voiceAgentName": "Arthur (Executive Concierge)",
+      "voiceAgentName": "Arthur (Executive AI Voice & Chat Concierge)",
       "voiceLanguage": "English Only",
-      "totalConversations": 10,
+      "totalConversations": 15,
       "leadsCaptured": 2,
-      "lastActive": "2026-09-08T22:53:18.332Z",
+      "lastActive": "2026-09-11T22:30:53.288Z",
       "conversations": [
+        {
+          "id": "conv-mvfj6iw",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-11T22:30:53.288Z",
+          "createdAt": "2026-09-11T22:30:53.288Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "hy",
+          "transcriptSummary": "Visitor asked: \"hy\". AI answered: \"Hello! I’m Arthur, your dedicated concierge for Quorik. How can I assist you with your custom web engineering and AI voice agents and AI Voice Agents & Custom Websites strat...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "hy",
+              "timestamp": "2026-09-11T22:30:53.288Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "Hello! I’m Arthur, your dedicated concierge for Quorik. How can I assist you with your custom web engineering and AI voice agents and AI voice agent and web strategy today?",
+              "timestamp": "2026-09-11T22:30:53.288Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: hy"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-2149wru",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-10T22:33:48.125Z",
+          "createdAt": "2026-09-10T22:33:48.125Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "why could you help me your booking",
+          "transcriptSummary": "Visitor asked: \"why could you help me your booking\". AI answered: \"I can help you book a consultation by gathering your name, email, and phone number right now so our team can follow up. That way, we can dis...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "why could you help me your booking",
+              "timestamp": "2026-09-10T22:33:48.125Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "why could you help me your booking",
+              "timestamp": "2026-09-10T22:33:48.125Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "I can help you book a consultation by gathering your name, email, and phone number right now so our team can follow up. That way, we can discuss your AI Voice Agents & Custom Websites goals directly with our founder, Saram Sardar. Would you like to get started?",
+              "timestamp": "2026-09-10T22:33:48.125Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: why could you help me your booking"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-f08zg3x",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-11T09:16:29.999Z",
+          "createdAt": "2026-09-11T09:16:29.999Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "Hh",
+          "transcriptSummary": "Visitor asked: \"Hh\". AI answered: \"Hello! Welcome to Quorik. How can I help you scale your business with expert custom web engineering and AI voice agents today?...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Hh",
+              "timestamp": "2026-09-11T09:16:29.999Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "Hello! Welcome to Quorik. How can I help you scale your business with expert custom web engineering and AI voice agents today?",
+              "timestamp": "2026-09-11T09:16:29.999Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: Hh"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-mnegisk",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-11T09:16:45.260Z",
+          "createdAt": "2026-09-11T09:16:45.260Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "Calculate my potential ROI with Quorik AI",
+          "transcriptSummary": "Visitor asked: \"Calculate my potential ROI with Quorik AI\". AI answered: \"To calculate your potential ROI, I'd love to grab a few quick details about your monthly ad spend and target goals. Would you mind sharing y...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Hh",
+              "timestamp": "2026-09-11T09:16:45.260Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "Hello! Welcome to Quorik. How can I help you scale your business with expert custom web engineering and AI voice agents today?",
+              "timestamp": "2026-09-11T09:16:45.260Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Calculate my potential ROI with Quorik AI",
+              "timestamp": "2026-09-11T09:16:45.260Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "To calculate your potential ROI, I'd love to grab a few quick details about your monthly ad spend and target goals. Would you mind sharing your name, email, and phone number so Saram Sardar and our team can provide a custom growth projection?",
+              "timestamp": "2026-09-11T09:16:45.260Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: Calculate my potential ROI with Quorik AI"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
+        {
+          "id": "conv-da5i1oe",
+          "visitorName": "Website Visitor",
+          "date": "2026-09-11T09:16:55.332Z",
+          "createdAt": "2026-09-11T09:16:55.332Z",
+          "durationSeconds": 30,
+          "durationMinutes": 0.5,
+          "topic": "What are your service packages and pricing tiers?",
+          "transcriptSummary": "Visitor asked: \"What are your service packages and pricing tiers?\". AI answered: \"We offer custom AI Voice Agents & Custom Websites and custom web engineering and AI voice agents packages tailored to your specific growth goals and budget. Would you like to share you...\"",
+          "transcript": [
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Hh",
+              "timestamp": "2026-09-11T09:16:55.332Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "Hello! Welcome to Quorik. How can I help you scale your business with expert custom web engineering and AI voice agents today?",
+              "timestamp": "2026-09-11T09:16:55.332Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "Calculate my potential ROI with Quorik AI",
+              "timestamp": "2026-09-11T09:16:55.332Z"
+            },
+            {
+              "sender": "ai",
+              "role": "ai",
+              "text": "To calculate your potential ROI, I'd love to grab a few quick details about your monthly ad spend and target goals. Would you mind sharing your name, email, and phone number so Saram Sardar and our team can provide a custom growth projection?",
+              "timestamp": "2026-09-11T09:16:55.332Z"
+            },
+            {
+              "sender": "user",
+              "role": "user",
+              "text": "What are your service packages and pricing tiers?",
+              "timestamp": "2026-09-11T09:16:55.332Z"
+            },
+            {
+              "sender": "ai",
+              "role": "model",
+              "text": "We offer custom AI Voice Agents & Custom Websites and custom web engineering and AI voice agents packages tailored to your specific growth goals and budget. Would you like to share your contact details so Saram Sardar and our team can send you a personalized pricing breakdown?",
+              "timestamp": "2026-09-11T09:16:55.332Z"
+            }
+          ],
+          "leadInfo": {
+            "notes": "Live chat inquiry regarding: What are your service packages and pricing tiers?"
+          },
+          "leadCaptured": false,
+          "status": "completed"
+        },
         {
           "id": "conv-9kmswyd",
           "visitorName": "Website Visitor",
@@ -617,7 +804,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "Hollywood movie",
-          "transcriptSummary": "Visitor asked: \"Hollywood movie\". AI answered: \"It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik Google Ads, we focus strictly on high-performance Google Ads and ...\"",
+          "transcriptSummary": "Visitor asked: \"Hollywood movie\". AI answered: \"It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik, we focus strictly on high-performance AI Voice Agents & Custom Websites and ...\"",
           "transcript": [
             {
               "sender": "user",
@@ -634,7 +821,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik Google Ads, we focus strictly on high-performance Google Ads and digital marketing to drive real ROI for businesses. Would you like to schedule a consultation with our team to discuss how we can scale your campaigns?",
+              "text": "It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik, we focus strictly on high-performance AI Voice Agents & Custom Websites and digital marketing to drive real ROI for businesses. Would you like to schedule a consultation with our team to discuss how we can scale your campaigns?",
               "timestamp": "2026-09-10T21:43:31.669Z"
             }
           ],
@@ -652,7 +839,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "TS could you help me with everything",
-          "transcriptSummary": "Visitor asked: \"TS could you help me with everything\". AI answered: \"I'd be happy to help you with anything related to Google Ads and performance marketing! Whether you want to scale your business, lower your ...\"",
+          "transcriptSummary": "Visitor asked: \"TS could you help me with everything\". AI answered: \"I'd be happy to help you with anything related to AI Voice Agents & Custom Websites and custom web engineering and AI voice agents! Whether you want to scale your business, lower your ...\"",
           "transcript": [
             {
               "sender": "user",
@@ -663,7 +850,7 @@
             {
               "sender": "ai",
               "role": "ai",
-              "text": "It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik Google Ads, we focus strictly on high-performance Google Ads and digital marketing to drive real ROI for businesses. Would you like to schedule a consultation with our team to discuss how we can scale your campaigns?",
+              "text": "It looks like you might have typed \"Hollywood movie\" by mistake! At Quorik, we focus strictly on high-performance AI Voice Agents & Custom Websites and digital marketing to drive real ROI for businesses. Would you like to schedule a consultation with our team to discuss how we can scale your campaigns?",
               "timestamp": "2026-09-10T21:44:04.401Z"
             },
             {
@@ -681,7 +868,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "I'd be happy to help you with anything related to Google Ads and performance marketing! Whether you want to scale your business, lower your acquisition costs, or optimize your campaigns, we've got you covered. Would you like to share your email or phone number so our team can follow up with a personalized strategy?",
+              "text": "I'd be happy to help you with anything related to AI Voice Agents & Custom Websites and custom web engineering and AI voice agents! Whether you want to scale your business, lower your acquisition costs, or optimize your campaigns, we've got you covered. Would you like to share your email or phone number so our team can follow up with a personalized strategy?",
               "timestamp": "2026-09-10T21:44:04.401Z"
             }
           ],
@@ -699,7 +886,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "hy could book a meeting",
-          "transcriptSummary": "Visitor asked: \"hy could book a meeting\". AI answered: \"I'd be happy to help you schedule a meeting with our team at Quorik Google Ads! \n\nTo get that set up, could you please share your name, emai...\"",
+          "transcriptSummary": "Visitor asked: \"hy could book a meeting\". AI answered: \"I'd be happy to help you schedule a meeting with our team at Quorik! \n\nTo get that set up, could you please share your name, emai...\"",
           "transcript": [
             {
               "sender": "user",
@@ -716,7 +903,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "I'd be happy to help you schedule a meeting with our team at Quorik Google Ads! \n\nTo get that set up, could you please share your name, email address, and phone number?",
+              "text": "I'd be happy to help you schedule a meeting with our team at Quorik! \n\nTo get that set up, could you please share your name, email address, and phone number?",
               "timestamp": "2026-09-09T21:24:09.074Z"
             }
           ],
@@ -736,7 +923,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "shehram meellu shehrammeellu03@gmail.com 03484742270",
-          "transcriptSummary": "Visitor asked: \"shehram meellu shehrammeellu03@gmail.com 03484742270\". AI answered: \"Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik Google Ads will reach out to yo...\"",
+          "transcriptSummary": "Visitor asked: \"shehram meellu shehrammeellu03@gmail.com 03484742270\". AI answered: \"Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik will reach out to yo...\"",
           "transcript": [
             {
               "sender": "user",
@@ -747,7 +934,7 @@
             {
               "sender": "ai",
               "role": "ai",
-              "text": "I'd be happy to help you schedule a meeting with our team at Quorik Google Ads! \n\nTo get that set up, could you please share your name, email address, and phone number?",
+              "text": "I'd be happy to help you schedule a meeting with our team at Quorik! \n\nTo get that set up, could you please share your name, email address, and phone number?",
               "timestamp": "2026-09-09T21:25:03.445Z"
             },
             {
@@ -765,7 +952,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik Google Ads will reach out to you shortly to confirm your consultation time.",
+              "text": "Thank you, Shehram! I have successfully noted your details. \n\nSaram Sardar or a member of our team at Quorik will reach out to you shortly to confirm your consultation time.",
               "timestamp": "2026-09-09T21:25:03.445Z"
             }
           ],
@@ -785,7 +972,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "hey could you help me with in a meeting",
-          "transcriptSummary": "Visitor asked: \"hey could you help me with in a meeting\". AI answered: \"Hello! I'd be happy to help you schedule a meeting or consultation with our team at Quorik Google Ads. \n\nCould you please share your name, e...\"",
+          "transcriptSummary": "Visitor asked: \"hey could you help me with in a meeting\". AI answered: \"Hello! I'd be happy to help you schedule a meeting or consultation with our team at Quorik. \n\nCould you please share your name, e...\"",
           "transcript": [
             {
               "sender": "user",
@@ -802,7 +989,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "Hello! I'd be happy to help you schedule a meeting or consultation with our team at Quorik Google Ads. \n\nCould you please share your name, email, and phone number so we can get that set up for you?",
+              "text": "Hello! I'd be happy to help you schedule a meeting or consultation with our team at Quorik. \n\nCould you please share your name, email, and phone number so we can get that set up for you?",
               "timestamp": "2026-09-08T23:42:33.626Z"
             }
           ],
@@ -822,7 +1009,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "ahmad ahmad45@gmail.com 03213771542",
-          "transcriptSummary": "Visitor asked: \"ahmad ahmad45@gmail.com 03213771542\". AI answered: \"Thank you, Ahmad! I have your details saved, and our team at Quorik Google Ads will reach out to you shortly to confirm your priority meetin...\"",
+          "transcriptSummary": "Visitor asked: \"ahmad ahmad45@gmail.com 03213771542\". AI answered: \"Thank you, Ahmad! I have your details saved, and our team at Quorik will reach out to you shortly to confirm your priority meetin...\"",
           "transcript": [
             {
               "sender": "user",
@@ -833,7 +1020,7 @@
             {
               "sender": "ai",
               "role": "ai",
-              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "text": "Hello and welcome to Quorik! I'm Arthur, your executive concierge. How can I assist you with your custom web engineering and AI voice agents needs today?",
               "timestamp": "2026-09-08T23:23:31.722Z"
             },
             {
@@ -875,7 +1062,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "Thank you, Ahmad! I have your details saved, and our team at Quorik Google Ads will reach out to you shortly to confirm your priority meeting. Is there anything specific about your Google Ads campaigns you'd like us to review beforehand?",
+              "text": "Thank you, Ahmad! I have your details saved, and our team at Quorik will reach out to you shortly to confirm your priority meeting. Is there anything specific about your custom web platforms and voice agents you'd like us to review beforehand?",
               "timestamp": "2026-09-08T23:23:31.722Z"
             }
           ],
@@ -906,7 +1093,7 @@
             {
               "sender": "ai",
               "role": "ai",
-              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "text": "Hello and welcome to Quorik! I'm Arthur, your executive concierge. How can I assist you with your custom web engineering and AI voice agents needs today?",
               "timestamp": "2026-09-08T23:22:18.225Z"
             },
             {
@@ -965,7 +1152,7 @@
             {
               "sender": "ai",
               "role": "ai",
-              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "text": "Hello and welcome to Quorik! I'm Arthur, your executive concierge. How can I assist you with your custom web engineering and AI voice agents needs today?",
               "timestamp": "2026-09-08T23:16:33.490Z"
             },
             {
@@ -1001,7 +1188,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "hy",
-          "transcriptSummary": "Visitor asked: \"hy\". AI answered: \"Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs tod...\"",
+          "transcriptSummary": "Visitor asked: \"hy\". AI answered: \"Hello and welcome to Quorik! I'm Arthur, your executive concierge. How can I assist you with your custom web engineering and AI voice agents needs tod...\"",
           "transcript": [
             {
               "sender": "user",
@@ -1018,7 +1205,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "Hello and welcome to Quorik Google Ads! I'm Arthur, your executive concierge. How can I assist you with your performance marketing needs today?",
+              "text": "Hello and welcome to Quorik! I'm Arthur, your executive concierge. How can I assist you with your custom web engineering and AI voice agents needs today?",
               "timestamp": "2026-09-08T23:16:27.048Z"
             }
           ],
@@ -1036,7 +1223,7 @@
           "durationSeconds": 30,
           "durationMinutes": 0.5,
           "topic": "Hi, can you calculate ROI for $2000 ad spend?",
-          "transcriptSummary": "Visitor asked: \"Hi, can you calculate ROI for $2000 ad spend?\". AI answered: \"Hello and welcome to Quorik Google Ads! While exact ROI depends on your industry average conversion rates and profit margins, a $2,000 ad sp...\"",
+          "transcriptSummary": "Visitor asked: \"Hi, can you calculate ROI for $2000 ad spend?\". AI answered: \"Hello and welcome to Quorik! While exact ROI depends on your industry average conversion rates and profit margins, a $2,000 ad sp...\"",
           "transcript": [
             {
               "sender": "user",
@@ -1047,7 +1234,7 @@
             {
               "sender": "ai",
               "role": "model",
-              "text": "Hello and welcome to Quorik Google Ads! While exact ROI depends on your industry average conversion rates and profit margins, a $2,000 ad spend managed by our experts is designed to maximize every dollar for measurable growth. Would you like to share your business details or book a quick consultation with our founder, Saram Sardar, to map out a custom performance strategy?",
+              "text": "Hello and welcome to Quorik! While exact ROI depends on your industry average conversion rates and profit margins, a $2,000 ad spend managed by our experts is designed to maximize every dollar for measurable growth. Would you like to share your business details or book a quick consultation with our founder, Saram Sardar, to map out a custom performance strategy?",
               "timestamp": "2026-09-08T22:53:18.332Z"
             }
           ],

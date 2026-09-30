@@ -9,6 +9,98 @@ import {
 import { ChatROICalculatorCard, ChatPortfolioCard, ChatPricingCard } from './chat/ChatCards';
 import { speakSpeech, stopAllSpeech, sanitizeTextForSpeech, unlockAudio, prefetchNeuralAudio } from '../utils/speechUtils';
 
+// Robust speech text deduplication to eliminate progressive prefix accumulation & stutter
+function cleanSpeechDuplicates(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  let s = text.replace(/\s+/g, ' ').trim();
+  s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+  const words = s.split(' ');
+  if (words.length > 3) {
+    const firstWordClean = words[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (firstWordClean) {
+      const candidateStarts: number[] = [];
+      for (let i = 1; i < words.length; i++) {
+        if (words[i].toLowerCase().replace(/[^a-z0-9]/g, '') === firstWordClean) {
+          candidateStarts.push(i);
+        }
+      }
+      if (candidateStarts.length >= 2) {
+        for (let k = candidateStarts.length - 1; k >= 0; k--) {
+          const startIdx = candidateStarts[k];
+          const tail = words.slice(startIdx).join(' ');
+          const tailLower = tail.toLowerCase();
+          const sampleSub = words.slice(0, Math.min(startIdx, 5)).join(' ').toLowerCase();
+          if (tailLower.startsWith(sampleSub) || tailLower.includes(sampleSub)) {
+            s = tail;
+            break;
+          }
+        }
+      }
+    }
+  }
+  for (let n = 8; n >= 2; n--) {
+    const pattern = new RegExp(`\\b((?:[\\w\']+[.,?!]?\\s+){${n-1}}[\\w\']+[.,?!]?)\\s+\\1\\b`, 'gi');
+    let prev = '';
+    do {
+      prev = s;
+      s = s.replace(pattern, '$1');
+    } while (s !== prev);
+  }
+  s = s.replace(/([a-zA-Z0-9\s]{3,}[?.!])\s*\1/gi, '$1');
+  s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+  return s.trim();
+}
+
+function extractSpeechTranscript(event: any): string {
+  if (!event || !event.results || event.results.length === 0) return '';
+  let finalTranscript = '';
+  let interimTranscript = '';
+  for (let i = 0; i < event.results.length; ++i) {
+    const res = event.results[i];
+    if (!res || !res[0]) continue;
+    const chunk = (res[0].transcript || '').trim();
+    if (!chunk) continue;
+    if (res.isFinal) {
+      if (finalTranscript) {
+        const lowerFinal = finalTranscript.toLowerCase();
+        const lowerChunk = chunk.toLowerCase();
+        if (lowerChunk.startsWith(lowerFinal)) {
+          finalTranscript = chunk;
+        } else if (lowerFinal.endsWith(lowerChunk)) {
+          // already included
+        } else {
+          finalTranscript += ' ' + chunk;
+        }
+      } else {
+        finalTranscript = chunk;
+      }
+    } else {
+      if (finalTranscript) {
+        const lowerFinal = finalTranscript.toLowerCase();
+        const lowerChunk = chunk.toLowerCase();
+        if (lowerChunk.startsWith(lowerFinal)) {
+          interimTranscript = chunk.slice(finalTranscript.length).trim();
+        } else {
+          interimTranscript = chunk;
+        }
+      } else {
+        interimTranscript = chunk;
+      }
+    }
+  }
+  const lastItem = event.results[event.results.length - 1];
+  const lastText = (lastItem?.[0]?.transcript || '').trim();
+  let combined = (finalTranscript + (interimTranscript ? ' ' + interimTranscript : '')).trim();
+  if (lastText && lastText.length > combined.length) {
+    const cleanedLast = cleanSpeechDuplicates(lastText);
+    const cleanedCombined = cleanSpeechDuplicates(combined);
+    if (cleanedLast.length >= cleanedCombined.length) {
+      combined = lastText;
+    }
+  }
+  return cleanSpeechDuplicates(combined);
+}
+
 interface Message {
   id: string;
   text: string;
@@ -310,7 +402,8 @@ export function ChatbotWidget() {
       const recognition = new SpeechRecognitionClass();
       inputRecognitionRef.current = recognition;
       recognition.lang = 'en-US';
-      recognition.continuous = true;
+      const isMobile = typeof window !== 'undefined' && (('ontouchstart' in window) || /android|iphone|ipad|ipod/i.test(navigator.userAgent));
+      recognition.continuous = !isMobile;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
@@ -323,17 +416,7 @@ export function ChatbotWidget() {
       };
 
       recognition.onresult = (event: any) => {
-        let finalTrans = '';
-        let interimTrans = '';
-        for (let i = 0; i < event.results.length; ++i) {
-          const res = event.results[i];
-          if (res.isFinal) {
-            finalTrans += res[0].transcript + ' ';
-          } else {
-            interimTrans += res[0].transcript + ' ';
-          }
-        }
-        const currentText = (finalTrans + interimTrans).replace(/\s+/g, ' ').trim();
+        const currentText = extractSpeechTranscript(event);
         if (currentText) {
           micSpokenRef.current = currentText;
           setInputValue(currentText);
@@ -342,13 +425,13 @@ export function ChatbotWidget() {
         const words = currentText.split(/\s+/).filter(Boolean);
         const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
         const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'can', 'we'].includes(lastWord);
-        // Adaptive wait: 2600ms if trailing connector or short query, 1800ms otherwise
-        const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+        // Snappy low latency silence delay: 1000ms if trailing connector, 750ms otherwise
+        const silenceDelay = isTrailingConnector ? 1000 : (words.length < 3 ? 850 : 700);
 
         // Auto-send when user pauses speaking
         if (inputSilenceTimerRef.current) clearTimeout(inputSilenceTimerRef.current);
         inputSilenceTimerRef.current = setTimeout(() => {
-          const toSend = (micSpokenRef.current || currentText).trim();
+          const toSend = cleanSpeechDuplicates(micSpokenRef.current || currentText);
           if (toSend && !hasSentInputMicRef.current) {
             hasSentInputMicRef.current = true;
             micSpokenRef.current = '';
@@ -488,7 +571,8 @@ export function ChatbotWidget() {
       const recognition = new SpeechRecognitionClass();
       callRecognitionRef.current = recognition;
       recognition.lang = 'en-US';
-      recognition.continuous = true;
+      const isMobile = typeof window !== 'undefined' && (('ontouchstart' in window) || /android|iphone|ipad|ipod/i.test(navigator.userAgent));
+      recognition.continuous = !isMobile;
       recognition.interimResults = true;
 
       callVoiceTranscriptRef.current = '';
@@ -497,18 +581,8 @@ export function ChatbotWidget() {
         setIsMicActive(true);
       };
 
-      let finalTrans = '';
-
       recognition.onresult = (event: any) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTrans += event.results[i][0].transcript + ' ';
-          } else {
-            interim += event.results[i][0].transcript + ' ';
-          }
-        }
-        const raw = (finalTrans + interim).replace(/\s+/g, ' ').trim();
+        const raw = extractSpeechTranscript(event);
         if (raw) {
           callVoiceTranscriptRef.current = raw;
           setInterimVoiceText(raw);
@@ -517,12 +591,12 @@ export function ChatbotWidget() {
         const words = raw.split(/\s+/).filter(Boolean);
         const lastWord = words.length > 0 ? words[words.length - 1].toLowerCase().replace(/[^a-z]/g, '') : '';
         const isTrailingConnector = ['and', 'or', 'but', 'if', 'because', 'so', 'to', 'for', 'with', 'that', 'the', 'my', 'our', 'what', 'how', 'when', 'is', 'are', 'can', 'we'].includes(lastWord);
-        // Adaptive wait: 2600ms if trailing connector or short query, 1800ms otherwise
-        const silenceDelay = (isTrailingConnector || words.length < 5) ? 2600 : 1800;
+        // Snappy low latency silence delay: 1000ms if trailing connector, 750ms otherwise
+        const silenceDelay = isTrailingConnector ? 1000 : (words.length < 3 ? 850 : 700);
 
         if (callSilenceTimerRef.current) clearTimeout(callSilenceTimerRef.current);
         callSilenceTimerRef.current = setTimeout(() => {
-          const toSend = (callVoiceTranscriptRef.current || raw || finalTrans).trim();
+          const toSend = cleanSpeechDuplicates(callVoiceTranscriptRef.current || raw);
           if (toSend && toSend.length > 1) {
             try { recognition.stop(); } catch (e) {}
             setIsMicActive(false);
